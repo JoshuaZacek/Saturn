@@ -4,7 +4,11 @@
     :segments="Object.keys(views)"
     @change="changeView"
   />
-  <PostView :views="views" :selected="currentView" style="margin-top: 15px;" />
+  <PostView
+    :views="views"
+    :selectedView="currentView"
+    style="margin-top: 15px;"
+  />
 </template>
 
 <script lang="ts">
@@ -27,11 +31,8 @@ export default class Feed extends Vue {
     Top: {
       sortDropdown: true,
     },
-    New: {
-      sortDropdown: true,
-    },
-    Popular: {},
+    New: {},
   };
-  currentView = "Top";
+  currentView = Object.keys(this.views)[0];
 }
 </script>

@@ -1,6 +1,8 @@
 <template>
   <Navbar />
-  <router-view />
+  <div class="flexContainer">
+    <router-view />
+  </div>
 </template>
 
 <script lang="ts">
@@ -38,5 +40,11 @@ body {
   font-family: "Helvetica Neue", Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.flexContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 </style>
