@@ -8,6 +8,7 @@
 import { Options, Vue } from "vue-class-component";
 
 @Options({
+  name: "Button",
   props: {
     buttonType: {
       type: String,
@@ -19,10 +20,7 @@ import { Options, Vue } from "vue-class-component";
     },
   },
 })
-export default class Button extends Vue {
-  buttonType!: string;
-  inModal!: boolean;
-}
+export default class Button extends Vue {}
 </script>
 
 <style scoped>
@@ -52,7 +50,7 @@ button.primary:active {
 
 button.secondary {
   color: #000;
-  background-color: #efefef;
+  background-color: var(--backgroundTertiary);
 }
 button.secondary:hover {
   background-color: #e2e2e2;
