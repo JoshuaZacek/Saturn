@@ -8,11 +8,12 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import { Options, Vue } from "vue-class-component";
 import Button from "@/components/Button.vue";
 
 @Options({
+  name: "Navbar",
   components: {
     Button,
   },

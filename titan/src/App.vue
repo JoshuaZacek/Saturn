@@ -19,6 +19,7 @@ export default class App extends Vue {}
 :root {
   --backgroundPrimary: #fcfcfc;
   --backgroundSecondary: #fff;
+  --backgroundTertiary: #efefef;
   --textPrimary: #000;
 }
 
