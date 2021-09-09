@@ -8,8 +8,12 @@ defmodule Saturn.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Starts a worker by calling: Saturn.Worker.start_link(arg)
-      # {Saturn.Worker, arg}
+      Plug.Cowboy.child_spec(
+        scheme: :http,
+        plug: Saturn.Router,
+        options: [port: 4000]
+      ),
+      Saturn.Repo
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
