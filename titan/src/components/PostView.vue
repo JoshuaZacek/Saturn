@@ -3,11 +3,7 @@
     <p style="display: inline-block; margin-right: 5px; margin-left: 5px;">
       {{ selectedView }} posts from:
     </p>
-    <Menu
-      style="display: inline-block;"
-      :options="menuOptions"
-      @change="changeSort"
-    />
+    <Menu style="display: inline-block;" :options="menuOptions" @change="changeSort" />
   </div>
   <div v-else>
     <p style="width: 550px; margin-top: 4px; margin-left: 10px;">
@@ -49,9 +45,7 @@ export default class PostView extends Vue {
 
   // Create and format url for posts endpoint
   createPostsURL(view: string, sort: string, moon: string): string {
-    return `api.localhost/moon/${moon}/posts/${view}${
-      sort ? "&sort=" + sort : ""
-    }`
+    return `api.localhost/moon/${moon}/posts/${view}${sort ? "&sort=" + sort : ""}`
       .toLowerCase()
       .replace(" ", "");
   }

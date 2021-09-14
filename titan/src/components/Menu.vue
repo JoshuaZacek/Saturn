@@ -46,8 +46,8 @@ export default class Menu extends Vue {
   };
 
   checkFocus(): void {
+    // setTimeout is needed, otherwise the active element return previously selected element, not current
     setTimeout(() => {
-      // Don't touch, otherwise the active element return previously selected element, not current
       if (document?.activeElement?.parentNode != this.$refs.menu) {
         this.showMenu = false;
         this.$refs.button.focus();
@@ -66,25 +66,39 @@ export default class Menu extends Vue {
 
   openMenu(): void {
     this.showMenu = true;
+    // if setTimeout is removed, the menu option (li) won't focus.
     setTimeout(() => {
-      // this is needed for the focus to work, don't remove
       this?.$refs[this.selected].focus();
     }, 0);
   }
 
   selectOption(e: KeyboardEvent, option: string, index: number): void {
-    if (e.code == "Enter" || e.code == "Space") {
-      this.menuClick(option);
-    } else if (e.code == "ArrowDown") {
-      const nextSibling = this.$refs[this.options[index + 1]];
-      if (nextSibling) {
-        nextSibling.focus();
-      }
-    } else if (e.code == "ArrowUp") {
-      const previousSibling = this.$refs[this.options[index - 1]];
-      if (previousSibling) {
-        previousSibling.focus();
-      }
+    const nextSibling = this.$refs[this.options[index + 1]];
+    const previousSibling = this.$refs[this.options[index - 1]];
+    switch (e.code) {
+      case "Enter":
+      case "Space":
+        this.menuClick(option);
+        break;
+
+      case "ArrowDown":
+        if (nextSibling) {
+          nextSibling.focus();
+        }
+        break;
+
+      case "ArrowUp":
+        if (previousSibling) {
+          previousSibling.focus();
+        }
+        break;
+
+      case "Escape":
+        (<HTMLLIElement>e.target).blur();
+        break;
+
+      default:
+        break;
     }
   }
 
