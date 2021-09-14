@@ -26,8 +26,14 @@ defmodule Saturn.Session do
     |> Base.url_encode64()
   end
 
-  def get_session(session_id) do
-    Repo.get_by(Session, %{session_id: session_id})
-    |> Repo.preload(:user)
+  def get_session_by_id(session_id) do
+    case session_id do
+      nil ->
+        nil
+
+      _ ->
+        Repo.get_by(Session, %{session_id: session_id})
+        |> Repo.preload(:user)
+    end
   end
 end

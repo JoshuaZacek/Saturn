@@ -3,8 +3,10 @@ defmodule Saturn.Router do
   alias Saturn.Accounts
 
   plug(Plug.Logger)
+  plug(Corsica, origins: "http://localhost:8080", allow_headers: :all, allow_credentials: true)
+  plug(:fetch_cookies)
   plug(:match)
-  plug(Plug.Parsers, parsers: [:json, :urlencoded], json_decoder: Poison)
+  plug(Plug.Parsers, parsers: [:json, :urlencoded, :multipart], json_decoder: Poison)
   plug(:dispatch)
 
   post "/login" do
@@ -24,7 +26,7 @@ defmodule Saturn.Router do
             |> send_resp(200, user)
 
           {:error, message} ->
-            send_resp(conn, 403, message)
+            send_resp(conn, 401, Poison.encode!(message))
         end
 
       _ ->
@@ -49,11 +51,22 @@ defmodule Saturn.Router do
             |> send_resp(200, user)
 
           {:error, message} ->
-            send_resp(conn, 403, message)
+            send_resp(conn, 401, Poison.encode!(message))
         end
 
       _ ->
         send_resp(conn, 400, "Missing parameters")
+    end
+  end
+
+  delete "/logout" do
+    case Accounts.logout(conn) do
+      {:error, :not_found} ->
+        send_resp(conn, 400, "No Session Cookie found")
+
+      _ ->
+        delete_resp_cookie(conn, "session_id")
+        send_resp(conn, 204, "")
     end
   end
 

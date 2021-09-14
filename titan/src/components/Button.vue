@@ -35,6 +35,11 @@ button {
 
 button.modal {
   width: 100%;
+  padding: 13px 20px;
+  height: 44px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 button.primary {

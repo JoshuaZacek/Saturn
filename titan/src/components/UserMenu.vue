@@ -1,7 +1,7 @@
 <template>
   <div>
     <button @click="openMenu" @keydown="menuButtonKeyDown" ref="button">
-      {{ selected }}
+      {{ username }}
     </button>
     <ul v-show="showMenu" ref="menu">
       <li
@@ -10,11 +10,10 @@
         :key="option"
         :ref="option"
         @click="menuClick(option)"
-        @mouseover="$refs[options[index]].focus()"
+        @mouseover="$event.target.focus()"
         @keydown.prevent="selectOption($event, option, index)"
         @blur="checkFocus"
       >
-        <span />
         {{ option }}
       </li>
     </ul>
@@ -22,15 +21,14 @@
 </template>
 
 <script lang="ts">
+import axios from "axios";
 import { Options, Vue } from "vue-class-component";
 
 @Options({
   name: "Menu",
   props: {
     options: Array,
-  },
-  watch: {
-    selected: "updateMenu",
+    username: String,
   },
   emits: ["change"],
 })
@@ -68,7 +66,7 @@ export default class Menu extends Vue {
     this.showMenu = true;
     // if setTimeout is removed, the menu option (li) won't focus.
     setTimeout(() => {
-      this?.$refs[this.selected].focus();
+      this?.$refs[this.options[0]].focus();
     }, 0);
   }
 
@@ -104,23 +102,19 @@ export default class Menu extends Vue {
 
   menuClick(option: string): void {
     this.$refs.button.focus();
-    if (this.selected == option) {
-      this.showMenu = false;
-    } else {
-      this.selected = option;
-    }
-  }
-
-  updateMenu(selectedOption: string, oldOption: string): void {
-    this.$refs[oldOption].classList.remove("selected");
-    this.$refs[selectedOption].classList.add("selected");
-    this.selected = selectedOption;
     this.showMenu = false;
-    this.$emit("change", selectedOption);
-  }
 
-  mounted(): void {
-    this.$refs[this.selected].classList.add("selected");
+    if (option == "Log out") {
+      axios
+        .delete("http://localhost:4000/logout", {
+          withCredentials: true,
+        })
+        .then(() => {
+          this.$store.dispatch("logout");
+        });
+    } else {
+      console.log(option + " has been selected from the user menu!");
+    }
   }
 }
 </script>
@@ -131,13 +125,15 @@ div {
 }
 
 button {
-  border: none;
+  border: var(--backgroundTertiary) 1px solid;
+  color: var(--primaryText);
   cursor: pointer;
-  font-size: 14px;
-  padding: 5px 25px 5px 15px;
+  font-size: 16px;
+  padding: 9px 25px 10px 15px;
   border-radius: 15px;
-  color: #000;
-  background: var(--backgroundTertiary);
+  background: none;
+  position: relative;
+  text-align: left;
 }
 button:after {
   content: "";
@@ -148,8 +144,8 @@ button:after {
   border-radius: 15px;
   transform: rotate(-45deg);
   position: absolute;
-  top: 12px;
-  right: 18px;
+  top: 16px;
+  right: 16px;
 }
 button:before {
   content: "";
@@ -160,24 +156,19 @@ button:before {
   border-radius: 15px;
   transform: rotate(45deg);
   position: absolute;
-  top: 12px;
-  right: 14px;
-}
-button:hover {
-  background: #e2e2e2;
-}
-button:active {
-  background: #d6d6d6;
+  top: 16px;
+  right: 12px;
 }
 
 ul {
   position: absolute;
   top: 0;
-  left: 0;
+  right: 0;
   background: var(--backgroundSecondary);
   list-style: none;
   border-radius: 15px;
   width: max-content;
+  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
 }
 
 li {
@@ -191,11 +182,12 @@ li {
 li:focus {
   background: var(--backgroundTertiary);
 }
-li:first-child:focus {
+li:first-child {
   border-radius: 15px 15px 0 0;
 }
-li:last-child:focus {
+li:last-child {
   border-radius: 0 0 15px 15px;
+  color: #ff0000;
 }
 li:not(:last-child):after {
   content: "";
@@ -206,34 +198,5 @@ li:not(:last-child):after {
   position: absolute;
   bottom: 0;
   left: 0;
-}
-/* Tick mark */
-li.selected > span {
-  position: absolute;
-  display: inline-block;
-}
-li.selected > span:after {
-  content: "";
-  background: #000;
-  display: block;
-  width: 2px;
-  height: 8px;
-  border-radius: 15px;
-  transform: rotate(-45deg);
-  position: absolute;
-  bottom: -16px;
-  left: -18px;
-}
-li.selected > span:before {
-  content: "";
-  background: #000;
-  display: block;
-  width: 2px;
-  height: 14px;
-  border-radius: 15px;
-  transform: rotate(35deg);
-  position: absolute;
-  bottom: -16px;
-  left: -12px;
 }
 </style>

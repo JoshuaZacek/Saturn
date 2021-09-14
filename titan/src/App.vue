@@ -23,6 +23,7 @@ export default class App extends Vue {}
   --backgroundSecondary: #fff;
   --backgroundTertiary: #efefef;
   --textPrimary: #000;
+  --textSecondary: #757575;
 }
 
 body {
