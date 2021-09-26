@@ -69,7 +69,7 @@ defmodule Saturn.Accounts do
   end
 
   def logout(conn) do
-    case Session.get_session_by_id(conn.req_cookies["session_id"]) do
+    case Session.get_by_id(conn.req_cookies["session_id"]) do
       nil ->
         {:error, :not_found}
 

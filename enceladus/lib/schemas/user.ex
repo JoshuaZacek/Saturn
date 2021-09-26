@@ -4,9 +4,11 @@ defmodule Saturn.User do
 
   alias Saturn.Repo
   alias Saturn.Session
+  alias Saturn.Post
 
   schema "users" do
     has_many(:sessions, Session)
+    has_many(:posts, Post)
 
     field(:username, :string)
     field(:password, :string)
