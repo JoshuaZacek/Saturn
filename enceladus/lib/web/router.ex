@@ -1,6 +1,8 @@
 defmodule Saturn.Router do
   use Plug.Router
   alias Saturn.Accounts
+  alias Saturn.Posts
+  alias Saturn.Session
 
   plug(Plug.Logger)
   plug(Corsica, origins: "http://localhost:8080", allow_headers: :all, allow_credentials: true)
@@ -9,6 +11,7 @@ defmodule Saturn.Router do
   plug(Plug.Parsers, parsers: [:json, :urlencoded, :multipart], json_decoder: Poison)
   plug(:dispatch)
 
+  # ========= AUTHENTICATION =========
   post "/login" do
     case conn.params do
       %{"email" => email, "password" => password} ->
@@ -67,6 +70,27 @@ defmodule Saturn.Router do
       _ ->
         delete_resp_cookie(conn, "session_id")
         send_resp(conn, 204, "")
+    end
+  end
+
+  # ========= POSTS =========
+  post "/posts/create" do
+    case Session.get_by_id(conn.req_cookies["session_id"]) do
+      nil ->
+        send_resp(conn, 403, "Invalid session id")
+
+      session ->
+        case Posts.create(conn.params, session.user) do
+          {:error, error} ->
+            conn
+            |> put_resp_content_type("application/json")
+            |> send_resp(400, Poison.encode!(error))
+
+          post ->
+            conn
+            |> put_resp_content_type("application/json")
+            |> send_resp(200, Poison.encode!(post))
+        end
     end
   end
 

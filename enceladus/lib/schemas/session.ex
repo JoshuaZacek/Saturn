@@ -26,7 +26,7 @@ defmodule Saturn.Session do
     |> Base.url_encode64()
   end
 
-  def get_session_by_id(session_id) do
+  def get_by_id(session_id) do
     case session_id do
       nil ->
         nil
