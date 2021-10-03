@@ -5,6 +5,7 @@ defmodule Saturn.Post do
   alias Saturn.User
   alias Saturn.Moon
 
+  @derive {Jason.Encoder, except: [:__meta__, :moon_id, :user_id]}
   schema "posts" do
     belongs_to(:user, User)
     belongs_to(:moon, Moon)

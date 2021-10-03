@@ -23,7 +23,7 @@ defmodule Saturn.MixProject do
   defp deps do
     [
       {:plug_cowboy, "~> 2.5"},
-      {:poison, "~> 5.0"},
+      {:jason, "~> 1.2"},
       {:postgrex, "~> 0.15.1"},
       {:ecto_sql, "~> 3.7.0"},
       {:argon2_elixir, "~> 2.0"},

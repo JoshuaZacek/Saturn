@@ -6,6 +6,7 @@ defmodule Saturn.Session do
   alias Saturn.Repo
   alias Saturn.Session
 
+  @derive {Jason.Encoder, except: [:__meta__]}
   schema "sessions" do
     belongs_to(:user, User)
     field(:session_id, :string)

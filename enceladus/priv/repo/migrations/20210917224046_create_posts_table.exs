@@ -11,6 +11,6 @@ defmodule Saturn.Repo.Migrations.CreatePostsTable do
       timestamps()
     end
 
-    create index(:posts, [:moon_id, :user_id])
+    create index(:posts, [:moon_id, :user_id, :inserted_at])
   end
 end

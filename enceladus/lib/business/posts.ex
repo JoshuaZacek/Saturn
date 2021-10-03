@@ -16,7 +16,7 @@ defmodule Saturn.Posts do
               select: %{username: u.username, id: u.id, inserted_at: u.inserted_at}
             )
         )
-        |> Map.delete(:__meta__)
+        |> Map.drop([:__meta__, :user_id, :moon_id])
 
       {:error, changeset} ->
         # Format errors
