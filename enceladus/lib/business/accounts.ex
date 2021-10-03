@@ -1,4 +1,6 @@
 defmodule Saturn.Accounts do
+  import Ecto.Query
+
   alias Saturn.Repo
   alias Saturn.User
   alias Saturn.Session
@@ -14,10 +16,21 @@ defmodule Saturn.Accounts do
           true ->
             session_id = Session.generate_session_id()
 
-            Repo.insert(
-              Ecto.build_assoc(user, :sessions, %{session_id: session_id})
-              |> Repo.preload(:user)
-            )
+            case Repo.insert(Ecto.build_assoc(user, :sessions, %{session_id: session_id})) do
+              {:ok, session} ->
+                session
+                |> Repo.preload(
+                  user:
+                    from(u in User,
+                      select: %{
+                        username: u.username,
+                        inserted_at: u.inserted_at,
+                        id: u.id,
+                        email: u.email
+                      }
+                    )
+                )
+            end
 
           false ->
             {:error, %{errors: %{password: ["Incorrect password"]}}}
@@ -32,10 +45,21 @@ defmodule Saturn.Accounts do
       {:ok, user} ->
         session_id = Session.generate_session_id()
 
-        Repo.insert(
-          Ecto.build_assoc(user, :sessions, %{session_id: session_id})
-          |> Repo.preload(:user)
-        )
+        case Repo.insert(Ecto.build_assoc(user, :sessions, %{session_id: session_id})) do
+          {:ok, session} ->
+            session
+            |> Repo.preload(
+              user:
+                from(u in User,
+                  select: %{
+                    username: u.username,
+                    inserted_at: u.inserted_at,
+                    id: u.id,
+                    email: u.email
+                  }
+                )
+            )
+        end
 
       {:error, changeset} ->
         # Format errors
