@@ -104,16 +104,24 @@ export default class Menu extends Vue {
     this.$refs.button.focus();
     this.showMenu = false;
 
-    if (option == "Log out") {
-      axios
-        .delete("http://localhost:4000/logout", {
-          withCredentials: true,
-        })
-        .then(() => {
-          this.$store.dispatch("logout");
-        });
-    } else {
-      console.log(option + " has been selected from the user menu!");
+    switch (option) {
+      case "Log out":
+        axios
+          .delete("http://localhost:4000/logout", {
+            withCredentials: true,
+          })
+          .then(() => {
+            this.$store.dispatch("logout");
+          });
+        break;
+
+      case "Create moon":
+        console.log("Create moon");
+        break;
+
+      default:
+        console.log(option + " has been selected from the user menu!");
+        break;
     }
   }
 }
@@ -162,7 +170,7 @@ button:before {
 
 ul {
   position: absolute;
-  top: 0;
+  top: 0px;
   right: 0;
   background: var(--backgroundSecondary);
   list-style: none;

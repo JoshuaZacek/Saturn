@@ -32,7 +32,7 @@ import { Options, Vue } from "vue-class-component";
   watch: {
     selected: "updateMenu",
   },
-  emits: ["change"],
+  emits: ["select"],
 })
 export default class Menu extends Vue {
   options!: Array<string>;
@@ -116,7 +116,7 @@ export default class Menu extends Vue {
     this.$refs[selectedOption].classList.add("selected");
     this.selected = selectedOption;
     this.showMenu = false;
-    this.$emit("change", selectedOption);
+    this.$emit("select", selectedOption);
   }
 
   mounted(): void {

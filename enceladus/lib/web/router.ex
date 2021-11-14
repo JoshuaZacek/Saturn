@@ -62,8 +62,8 @@ defmodule Saturn.Router do
     end
   end
 
-  # ========= POSTS =========
-  post "/posts" do
+  # Create post
+  post "/post" do
     case Session.get_by_id(conn.req_cookies["session_id"]) do
       nil ->
         send_resp(conn, 403, "Invalid session id")
@@ -84,7 +84,8 @@ defmodule Saturn.Router do
   end
 
   # ========= MOONS =========
-  post "/moons" do
+  # Create moon
+  post "/moon" do
     case Session.get_by_id(conn.req_cookies["session_id"]) do
       nil ->
         send_resp(conn, 403, "Invalid session id")
@@ -104,10 +105,27 @@ defmodule Saturn.Router do
     end
   end
 
-  get "/m/:name/posts" do
+  # Find moon
+  get "/moon/:name" do
+    case Moons.get(name) do
+      nil ->
+        send_resp(conn, 404, "Not found")
+
+      moon ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(
+          200,
+          Jason.encode!(Map.drop(moon, [:posts, :user, :__meta__, :__struct__, :user_id]))
+        )
+    end
+  end
+
+  # Get posts in a moon
+  get "/moon/:name/posts" do
     moon =
       if name != "all" do
-        case Moons.get_by_name(name) do
+        case Moons.get(name) do
           nil ->
             {:error, :not_found}
 
