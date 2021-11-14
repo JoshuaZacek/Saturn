@@ -21,5 +21,6 @@ defmodule Saturn.Moon do
     |> validate_required([:name])
     |> unique_constraint([:name])
     |> foreign_key_constraint(:user_id)
+    |> validate_format(:name, ~r/^\w+$/)
   end
 end
