@@ -25,12 +25,11 @@ import axios from "axios";
 import { Options, Vue } from "vue-class-component";
 
 @Options({
-  name: "Menu",
+  name: "UserMenu",
   props: {
     options: Array,
     username: String,
   },
-  emits: ["change"],
 })
 export default class Menu extends Vue {
   options!: Array<string>;
@@ -116,7 +115,7 @@ export default class Menu extends Vue {
         break;
 
       case "Create moon":
-        console.log("Create moon");
+        this.$router.push({ name: "CreateMoon" });
         break;
 
       default:
