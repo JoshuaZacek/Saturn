@@ -1,5 +1,5 @@
 <template>
-  <button :class="[inModal ? 'modal' : '', buttonType]">
+  <button :style="buttonWidth" :class="buttonType">
     <slot />
   </button>
 </template>
@@ -14,13 +14,23 @@ import { Options, Vue } from "vue-class-component";
       type: String,
       default: "primary",
     },
-    inModal: {
-      type: Boolean,
-      default: false,
+    width: {
+      type: String,
+      default: "",
     },
   },
 })
-export default class Button extends Vue {}
+export default class Button extends Vue {
+  width!: string;
+
+  get buttonWidth(): string {
+    if (this.width) {
+      return `width: ${this.width};`;
+    } else {
+      return "";
+    }
+  }
+}
 </script>
 
 <style scoped>
@@ -31,13 +41,8 @@ button {
   font-size: 16px;
   padding: 9px 20px;
   border-radius: 15px;
-}
-
-button.modal {
-  width: 100%;
-  padding: 13px 20px;
-  height: 44px;
-  display: flex;
+  height: 40px;
+  display: inline-flex;
   justify-content: center;
   align-items: center;
 }

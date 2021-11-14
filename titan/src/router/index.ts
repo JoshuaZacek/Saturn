@@ -1,11 +1,23 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
-import Feed from '../views/Feed.vue'
+import Home from '../views/Home.vue'
+import Moon from '../views/Moon.vue'
+import NotFound from '../views/404.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    name: 'Feed',
-    component: Feed
+    name: 'Home',
+    component: Home
+  },
+  {
+    path: '/404',
+    name: '404',
+    component: NotFound
+  },
+  {
+    path: '/:moon',
+    name: "Moon",
+    component: Moon,
   },
   // {
   //   path: '/about',

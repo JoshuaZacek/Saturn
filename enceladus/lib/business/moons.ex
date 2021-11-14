@@ -101,7 +101,7 @@ defmodule Saturn.Moons do
   end
 
   # Database stuff
-  def get_by_name(moon) do
+  def get(moon) do
     Repo.get_by(Moon, name: moon)
   end
 end
