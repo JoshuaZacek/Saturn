@@ -1,7 +1,9 @@
 <template>
   <div class="banner">
     <h1>/{{ moon.name }}</h1>
-    <Button class="bannerButton">Create post</Button>
+    <Button class="bannerButton" @click="this.$router.push({ name: 'CreatePost' })"
+      >Create post</Button
+    >
   </div>
   <SegmentedControl
     class="segmentedControl"
@@ -25,7 +27,7 @@
   <!-- posts -->
   <div>
     <div v-for="post in posts" :key="post.id">
-      <p>{{ post.title }}</p>
+      <Post :post="post" />
     </div>
   </div>
 </template>
@@ -35,6 +37,7 @@ import { Options, Vue } from "vue-class-component";
 import SegmentedControl from "@/components/SegmentedControl.vue";
 import Button from "@/components/Button.vue";
 import Menu from "@/components/Menu.vue";
+import Post from "@/components/Post.vue";
 import axios from "axios";
 import { RouteLocationNormalized, NavigationGuardNext } from "vue-router";
 
@@ -43,6 +46,7 @@ import { RouteLocationNormalized, NavigationGuardNext } from "vue-router";
     SegmentedControl,
     Button,
     Menu,
+    Post,
   },
   beforeRouteEnter(
     to: RouteLocationNormalized,
@@ -149,13 +153,13 @@ h1 {
   margin-top: 4px;
   margin-left: 10px;
   width: 550px;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
 }
 .postSortHeadingDropdown {
   display: inline-block;
   margin-right: 5px;
   margin-left: 5px;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
 }
 .segmentedControl {
   margin-top: 30px;

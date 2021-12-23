@@ -105,6 +105,18 @@ defmodule Saturn.Router do
     end
   end
 
+  get "/moon/search/:name" do
+    case Moons.search(name) do
+      results ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(
+          200,
+          Jason.encode!(Map.drop(results, [:posts, :user, :__meta__, :__struct__, :user_id]))
+        )
+    end
+  end
+
   # Find moon
   get "/moon/:name" do
     case Moons.get(name) do

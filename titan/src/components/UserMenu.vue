@@ -118,6 +118,10 @@ export default class Menu extends Vue {
         this.$router.push({ name: "CreateMoon" });
         break;
 
+      case "Create post":
+        this.$router.push({ name: "CreatePost" });
+        break;
+
       default:
         console.log(option + " has been selected from the user menu!");
         break;
