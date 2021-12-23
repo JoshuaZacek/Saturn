@@ -21,7 +21,7 @@
   <!-- posts -->
   <div>
     <div v-for="post in posts" :key="post.id">
-      <p>{{ post.title }}</p>
+      <Post :post="post" />
     </div>
   </div>
 </template>
@@ -30,12 +30,14 @@
 import { Options, Vue } from "vue-class-component";
 import SegmentedControl from "@/components/SegmentedControl.vue";
 import Menu from "@/components/Menu.vue";
+import Post from "@/components/Post.vue";
 import axios from "axios";
 
 @Options({
   components: {
     SegmentedControl,
     Menu,
+    Post,
   },
 })
 export default class Home extends Vue {
@@ -100,13 +102,13 @@ export default class Home extends Vue {
   margin-top: 4px;
   margin-left: 10px;
   width: 550px;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
 }
 .postSortHeadingDropdown {
   display: inline-block;
   margin-right: 5px;
   margin-left: 5px;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
 }
 .segmentedControl {
   margin-top: 30px;

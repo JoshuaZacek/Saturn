@@ -38,6 +38,19 @@ defmodule Saturn.Moons do
     end
   end
 
+  def search(search_term) do
+    results =
+      Repo.all(
+        from(m in Moon,
+          where: ilike(m.name, ^"#{Regex.replace(~r/^$|([%_])/, search_term, "\\\\\\1")}%"),
+          limit: 5,
+          select: %{name: m.name, id: m.id}
+        )
+      )
+
+    %{results: results}
+  end
+
   @doc "Get posts from all moons sorted by new."
   def get_new_posts(limit, cursor, moon)
       when is_integer(limit) and limit <= 50 and (is_integer(cursor) or is_nil(cursor)) and

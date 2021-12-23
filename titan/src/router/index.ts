@@ -3,6 +3,7 @@ import Home from '../views/Home.vue'
 import Moon from '../views/Moon.vue'
 import NotFound from '../views/404.vue'
 import CreateMoon from '../views/CreateMoon.vue'
+import CreatePost from '../views/CreatePost.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -19,6 +20,11 @@ const routes: Array<RouteRecordRaw> = [
     path: '/create/moon',
     name: 'CreateMoon',
     component: CreateMoon
+  },
+  {
+    path: '/create/post',
+    name: 'CreatePost',
+    component: CreatePost
   },
   {
     path: '/:moon',
