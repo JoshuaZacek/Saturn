@@ -200,6 +200,7 @@ export default class Navbar extends Vue {
           this.$store.dispatch("login", res.data);
           this.sendingForm = false;
           this.modalClose();
+          this.$router.go(0);
         })
         .catch((err) => {
           this.sendingForm = false;
@@ -259,6 +260,7 @@ export default class Navbar extends Vue {
           this.$store.dispatch("login", res.data);
           this.sendingForm = false;
           this.modalClose();
+          this.$router.go(0);
         })
         .catch((err) => {
           this.sendingForm = false;

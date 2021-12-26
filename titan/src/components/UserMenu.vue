@@ -111,6 +111,7 @@ export default class Menu extends Vue {
           })
           .then(() => {
             this.$store.dispatch("logout");
+            this.$router.go(0);
           });
         break;
 
