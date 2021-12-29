@@ -1,4 +1,4 @@
-use Mix.Config
+import Config
 
 config :saturn, ecto_repos: [Saturn.Repo]
 

@@ -5,6 +5,7 @@ defmodule Saturn.Posts do
   alias Saturn.Post
   alias Saturn.User
   alias Saturn.Moon
+  alias Saturn.Vote
 
   def create(attrs, user) do
     case Repo.insert(Post.changeset(%Post{user_id: user.id}, attrs)) do
@@ -14,6 +15,19 @@ defmodule Saturn.Posts do
           user:
             from(u in User,
               select: %{username: u.username, id: u.id, inserted_at: u.inserted_at}
+            ),
+          votes:
+            from(v in Vote,
+              select: %{
+                votes:
+                  fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", ^post.id),
+                hasVoted:
+                  fragment(
+                    "SELECT vote FROM votes v WHERE v.post_id = ? AND v.user_id = ?",
+                    ^post.id,
+                    ^user.id
+                  )
+              }
             )
         )
         |> Map.drop([:__meta__, :user_id, :moon_id])

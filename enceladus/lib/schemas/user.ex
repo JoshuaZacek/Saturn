@@ -6,12 +6,14 @@ defmodule Saturn.User do
   alias Saturn.Session
   alias Saturn.Post
   alias Saturn.Moon
+  alias Saturn.Vote
 
   @derive {Jason.Encoder, except: [:__meta__]}
   schema "users" do
     has_many(:sessions, Session)
     has_many(:posts, Post)
     has_many(:moons, Moon)
+    has_many(:votes, Vote)
 
     field(:username, :string)
     field(:password, :string)
