@@ -4,14 +4,17 @@ defmodule Saturn.Post do
 
   alias Saturn.User
   alias Saturn.Moon
+  alias Saturn.Vote
 
   @derive {Jason.Encoder, except: [:__meta__, :moon_id, :user_id]}
   schema "posts" do
+    has_many(:votes, Vote)
     belongs_to(:user, User)
     belongs_to(:moon, Moon)
 
     field(:title, :string)
     field(:body, :string)
+    field(:hasVoted, :integer, virtual: true)
 
     timestamps()
   end

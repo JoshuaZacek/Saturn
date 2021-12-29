@@ -52,7 +52,7 @@ defmodule Saturn.Moons do
   end
 
   @doc "Get posts from all moons sorted by new."
-  def get_new_posts(limit, cursor, moon)
+  def get_new_posts(session, limit, cursor, moon)
       when is_integer(limit) and limit <= 50 and (is_integer(cursor) or is_nil(cursor)) and
              cursor > 0 do
     cursor_where =
@@ -69,13 +69,25 @@ defmodule Saturn.Moons do
         is_nil(moon)
       end
 
+    user_id = if session, do: session.user.id, else: nil
+
     posts =
       Repo.all(
         from(p in Post,
           where: ^cursor_where,
           where: ^moon_where,
           order_by: [desc: p.id],
-          limit: ^limit + 1
+          limit: ^limit + 1,
+          select: %{
+            p
+            | votes: fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", p.id),
+              hasVoted:
+                fragment(
+                  "SELECT vote FROM votes v WHERE v.post_id = ? AND v.user_id = ?",
+                  p.id,
+                  ^user_id
+                )
+          }
         )
       )
       |> Repo.preload(
@@ -94,16 +106,16 @@ defmodule Saturn.Moons do
 
   # Fallbacks
   # Limit shouldn't be over 50
-  def get_new_posts(limit, _, _) when is_integer(limit) and limit > 50 do
+  def get_new_posts(_, limit, _, _) when is_integer(limit) and limit > 50 do
     {:error, :limit_too_high}
   end
 
-  def get_new_posts(_, _, _) do
+  def get_new_posts(_, _, _, _) do
     {:error, :bad_request}
   end
 
   # functions for get_new posts
-  defp get_next_cursor(posts, limit) do
+  defp get_next_cursor(posts, limit) when length(posts) > 0 do
     [head | tail] = Enum.reverse(posts)
 
     if length(tail) == limit do
@@ -111,6 +123,10 @@ defmodule Saturn.Moons do
     else
       {nil, posts}
     end
+  end
+
+  defp get_next_cursor(posts, _) do
+    {nil, posts}
   end
 
   # Database stuff
