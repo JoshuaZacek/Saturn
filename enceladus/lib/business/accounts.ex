@@ -91,14 +91,4 @@ defmodule Saturn.Accounts do
         {:error, %{errors: errors}}
     end
   end
-
-  def logout(conn) do
-    case Session.get_by_id(conn.req_cookies["session_id"]) do
-      nil ->
-        {:error, :not_found}
-
-      session ->
-        Repo.delete(session)
-    end
-  end
 end

@@ -26,7 +26,7 @@ defmodule Saturn.MixProject do
       {:jason, "~> 1.2"},
       {:postgrex, "~> 0.15.1"},
       {:ecto_sql, "~> 3.7.0"},
-      {:argon2_elixir, "~> 2.0"},
+      {:argon2_elixir, path: "deps/argon2_elixir"},
       {:corsica, "~> 1.1.3"}
     ]
   end

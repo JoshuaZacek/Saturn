@@ -52,4 +52,113 @@ defmodule Saturn.Posts do
         {:error, %{errors: errors}}
     end
   end
+
+  # Get top posts
+  def get_top(limit, cursor, user_id, moon_id, time)
+      when is_integer(limit) and limit <= 50 and cursor > 0 and
+             (is_integer(cursor) or is_nil(cursor)) and is_integer(time) do
+    postsAfter =
+      if time > 0,
+        do:
+          ((DateTime.utc_now() |> DateTime.to_unix()) - time)
+          |> DateTime.from_unix!()
+          |> DateTime.to_naive(),
+        else: 0
+
+    # massive query to fetch posts
+    posts =
+      Repo.all(
+        from(p in Post,
+          where: ^if(cursor, do: dynamic([p], p.id <= ^cursor), else: is_nil(cursor)),
+          where: ^if(moon_id, do: dynamic([p], p.moon_id == ^moon_id), else: is_nil(moon_id)),
+          where: p.inserted_at > ^postsAfter,
+          order_by: [
+            desc: fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", p.id)
+          ],
+          limit: ^limit + 1,
+          select: %{
+            p
+            | votes: fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", p.id),
+              hasVoted:
+                fragment(
+                  "SELECT vote FROM votes v WHERE v.post_id = ? AND v.user_id = ?",
+                  p.id,
+                  ^user_id
+                )
+          }
+        )
+      )
+      |> Repo.preload(
+        moon: from(m in Moon, select: map(m, [:name, :id, :inserted_at])),
+        user: from(u in User, select: map(u, [:username, :id, :inserted_at]))
+      )
+
+    {next_cursor, posts} = get_next_cursor(posts, limit)
+
+    {:ok,
+     %{
+       data: %{posts: posts},
+       next_cursor: next_cursor
+     }}
+  end
+
+  def get_top(_, _, _, _, _) do
+    {:error, :bad_request}
+  end
+
+  # Get new posts
+  def get_new(limit, cursor, user_id, moon_id)
+      when is_integer(limit) and limit <= 50 and cursor > 0 and
+             (is_integer(cursor) or is_nil(cursor)) do
+    # massive query to fetch posts
+    posts =
+      Repo.all(
+        from(p in Post,
+          where: ^if(cursor, do: dynamic([p], p.id <= ^cursor), else: is_nil(cursor)),
+          where: ^if(moon_id, do: dynamic([p], p.moon_id == ^moon_id), else: is_nil(moon_id)),
+          order_by: [desc: p.inserted_at],
+          limit: ^limit + 1,
+          select: %{
+            p
+            | votes: fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", p.id),
+              hasVoted:
+                fragment(
+                  "SELECT vote FROM votes v WHERE v.post_id = ? AND v.user_id = ?",
+                  p.id,
+                  ^user_id
+                )
+          }
+        )
+      )
+      |> Repo.preload(
+        moon: from(m in Moon, select: map(m, [:name, :id, :inserted_at])),
+        user: from(u in User, select: map(u, [:username, :id, :inserted_at]))
+      )
+
+    {next_cursor, posts} = get_next_cursor(posts, limit)
+
+    {:ok,
+     %{
+       data: %{posts: posts},
+       next_cursor: next_cursor
+     }}
+  end
+
+  def get_new(_, _, _, _) do
+    {:error, :bad_request}
+  end
+
+  defp get_next_cursor(posts, limit) when length(posts) > 0 do
+    [head | tail] = Enum.reverse(posts)
+
+    if length(tail) == limit do
+      {head.id, Enum.reverse(tail)}
+    else
+      {nil, posts}
+    end
+  end
+
+  defp get_next_cursor(posts, _) do
+    {nil, posts}
+  end
 end

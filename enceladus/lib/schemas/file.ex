@@ -6,14 +6,14 @@ defmodule Saturn.File do
 
   schema "files" do
     belongs_to(:user, User)
-    field(:path, :string)
+    field(:filename, :string)
 
     timestamps()
   end
 
   def changeset(file, attrs) do
     file
-    |> cast(attrs, [:path])
-    |> validate_required([:path])
+    |> cast(attrs, [:filename])
+    |> validate_required([:filename])
   end
 end
