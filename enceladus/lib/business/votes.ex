@@ -13,24 +13,8 @@ defmodule Saturn.Votes do
       {:ok, vote} ->
         vote
 
-      {:error, changeset} ->
-        # Format errors
-        errors =
-          Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
-            Enum.reduce(opts, msg, fn {key, _value}, acc ->
-              String.replace(acc, "%{#{key}}", msg)
-            end)
-          end)
-          |> Enum.map(fn
-            {k, ["can't be blank"]} ->
-              {k, ["Please enter a #{k}"]}
-
-            other ->
-              other
-          end)
-          |> Enum.into(%{})
-
-        {:error, %{errors: errors}}
+      {:error, _} ->
+        :error
     end
   end
 

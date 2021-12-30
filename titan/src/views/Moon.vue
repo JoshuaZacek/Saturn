@@ -99,7 +99,7 @@ export default class Moon extends Vue {
 
   changePostSort(sort: string): void {
     this.currentPostSort = sort;
-    this.reloadPosts(this.currentTimePeriod, sort);
+    this.reloadPosts(this.timePeriods[0], sort);
   }
 
   changeTimePeriod(timePeriod: string): void {
@@ -119,9 +119,22 @@ export default class Moon extends Vue {
 
   // used to create & format the url to fetch posts from the api
   // TO DO: include time periods in url, change time periods from words to unix timestamps
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   createPostsURL(sort: string, timePeriod: string, moon: string | string[]): string {
-    return `http://localhost:4000/moon/${moon}/posts?sort=${sort}&limit=5`.toLowerCase();
+    let timePeriodSeconds;
+    if (timePeriod == "Today") {
+      timePeriodSeconds = 86400;
+    } else if (timePeriod == "This Week") {
+      timePeriodSeconds = 604800;
+    } else if (timePeriod == "This Month") {
+      timePeriodSeconds = 2592000;
+    } else if (timePeriod == "This Year") {
+      timePeriodSeconds = 31536000;
+    } else {
+      timePeriodSeconds = 0;
+    }
+    return `http://localhost:4000/posts/${moon}?sort=${sort}&limit=5${
+      timePeriod ? "&time=" + timePeriodSeconds : ""
+    }`.toLowerCase();
   }
 
   // api call for posts

@@ -1,10 +1,6 @@
 defmodule Saturn.Router do
   use Plug.Router
-  alias Saturn.Accounts
-  alias Saturn.Posts
-  alias Saturn.Session
-  alias Saturn.Moons
-  alias Saturn.Votes
+  alias Saturn.AuthRouter
 
   plug(Plug.Logger)
   plug(Corsica, origins: "http://localhost:8080", allow_headers: :all, allow_credentials: true)
@@ -17,7 +13,7 @@ defmodule Saturn.Router do
   post "/login" do
     case conn.params do
       %{"email" => email, "password" => password} ->
-        case Accounts.login(email, password) do
+        case Saturn.Accounts.login(email, password) do
           {:error, message} ->
             send_resp(conn, 401, Jason.encode!(message))
 
@@ -36,7 +32,7 @@ defmodule Saturn.Router do
   post "/signup" do
     case conn.params do
       %{"username" => username, "email" => email, "password" => password} ->
-        case Accounts.register(username, email, password) do
+        case Saturn.Accounts.register(username, email, password) do
           {:error, message} ->
             send_resp(conn, 401, Jason.encode!(message))
 
@@ -52,44 +48,12 @@ defmodule Saturn.Router do
     end
   end
 
-  delete "/logout" do
-    case Accounts.logout(conn) do
-      {:error, :not_found} ->
-        send_resp(conn, 400, "No Session Cookie found")
-
-      _ ->
-        delete_resp_cookie(conn, "session_id")
-        send_resp(conn, 204, "")
-    end
-  end
-
   # POSTS
-  # Create a post
-  post "/post" do
-    case Session.get_by_id(conn.req_cookies["session_id"]) do
-      nil ->
-        send_resp(conn, 403, "Invalid session id")
-
-      session ->
-        case Posts.create(conn.params, session.user) do
-          {:error, error} ->
-            conn
-            |> put_resp_content_type("application/json")
-            |> send_resp(400, Jason.encode!(error))
-
-          post ->
-            conn
-            |> put_resp_content_type("application/json")
-            |> send_resp(200, Jason.encode!(post))
-        end
-    end
-  end
-
-  # Get posts in a moon/everywhere
-  get "/moon/:name/posts" do
-    moon =
-      if name != "all" do
-        case Moons.get(name) do
+  # Get posts
+  get "/posts/:moon" do
+    moon_id =
+      if moon != "all" do
+        case Saturn.Moons.get(moon) do
           nil ->
             {:error, :not_found}
 
@@ -100,113 +64,55 @@ defmodule Saturn.Router do
         nil
       end
 
-    case moon do
-      {:error, :not_found} ->
-        send_resp(conn, 404, "Not found")
+    session = Saturn.Session.get_by_id(conn.req_cookies["session_id"])
+    user_id = if session, do: session.user.id, else: nil
 
-      _ ->
-        case conn.query_params["sort"] do
-          "new" ->
-            case Moons.get_new_posts(
-                   Session.get_by_id(conn.req_cookies["session_id"]),
-                   parse_int(conn.query_params["limit"]),
-                   parse_int(conn.query_params["cursor"]),
-                   moon
-                 ) do
-              {:ok, posts} ->
-                conn
-                |> put_resp_content_type("application/json")
-                |> send_resp(200, Jason.encode!(posts))
+    if moon_id == {:error, :not_found} do
+      send_resp(conn, 404, "Moon not found")
+    else
+      case conn.params["sort"] do
+        "new" ->
+          case Saturn.Posts.get_new(
+                 parse_int(conn.params["limit"]),
+                 parse_int(conn.params["cursor"]),
+                 user_id,
+                 moon_id
+               ) do
+            {:ok, posts} ->
+              conn
+              |> put_resp_content_type("application/json")
+              |> send_resp(200, Jason.encode!(posts))
 
-              {:error, :limit_too_high} ->
-                send_resp(conn, 400, "Limit can't be above 50")
-
-              {:error, :bad_request} ->
-                send_resp(conn, 400, "Bad request")
-            end
-
-          _ ->
-            send_resp(conn, 400, "Bad request")
-        end
-    end
-  end
-
-  # Upvote/downvote a post
-  post "/vote" do
-    case Session.get_by_id(conn.req_cookies["session_id"]) do
-      nil ->
-        send_resp(conn, 403, "Invalid session id")
-
-      session ->
-        vote =
-          case conn.params["vote"] do
-            "up" ->
-              1
-
-            "down" ->
-              -1
-
-            _ ->
-              0
+            {:error, :bad_request} ->
+              send_resp(conn, 400, "Bad request")
           end
 
-        case Votes.create(vote, conn.params["post_id"], session.user.id) do
-          {:error, :bad_request} ->
-            send_resp(conn, 400, "Bad request")
+        "top" ->
+          Saturn.Moons.get(moon)
 
-          {:error, error} ->
-            conn
-            |> put_resp_content_type("application/json")
-            |> send_resp(400, Jason.encode!(error))
+          case Saturn.Posts.get_top(
+                 parse_int(conn.params["limit"]),
+                 parse_int(conn.params["cursor"]),
+                 user_id,
+                 moon_id,
+                 parse_int(conn.params["time"])
+               ) do
+            {:ok, posts} ->
+              conn
+              |> put_resp_content_type("application/json")
+              |> send_resp(200, Jason.encode!(posts))
 
-          _ ->
-            send_resp(conn, 200, "Vote submitted")
-        end
-    end
-  end
-
-  # delete a vote
-  delete "/vote" do
-    case Session.get_by_id(conn.req_cookies["session_id"]) do
-      nil ->
-        send_resp(conn, 403, "Invalid session id")
-
-      session ->
-        case Votes.delete(conn.params["post_id"], session.user.id) do
-          {1, _} ->
-            send_resp(conn, 200, "Downvote removed")
-
-          {0, _} ->
-            send_resp(conn, 400, "Bad request")
-        end
+            {:error, :bad_request} ->
+              send_resp(conn, 400, "Bad request")
+          end
+      end
     end
   end
 
   # MOONS
-  # create a moon
-  post "/moon" do
-    case Session.get_by_id(conn.req_cookies["session_id"]) do
-      nil ->
-        send_resp(conn, 403, "Invalid session id")
-
-      session ->
-        case Moons.create(conn.params, session.user) do
-          {:error, error} ->
-            conn
-            |> put_resp_content_type("application/json")
-            |> send_resp(400, Jason.encode!(error))
-
-          moon ->
-            conn
-            |> put_resp_content_type("application/json")
-            |> send_resp(200, Jason.encode!(moon))
-        end
-    end
-  end
-
   # search for a moon
   get "/moon/search/:name" do
-    case Moons.search(name) do
+    case Saturn.Moons.search(name) do
       results ->
         conn
         |> put_resp_content_type("application/json")
@@ -219,7 +125,7 @@ defmodule Saturn.Router do
 
   # check if moon exists/get info about moon
   get "/moon/:name" do
-    case Moons.get(name) do
+    case Saturn.Moons.get(name) do
       nil ->
         send_resp(conn, 404, "Not found")
 
@@ -233,23 +139,20 @@ defmodule Saturn.Router do
     end
   end
 
-  # IMAGES
-  post "/upload" do
-    case conn.params do
-      %{"file" => file} ->
-        path = Path.expand("./../files/#{Ecto.UUID.generate()}#{Path.extname(file.filename)}")
-
-        File.cp(file.path, path)
-        send_resp(conn, 200, "Image recieved")
+  # FILES
+  # serve files
+  get "/assets/:filename" do
+    case Saturn.Files.file_request(filename) do
+      nil ->
+        send_resp(conn, 404, "File not found")
 
       _ ->
-        send_resp(conn, 400, "No file attached")
+        conn
+        |> send_file(200, Path.expand("./../files/#{filename}"))
     end
   end
 
-  match _ do
-    send_resp(conn, 404, "Not found")
-  end
+  forward("/", to: AuthRouter)
 
   defp parse_int(num) do
     case Integer.parse(num || "") do
