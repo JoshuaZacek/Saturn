@@ -56,24 +56,35 @@ defmodule Saturn.Posts do
   # Get top posts
   def get_top(limit, cursor, user_id, moon_id, time)
       when is_integer(limit) and limit <= 50 and cursor > 0 and
-             (is_integer(cursor) or is_nil(cursor)) and is_integer(time) do
+             (is_map(cursor) or is_nil(cursor)) and is_integer(time) do
     postsAfter =
-      if time > 0,
-        do:
-          ((DateTime.utc_now() |> DateTime.to_unix()) - time)
-          |> DateTime.from_unix!()
-          |> DateTime.to_naive(),
-        else: 0
+      if time > 0 do
+        (DateTime.utc_now() |> DateTime.to_unix()) - time
+      else
+        0
+      end
+      |> convert_unix_to_naive()
 
     # massive query to fetch posts
     posts =
       Repo.all(
         from(p in Post,
-          where: ^if(cursor, do: dynamic([p], p.id <= ^cursor), else: is_nil(cursor)),
           where: ^if(moon_id, do: dynamic([p], p.moon_id == ^moon_id), else: is_nil(moon_id)),
+          where:
+            ^if(cursor,
+              do:
+                dynamic(
+                  [p],
+                  fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", p.id) <=
+                    ^cursor["votes"] and
+                    p.id <= ^cursor["id"]
+                ),
+              else: is_nil(cursor)
+            ),
           where: p.inserted_at > ^postsAfter,
           order_by: [
-            desc: fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", p.id)
+            desc: fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", p.id),
+            desc: p.id
           ],
           limit: ^limit + 1,
           select: %{
@@ -93,11 +104,11 @@ defmodule Saturn.Posts do
         user: from(u in User, select: map(u, [:username, :id, :inserted_at]))
       )
 
-    {next_cursor, posts} = get_next_cursor(posts, limit)
+    {next_cursor, posts} = get_next_cursor(posts, limit, "top")
 
     {:ok,
      %{
-       data: %{posts: posts},
+       posts: posts,
        next_cursor: next_cursor
      }}
   end
@@ -109,14 +120,23 @@ defmodule Saturn.Posts do
   # Get new posts
   def get_new(limit, cursor, user_id, moon_id)
       when is_integer(limit) and limit <= 50 and cursor > 0 and
-             (is_integer(cursor) or is_nil(cursor)) do
+             (is_map(cursor) or is_nil(cursor)) do
     # massive query to fetch posts
     posts =
       Repo.all(
         from(p in Post,
-          where: ^if(cursor, do: dynamic([p], p.id <= ^cursor), else: is_nil(cursor)),
+          where:
+            ^if(cursor,
+              do:
+                dynamic(
+                  [p],
+                  p.id <= ^cursor["id"] and
+                    p.inserted_at <= ^convert_unix_to_naive(cursor["inserted_at"])
+                ),
+              else: is_nil(cursor)
+            ),
           where: ^if(moon_id, do: dynamic([p], p.moon_id == ^moon_id), else: is_nil(moon_id)),
-          order_by: [desc: p.inserted_at],
+          order_by: [desc: p.inserted_at, desc: p.id],
           limit: ^limit + 1,
           select: %{
             p
@@ -135,11 +155,11 @@ defmodule Saturn.Posts do
         user: from(u in User, select: map(u, [:username, :id, :inserted_at]))
       )
 
-    {next_cursor, posts} = get_next_cursor(posts, limit)
+    {next_cursor, posts} = get_next_cursor(posts, limit, "new")
 
     {:ok,
      %{
-       data: %{posts: posts},
+       posts: posts,
        next_cursor: next_cursor
      }}
   end
@@ -148,17 +168,38 @@ defmodule Saturn.Posts do
     {:error, :bad_request}
   end
 
-  defp get_next_cursor(posts, limit) when length(posts) > 0 do
+  defp get_next_cursor(posts, limit, sort) when length(posts) > 0 do
     [head | tail] = Enum.reverse(posts)
 
-    if length(tail) == limit do
-      {head.id, Enum.reverse(tail)}
-    else
-      {nil, posts}
+    cond do
+      length(tail) == limit and sort == "new" ->
+        cursor =
+          %{
+            inserted_at:
+              head.inserted_at |> DateTime.from_naive!("Etc/UTC") |> DateTime.to_unix(),
+            id: head.id
+          }
+          |> Jason.encode!()
+          |> Base.url_encode64()
+
+        {cursor, Enum.reverse(tail)}
+
+      length(tail) == limit and sort == "top" ->
+        cursor = %{votes: head.votes, id: head.id} |> Jason.encode!() |> Base.url_encode64()
+        {cursor, Enum.reverse(tail)}
+
+      true ->
+        {nil, posts}
     end
   end
 
-  defp get_next_cursor(posts, _) do
+  defp get_next_cursor(posts, _, _) do
     {nil, posts}
+  end
+
+  defp convert_unix_to_naive(unix_timestamp) do
+    unix_timestamp
+    |> DateTime.from_unix!()
+    |> DateTime.to_naive()
   end
 end
