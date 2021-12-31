@@ -74,7 +74,7 @@ defmodule Saturn.Router do
         "new" ->
           case Saturn.Posts.get_new(
                  parse_int(conn.params["limit"]),
-                 parse_int(conn.params["cursor"]),
+                 parse_cursor(conn.params["cursor"]),
                  user_id,
                  moon_id
                ) do
@@ -92,7 +92,7 @@ defmodule Saturn.Router do
 
           case Saturn.Posts.get_top(
                  parse_int(conn.params["limit"]),
-                 parse_int(conn.params["cursor"]),
+                 parse_cursor(conn.params["cursor"]),
                  user_id,
                  moon_id,
                  parse_int(conn.params["time"])
@@ -158,6 +158,16 @@ defmodule Saturn.Router do
     case Integer.parse(num || "") do
       {int, ""} -> int
       :error -> num
+    end
+  end
+
+  defp parse_cursor(cursor) do
+    try do
+      cursor
+      |> Base.url_decode64!()
+      |> Jason.decode!()
+    rescue
+      _ -> cursor
     end
   end
 end
