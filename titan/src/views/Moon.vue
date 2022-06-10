@@ -171,7 +171,7 @@ export default class Moon extends Vue {
     } else {
       timePeriodSeconds = 0;
     }
-    return `http://localhost:4000/posts/${moon.toLowerCase()}?sort=${sort.toLowerCase()}&limit=5${
+    return `http://localhost:4000/posts/${moon}?sort=${sort.toLowerCase()}&limit=5${
       timePeriod ? "&time=" + timePeriodSeconds : ""
     }${cursor ? "&cursor=" + cursor : ""}`;
   }

@@ -109,6 +109,31 @@ defmodule Saturn.Router do
     end
   end
 
+  # get a post by it's id
+  get "/post/:id" do
+    user_id =
+      case Saturn.Session.get_by_id(conn.req_cookies["session_id"]) do
+        nil ->
+          nil
+
+        session ->
+          session.user.id
+      end
+
+    case Saturn.Posts.get_by_id(id, user_id) do
+      nil ->
+        send_resp(conn, 404, "Not found")
+
+      post ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(
+          200,
+          Jason.encode!(Map.drop(post, [:__meta__, :__struct__, :user_id]))
+        )
+    end
+  end
+
   # MOONS
   # search for a moon
   get "/moon/search/:name" do
@@ -149,6 +174,21 @@ defmodule Saturn.Router do
       _ ->
         conn
         |> send_file(200, Path.expand("./../files/#{filename}"))
+    end
+  end
+
+  # COMMENTS
+  # get comments for a post
+  get "/comments" do
+    session = Saturn.Session.get_by_id(conn.req_cookies["session_id"])
+    user_id = if session, do: session.user.id, else: nil
+
+    case Saturn.Comments.get(conn.params["post_id"], user_id, conn.params["parent_comment_id"]) do
+      [] ->
+        send_resp(conn, 404, "No comments found")
+
+      comments ->
+        send_resp(conn, 200, Jason.encode!(comments))
     end
   end
 

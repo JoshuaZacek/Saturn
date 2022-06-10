@@ -5,10 +5,12 @@ defmodule Saturn.Post do
   alias Saturn.User
   alias Saturn.Moon
   alias Saturn.Vote
+  alias Saturn.Comment
 
   @derive {Jason.Encoder, except: [:__meta__, :moon_id, :user_id]}
   schema "posts" do
     has_many(:votes, Vote)
+    has_many(:comments, Comment)
     belongs_to(:user, User)
     belongs_to(:moon, Moon)
 
@@ -16,7 +18,7 @@ defmodule Saturn.Post do
     field(:body, :string)
     field(:hasVoted, :integer, virtual: true)
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   def changeset(post, attrs) do

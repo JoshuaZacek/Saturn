@@ -6,6 +6,31 @@ defmodule Saturn.Posts do
   alias Saturn.User
   alias Saturn.Moon
   alias Saturn.Vote
+  alias Saturn.Comment
+
+  def get_by_id(id, user_id) do
+    Repo.one(
+      from(p in Post,
+        where: p.id == ^id,
+        select: %{
+          p
+          | votes: fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", p.id),
+            hasVoted:
+              fragment(
+                "SELECT vote FROM votes v WHERE v.post_id = ? AND v.user_id = ?",
+                p.id,
+                ^user_id
+              ),
+            comments:
+              fragment("SELECT COALESCE(COUNT(*), 0) FROM comments WHERE post_id = ?", p.id)
+        }
+      )
+    )
+    |> Repo.preload(
+      moon: from(m in Moon, select: map(m, [:name, :id, :inserted_at])),
+      user: from(u in User, select: map(u, [:username, :id, :inserted_at]))
+    )
+  end
 
   def create(attrs, user) do
     case Repo.insert(Post.changeset(%Post{user_id: user.id}, attrs)) do
@@ -15,6 +40,11 @@ defmodule Saturn.Posts do
           user:
             from(u in User,
               select: %{username: u.username, id: u.id, inserted_at: u.inserted_at}
+            ),
+          comments:
+            from(c in Comment,
+              select:
+                fragment("SELECT COALESCE(COUNT(*), 0) FROM comments WHERE post_id = ?", ^post.id)
             ),
           votes:
             from(v in Vote,
@@ -63,7 +93,7 @@ defmodule Saturn.Posts do
       else
         0
       end
-      |> convert_unix_to_naive()
+      |> DateTime.from_unix!()
 
     # massive query to fetch posts
     posts =
@@ -95,7 +125,9 @@ defmodule Saturn.Posts do
                   "SELECT vote FROM votes v WHERE v.post_id = ? AND v.user_id = ?",
                   p.id,
                   ^user_id
-                )
+                ),
+              comments:
+                fragment("SELECT COALESCE(COUNT(*), 0) FROM comments WHERE post_id = ?", p.id)
           }
         )
       )
@@ -131,7 +163,7 @@ defmodule Saturn.Posts do
                 dynamic(
                   [p],
                   p.id <= ^cursor["id"] and
-                    p.inserted_at <= ^convert_unix_to_naive(cursor["inserted_at"])
+                    p.inserted_at <= ^DateTime.from_unix!(cursor["inserted_at"])
                 ),
               else: is_nil(cursor)
             ),
@@ -146,7 +178,9 @@ defmodule Saturn.Posts do
                   "SELECT vote FROM votes v WHERE v.post_id = ? AND v.user_id = ?",
                   p.id,
                   ^user_id
-                )
+                ),
+              comments:
+                fragment("SELECT COALESCE(COUNT(*), 0) FROM comments WHERE post_id = ?", p.id)
           }
         )
       )
@@ -175,8 +209,7 @@ defmodule Saturn.Posts do
       length(tail) == limit and sort == "new" ->
         cursor =
           %{
-            inserted_at:
-              head.inserted_at |> DateTime.from_naive!("Etc/UTC") |> DateTime.to_unix(),
+            inserted_at: head.inserted_at |> DateTime.to_unix(),
             id: head.id
           }
           |> Jason.encode!()
@@ -195,11 +228,5 @@ defmodule Saturn.Posts do
 
   defp get_next_cursor(posts, _, _) do
     {nil, posts}
-  end
-
-  defp convert_unix_to_naive(unix_timestamp) do
-    unix_timestamp
-    |> DateTime.from_unix!()
-    |> DateTime.to_naive()
   end
 end

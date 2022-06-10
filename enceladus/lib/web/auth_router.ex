@@ -17,7 +17,7 @@ defmodule Saturn.AuthRouter do
   # POSTS
   # Create post
   post "/post" do
-    case Saturn.Posts.create(conn.params, conn.assigns.session.user) do
+    case Saturn.Posts.create(conn.params, conn.assigns.user) do
       {:error, error} ->
         conn
         |> put_resp_content_type("application/json")
@@ -42,7 +42,12 @@ defmodule Saturn.AuthRouter do
           -1
       end
 
-    case Saturn.Votes.create(vote, conn.params["post_id"], conn.assigns.session.user.id) do
+    case Saturn.Votes.create(
+           vote,
+           conn.params["post_id"],
+           conn.params["comment_id"],
+           conn.assigns.user.id
+         ) do
       :error ->
         send_resp(conn, 400, "Bad request")
 
@@ -53,7 +58,11 @@ defmodule Saturn.AuthRouter do
 
   # Delete a vote
   delete "/vote" do
-    case Saturn.Votes.delete(conn.params["post_id"], conn.assigns.session.user.id) do
+    case Saturn.Votes.delete(
+           conn.params["post_id"],
+           conn.params["comment_id"],
+           conn.assigns.user.id
+         ) do
       {1, _} ->
         send_resp(conn, 200, "Downvote removed")
 
@@ -65,7 +74,7 @@ defmodule Saturn.AuthRouter do
   # MOONS
   # Create a moon
   post "/moon" do
-    case Saturn.Moons.create(conn.params, conn.assigns.session.user) do
+    case Saturn.Moons.create(conn.params, conn.assigns.user) do
       {:error, error} ->
         conn
         |> put_resp_content_type("application/json")
@@ -76,10 +85,68 @@ defmodule Saturn.AuthRouter do
     end
   end
 
+  # COMMENTS
+  # Create a comment
+  post "/comment" do
+    case Saturn.Comments.create(conn.params, conn.assigns.user) do
+      {:error, error} ->
+        send_resp(conn, 400, format_error(error) |> Jason.encode!())
+
+      comment ->
+        send_resp(conn, 200, Jason.encode!(comment))
+    end
+  end
+
+  # ACCOUNTS
+  # Change password
+  post "/account/password" do
+    case conn.params do
+      %{"oldPassword" => old_password, "newPassword" => new_password} ->
+        case Saturn.Accounts.change_password(
+               old_password,
+               new_password,
+               conn.assigns.user
+             ) do
+          :ok ->
+            send_resp(conn, 204, "")
+
+          {:error, errors} ->
+            conn
+            |> put_resp_content_type("application/json")
+            |> send_resp(400, Jason.encode!(errors))
+        end
+
+      _ ->
+        send_resp(conn, 400, "Bad request")
+    end
+  end
+
+  # Change email
+  post "/account/email" do
+    case conn.params do
+      %{"email" => email} ->
+        case Saturn.Accounts.change_email(
+               email,
+               conn.assigns.user
+             ) do
+          :ok ->
+            send_resp(conn, 204, "")
+
+          {:error, errors} ->
+            conn
+            |> put_resp_content_type("application/json")
+            |> send_resp(400, Jason.encode!(errors))
+        end
+
+      _ ->
+        send_resp(conn, 400, "Bad request")
+    end
+  end
+
   post "/upload" do
     case conn.params do
       %{"file" => file} ->
-        Saturn.Files.file_upload(file, conn.assigns.session.user)
+        Saturn.Files.file_upload(file, conn.assigns.user)
         send_resp(conn, 200, "Image uploaded")
 
       _ ->
@@ -87,12 +154,15 @@ defmodule Saturn.AuthRouter do
     end
   end
 
-  # test route
-  get "/hello" do
-    send_resp(conn, 200, "world")
-  end
-
   match _ do
     send_resp(conn, 404, "Not found")
+  end
+
+  defp format_error(error) do
+    Ecto.Changeset.traverse_errors(error, fn {message, options} ->
+      Enum.reduce(options, message, fn {key, value}, acc ->
+        String.replace(acc, "%{#{key}}", to_string(value))
+      end)
+    end)
   end
 end

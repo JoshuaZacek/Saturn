@@ -11,7 +11,7 @@ defmodule Saturn.Session do
     belongs_to(:user, User)
     field(:session_id, :string)
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   @doc false

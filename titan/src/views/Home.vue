@@ -32,7 +32,8 @@
     fgColor="#d9d9d9"
     class="footerLoader"
   />
-  <p v-if="!nextCursor" class="footerText">That's all folks</p>
+  <p v-if="!nextCursor && !posts.length" class="footerText">Hmmm... empty</p>
+  <p v-else-if="!nextCursor && !fetchingPosts" class="footerText">That's all folks</p>
 </template>
 
 <script lang="ts">

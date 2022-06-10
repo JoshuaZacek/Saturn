@@ -1,5 +1,12 @@
 <template>
-  <div class="postContainer">
+  <Overlay v-if="overlayStatus" :status="overlayStatus" :message="overlayMessage" />
+
+  <div v-if="fetchingPosts">
+    <Loader :size="40" bgColor="#fcfcfc" fgColor="#d9d9d9" />
+    <p>Loading post...</p>
+  </div>
+
+  <div class="postContainer" v-else>
     <h3>{{ post.title }}</h3>
 
     <div class="details">
@@ -18,7 +25,7 @@
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 946.15">
         <path
           d="M659.21,143.52c-82.32-141.36-218.55-141.36-295.78,0L72,653.61c-80.86,140.64-14.57,255,145.71,255H804.92c162.46,0,228.76-114.4,145.7-255Z"
-          style="fill:transparent;stroke:#757575;stroke-miterlimit:10;stroke-width:75px;cursor:pointer;"
+          style="fill:none;stroke:#757575;stroke-miterlimit:10;stroke-width:75px;cursor:pointer;"
           :class="[currentVote == 'up' ? 'up' : '', 'vote']"
           @click="submitVote('up')"
         />
@@ -29,48 +36,89 @@
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 946.15">
         <path
           d="M364.79,802.63C447.11,944,583.34,944,660.57,802.63L952,292.54c80.86-140.64,14.57-255-145.71-255H219.08c-162.46,0-228.76,114.41-145.7,255Z"
-          style="fill:transparent;stroke:#757575;stroke-miterlimit:10;stroke-width:75px;cursor:pointer;"
+          style="fill:none;stroke:#757575;stroke-miterlimit:10;stroke-width:75px;cursor:pointer;"
           :class="[currentVote == 'down' ? 'down' : '', 'vote']"
           @click="submitVote('down')"
         />
       </svg>
     </div>
 
-    <div
-      class="toolbarButton"
-      @click="$router.push({ name: 'PostWithComments', params: { id: this.post.id } })"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1023.95 1024">
-        <path
-          d="M848.88,715.26C928.49,648,979.62,557,985.81,456l.64-.46-.63.33q.63-10.25.63-20.64C986.45,215.57,774,37.5,512,37.5S37.5,215.57,37.5,435.22,249.93,832.94,512,832.94c30.2,0,59.91-3.14,88.37-6.89h0C717.49,1001.8,927,987,945,985.65,937.2,976.93,844.39,882,848.88,715.27Z"
-          style="fill:none;stroke:#757575;stroke-miterlimit:10;stroke-width:75px"
-        />
-      </svg>
-      <p>{{ post.comments }}</p>
+    <div class="commentContainer" v-if="this.$store.getters.isLoggedIn">
+      <textarea
+        name="comment"
+        ref="comment"
+        :placeholder="`Comment as ${this.$store.getters.getUser.username}...`"
+        class="comment"
+        @input="adjustHeight"
+        rows="3"
+      />
+      <button
+        class="postComment"
+        @click="postComment(this.post.id, this.$refs.comment.value)"
+      >
+        Post comment
+      </button>
     </div>
+
+    <div class="commentContainer" v-else>
+      <p>Log in to your account to post a comment.</p>
+    </div>
+
+    <h3>{{ post.comments }} comments</h3>
+
+    <Comment v-for="comment in comments" :key="comment.id" :comment="comment" />
   </div>
 </template>
 
 <script lang="ts">
 // Packages
 import { Options, Vue } from "vue-class-component";
-import axios from "axios";
 import { relativeTime } from "@/relativeTime";
+import axios from "axios";
+
+// Components
+import SegmentedControl from "@/components/SegmentedControl.vue";
+import Button from "@/components/Button.vue";
+import Loader from "@/components/Loader.vue";
+import Comment from "@/components/Comment.vue";
+import Overlay from "@/components/Overlay.vue";
 
 @Options({
-  props: {
-    post: Object,
+  components: {
+    SegmentedControl,
+    Button,
+    Loader,
+    Comment,
+    Overlay,
   },
 })
-export default class Post extends Vue {
+export default class FullPagePost extends Vue {
   // Define variables and types
+  fetchingPosts = true;
+  overlayMessage = "";
+  overlayStatus = "";
   currentVote = "";
   timeSince = "";
 
   post!: Record<string, unknown>;
+  comments!: Record<string, unknown>[];
 
   // Lifecycle hooks
-  created(): void {
+  async created(): Promise<void> {
+    const post = await axios.get(`http://localhost:4000/post/${this.$route.params.id}`, {
+      withCredentials: true,
+    });
+    const comments = await axios
+      .get(`http://localhost:4000/comments?post_id=${this.$route.params.id}`, {
+        withCredentials: true,
+      })
+      .catch(() => {
+        return { data: [] }; // return 0 comments
+      });
+
+    this.post = post.data;
+    this.comments = comments.data;
+
     this.timeSince = relativeTime(new Date(<string>this.post.inserted_at));
 
     if (this.post.hasVoted === 1) {
@@ -78,9 +126,43 @@ export default class Post extends Vue {
     } else if (this.post.hasVoted === -1) {
       this.currentVote = "down";
     }
+
+    this.fetchingPosts = false;
+  }
+
+  adjustHeight(): void {
+    const comment = <HTMLTextAreaElement>this.$refs.comment;
+    comment.style.height = "auto";
+    comment.style.height = comment.scrollHeight + 2 + "px";
   }
 
   // API
+  postComment(post_id: number, content: string): void {
+    this.overlayStatus = "load";
+    this.overlayMessage = "Posting comment";
+
+    axios
+      .post(
+        "http://localhost:4000/comment",
+        {
+          post_id: post_id,
+          content: content,
+        },
+        { withCredentials: true }
+      )
+      .then((res) => {
+        this.comments.push(res.data);
+        (<number>this.post.comments) += 1;
+
+        this.overlayStatus = "success";
+        this.overlayMessage = "Comment posted";
+
+        setTimeout(() => {
+          this.overlayStatus = "";
+        }, 1000);
+      });
+  }
+
   deleteVote(): void {
     axios
       .delete(`http://localhost:4000/vote?post_id=${this.post.id}`, {
@@ -139,12 +221,13 @@ export default class Post extends Vue {
 
 <style scoped>
 .postContainer {
-  width: 550px;
+  width: 700px;
   background-color: var(--backgroundSecondary);
   padding: 15px 20px;
   border-radius: 15px;
   margin-bottom: 20px;
   box-sizing: border-box;
+  margin-top: 30px;
 }
 
 .details {
@@ -198,29 +281,59 @@ export default class Post extends Vue {
 .vote.up:hover {
   fill: #006cff !important;
 }
+
 svg {
   height: 15px;
 }
 
-.toolbarButton {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 15px;
-  padding: 5px 5px;
-  gap: 7px;
-  border-radius: 5px;
+.commentContainer {
+  position: relative;
+  width: 100%;
+  margin: 20px 0px;
+}
+.commentContainer > p {
+  color: var(--textTertiary);
+}
+
+.comment {
+  color: var(--textPrimary);
+  font-size: 16px;
+  font-family: inherit;
+
+  outline: none;
+  border: 1px solid var(--backgroundTertiary);
+
+  padding: 10px 15px 35px 15px;
+  box-sizing: border-box;
+  border-radius: 15px;
+  width: 100%;
+  resize: none;
+  overflow-y: hidden;
+}
+.comment::placeholder {
+  color: var(--textTertiary);
+}
+.comment:focus {
+  border-color: var(--textTertiary);
+}
+
+.postComment {
+  position: absolute;
+  bottom: 6px;
+  right: 3px;
+  padding: 5px 10px;
+
+  border: none;
+  border-radius: 12px;
   cursor: pointer;
 
-  position: absolute;
-  margin-top: -5px;
-}
-.toolbarButton > p {
+  font-weight: 500;
   font-size: 15px;
+
+  background-color: transparent;
+  color: #006cff;
 }
-.toolbarButton:hover {
-  background-color: var(--backgroundTertiary);
-}
-.toolbarButton:active {
-  background-color: var(--textTertiary);
+.postComment:hover {
+  background-color: #006cff11;
 }
 </style>

@@ -8,7 +8,7 @@ defmodule Saturn.File do
     belongs_to(:user, User)
     field(:filename, :string)
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   def changeset(file, attrs) do
