@@ -81,7 +81,7 @@ export default class CreateMoon extends Vue {
 
     const title = (<HTMLTextAreaElement>this.$refs.title).value;
     const text = (<HTMLTextAreaElement>this.$refs.text).value;
-    const moon = (<HTMLInputElement>this.$refs.moon).value.toLowerCase();
+    const moon = (<HTMLInputElement>this.$refs.moon).value;
 
     let isFormValid = true;
     if (!moon) {

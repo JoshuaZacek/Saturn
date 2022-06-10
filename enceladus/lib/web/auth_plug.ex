@@ -12,7 +12,9 @@ defmodule Saturn.AuthPlug do
         |> halt()
 
       session ->
-        assign(conn, :session, session)
+        conn
+        |> assign(:session, session)
+        |> assign(:user, session.user)
     end
   end
 end

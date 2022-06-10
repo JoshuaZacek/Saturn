@@ -7,4 +7,5 @@ config :saturn, Saturn.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
-  port: 5432
+  port: 5432,
+  migration_timestamps: [type: :utc_datetime]

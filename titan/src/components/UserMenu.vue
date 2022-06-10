@@ -123,6 +123,10 @@ export default class Menu extends Vue {
         this.$router.push({ name: "CreatePost" });
         break;
 
+      case "Settings":
+        this.$router.push({ name: "Settings" });
+        break;
+
       default:
         console.log(option + " has been selected from the user menu!");
         break;

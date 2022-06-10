@@ -19,12 +19,12 @@ export default class App extends Vue {}
 
 <style>
 :root {
-  --backgroundPrimary: #fcfcfc;
-  --backgroundSecondary: #fff;
-  --backgroundTertiary: #efefef;
-  --textPrimary: #000;
-  --textSecondary: #757575;
-  --textTertiary: #d9d9d9;
+  --backgroundPrimary: #fcfcfc; /* the background colour */
+  --backgroundSecondary: #fff; /* colour for main elements against background */
+  --backgroundTertiary: #efefef; /* colur for elements against a main element */
+  --textPrimary: #000; /* primary text colour */
+  --textSecondary: #757575; /* secondary text colour */
+  --textTertiary: #d9d9d9; /* tertiary text colour */
 }
 
 body {

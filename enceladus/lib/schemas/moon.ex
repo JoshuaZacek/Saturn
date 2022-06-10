@@ -12,7 +12,7 @@ defmodule Saturn.Moon do
 
     field(:name, :string)
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   def changeset(moon, attrs) do

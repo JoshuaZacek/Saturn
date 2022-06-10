@@ -37,7 +37,7 @@ export default class Input extends Vue {
       "--center": Math.round(this.size / 2) + "px",
       "--left": Math.round((this.size / 2) * 0.925) + "px",
       "--width": Math.round((this.size / 2) * 0.15) + "px",
-      "--height": Math.floor((this.size / 2) * 0.45) + "px",
+      "--height": Math.floor((this.size / 2) * 0.6) + "px",
       "--fgColor": this.fgColor,
       "--bgColor": this.bgColor,
     };
@@ -62,7 +62,7 @@ export default class Input extends Vue {
   content: "";
   display: block;
   position: absolute;
-  top: 3px;
+  top: 0px;
   left: var(--left);
   width: var(--width);
   height: var(--height);

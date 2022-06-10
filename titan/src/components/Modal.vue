@@ -1,7 +1,13 @@
 <template>
   <div class="modalBackground" tabindex="1" @click="close()">
     <div class="modal" @click.stop>
-      <div class="closeButton" @click="close()">
+      <div
+        class="closeButton"
+        @keydown.space="close()"
+        @keydown.enter="close()"
+        @click="close()"
+        tabindex="0"
+      >
         <div></div>
         <div></div>
       </div>
@@ -135,7 +141,8 @@ export default class Modal extends Vue {
   left: 12px;
   border-radius: 1px;
 }
-.closeButton:hover > div {
+.closeButton:hover > div,
+.closeButton:focus > div {
   background-color: var(--textSecondary);
 }
 .closeButton > div:first-child {
