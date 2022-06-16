@@ -65,7 +65,23 @@
         <p>Log in to your account to send a reply.</p>
       </div>
 
-      <Comment v-for="reply in replies" :key="reply.id" :comment="reply" />
+      <Comment
+        v-for="reply in replies"
+        :key="reply.id"
+        :comment="reply"
+        :level="level + 1"
+      />
+      <button
+        v-if="level == 3 && comment.replies > 0"
+        @click="
+          $router.push({
+            name: 'PostWithComments',
+            params: { id: this.$route.params.id, comment: comment.id },
+          })
+        "
+      >
+        See more replies
+      </button>
     </div>
   </div>
 </template>
@@ -79,6 +95,7 @@ import { Options, Vue } from "vue-class-component";
 @Options({
   props: {
     comment: Object,
+    level: Number,
   },
   components: {
     Overlay,
@@ -86,6 +103,7 @@ import { Options, Vue } from "vue-class-component";
 })
 export default class Post extends Vue {
   comment!: Record<string, unknown>;
+  level!: number;
 
   timeSince = "";
   replies = [];
@@ -95,18 +113,15 @@ export default class Post extends Vue {
   currentVote = "";
 
   async created(): Promise<void> {
-    const replies = await axios
-      .get(
-        `http://localhost:4000/comments?post_id=${this.$route.params.id}&parent_comment_id=${this.comment.id}`,
+    if (this.level < 3) {
+      const replies = await axios.get(
+        `http://localhost:4000/comments?post_id=${this.$route.params.id}&parent_comment_id=${this.comment.id}&limit=10`,
         {
           withCredentials: true,
         }
-      )
-      .catch(() => {
-        return { data: [] }; // return 0 comments
-      });
-
-    this.replies = replies.data;
+      );
+      this.replies = replies.data.comments;
+    }
 
     if (this.comment.hasVoted === 1) {
       this.currentVote = "up";
@@ -138,6 +153,7 @@ export default class Post extends Vue {
         { withCredentials: true }
       )
       .then((res) => {
+        res.data.votes = 0;
         (<Record<string, unknown>[]>this.replies).push(res.data);
         this.replyToggled = false;
 
@@ -383,5 +399,24 @@ export default class Post extends Vue {
 
 svg {
   height: 15px;
+}
+
+button {
+  padding: 5px 10px;
+  display: block;
+  margin-left: -10px;
+
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+
+  font-weight: 500;
+  font-size: 15px;
+
+  background-color: transparent;
+  color: #006cff;
+}
+button:hover {
+  background-color: #006cff11;
 }
 </style>

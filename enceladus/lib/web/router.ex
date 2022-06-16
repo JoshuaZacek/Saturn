@@ -7,6 +7,7 @@ defmodule Saturn.Router do
   plug(:fetch_cookies)
   plug(:match)
   plug(Plug.Parsers, parsers: [:json, :urlencoded, :multipart], json_decoder: Jason)
+  plug(Saturn.SessionPlug)
   plug(:dispatch)
 
   # AUTHENTICATION
@@ -180,15 +181,25 @@ defmodule Saturn.Router do
   # COMMENTS
   # get comments for a post
   get "/comments" do
-    session = Saturn.Session.get_by_id(conn.req_cookies["session_id"])
-    user_id = if session, do: session.user.id, else: nil
-
-    case Saturn.Comments.get(conn.params["post_id"], user_id, conn.params["parent_comment_id"]) do
-      [] ->
-        send_resp(conn, 404, "No comments found")
-
-      comments ->
+    case Saturn.Comments.get(conn.params, conn.assigns.user_id) do
+      {:ok, comments} ->
         send_resp(conn, 200, Jason.encode!(comments))
+    end
+  end
+
+  # get a single comment by it's id
+  get "/comments/:id" do
+    case Saturn.Comments.get_by_id(id, conn.assigns.user_id) do
+      nil ->
+        send_resp(conn, 404, "Not found")
+
+      comment ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(
+          200,
+          Jason.encode!(comment)
+        )
     end
   end
 

@@ -34,7 +34,7 @@ const routes: Array<RouteRecordRaw> = [
     component: CreatePost
   },
   {
-    path: '/post/:id',
+    path: '/post/:id/:comment?',
     name: "PostWithComments",
     component: PostWithComments
   },

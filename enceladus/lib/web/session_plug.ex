@@ -1,4 +1,4 @@
-defmodule Saturn.AuthPlug do
+defmodule Saturn.SessionPlug do
   import Plug.Conn
   alias Saturn.Session
 
@@ -8,13 +8,15 @@ defmodule Saturn.AuthPlug do
     case Session.get_by_id(conn.req_cookies["session_id"]) do
       nil ->
         conn
-        |> send_resp(403, "Unauthorized")
-        |> halt()
+        |> assign(:session, nil)
+        |> assign(:user, nil)
+        |> assign(:user_id, nil)
 
       session ->
         conn
         |> assign(:session, session)
         |> assign(:user, session.user)
+        |> assign(:user_id, session.user.id)
     end
   end
 end

@@ -1,7 +1,7 @@
 <template>
   <Overlay v-if="overlayStatus" :status="overlayStatus" :message="overlayMessage" />
 
-  <div v-if="fetchingPosts">
+  <div v-if="fetchingInitialContent">
     <Loader :size="40" bgColor="#fcfcfc" fgColor="#d9d9d9" />
     <p>Loading post...</p>
   </div>
@@ -19,7 +19,7 @@
       <p>{{ timeSince }}</p>
     </div>
 
-    <p class="postBody">{{ post.body }}</p>
+    <p class="postBody" v-if="!this.$route.params.comment">{{ post.body }}</p>
 
     <div class="voteButtons">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 946.15">
@@ -43,30 +43,53 @@
       </svg>
     </div>
 
-    <div class="commentContainer" v-if="this.$store.getters.isLoggedIn">
-      <textarea
-        name="comment"
-        ref="comment"
-        :placeholder="`Comment as ${this.$store.getters.getUser.username}...`"
-        class="comment"
-        @input="adjustHeight"
-        rows="3"
-      />
-      <button
-        class="postComment"
-        @click="postComment(this.post.id, this.$refs.comment.value)"
-      >
-        Post comment
-      </button>
+    <div v-if="!this.$route.params.comment">
+      <div class="commentContainer" v-if="this.$store.getters.isLoggedIn">
+        <textarea
+          name="comment"
+          ref="comment"
+          :placeholder="`Comment as ${this.$store.getters.getUser.username}...`"
+          class="comment"
+          @input="adjustHeight"
+          rows="3"
+        />
+        <button
+          class="postComment"
+          @click="postComment(this.post.id, this.$refs.comment.value)"
+        >
+          Post comment
+        </button>
+      </div>
+
+      <div class="commentContainer" v-else>
+        <p>Log in to your account to post a comment.</p>
+      </div>
+
+      <h3>{{ post.comments }} comments</h3>
     </div>
 
-    <div class="commentContainer" v-else>
-      <p>Log in to your account to post a comment.</p>
+    <button
+      @click="
+        $router.push({
+          name: 'PostWithComments',
+          params: { id: this.$route.params.id },
+        })
+      "
+      v-else
+    >
+      See all comments on this post
+    </button>
+
+    <Comment
+      v-for="comment in comments"
+      :key="comment.id"
+      :comment="comment"
+      :level="0"
+    />
+
+    <div v-if="fetchingComments">
+      <Loader :size="30" bgColor="#ffffff" fgColor="#d9d9d9" />
     </div>
-
-    <h3>{{ post.comments }} comments</h3>
-
-    <Comment v-for="comment in comments" :key="comment.id" :comment="comment" />
   </div>
 </template>
 
@@ -94,11 +117,13 @@ import Overlay from "@/components/Overlay.vue";
 })
 export default class FullPagePost extends Vue {
   // Define variables and types
-  fetchingPosts = true;
+  fetchingInitialContent = true;
+  fetchingComments = true;
   overlayMessage = "";
   overlayStatus = "";
   currentVote = "";
   timeSince = "";
+  nextCursor: string | null = null;
 
   post!: Record<string, unknown>;
   comments!: Record<string, unknown>[];
@@ -108,16 +133,29 @@ export default class FullPagePost extends Vue {
     const post = await axios.get(`http://localhost:4000/post/${this.$route.params.id}`, {
       withCredentials: true,
     });
-    const comments = await axios
-      .get(`http://localhost:4000/comments?post_id=${this.$route.params.id}`, {
-        withCredentials: true,
-      })
-      .catch(() => {
-        return { data: [] }; // return 0 comments
-      });
+
+    if (this.$route.params.comment) {
+      const comments = await axios.get(
+        `http://localhost:4000/comments/${this.$route.params.comment}`,
+        {
+          withCredentials: true,
+        }
+      );
+
+      this.comments = [comments.data];
+    } else {
+      const comments = await axios.get(
+        `http://localhost:4000/comments?post_id=${this.$route.params.id}&limit=5`,
+        {
+          withCredentials: true,
+        }
+      );
+
+      this.comments = comments.data.comments;
+      this.nextCursor = comments.data.next_cursor;
+    }
 
     this.post = post.data;
-    this.comments = comments.data;
 
     this.timeSince = relativeTime(new Date(<string>this.post.inserted_at));
 
@@ -127,7 +165,33 @@ export default class FullPagePost extends Vue {
       this.currentVote = "down";
     }
 
-    this.fetchingPosts = false;
+    this.fetchingInitialContent = false;
+    this.fetchingComments = false;
+
+    window.onscroll = () => {
+      if (window.innerHeight + window.pageYOffset >= document.body.offsetHeight - 2) {
+        if (this.nextCursor && !this.fetchingComments) {
+          this.fetchingComments = true;
+
+          axios
+            .get(
+              `http://localhost:4000/comments?post_id=${this.$route.params.id}&limit=10&cursor=${this.nextCursor}`,
+              {
+                withCredentials: true,
+              }
+            )
+            .then((res) => {
+              setTimeout(() => {
+                this.comments = this.comments.concat(
+                  <Record<string, unknown>[]>res.data.comments
+                );
+                this.nextCursor = <string | null>res.data.next_cursor;
+                this.fetchingComments = false;
+              }, 500);
+            });
+        }
+      }
+    };
   }
 
   adjustHeight(): void {
@@ -151,7 +215,8 @@ export default class FullPagePost extends Vue {
         { withCredentials: true }
       )
       .then((res) => {
-        this.comments.push(res.data);
+        res.data.votes = 0;
+        this.comments.unshift(res.data);
         (<number>this.post.comments) += 1;
 
         this.overlayStatus = "success";
@@ -252,13 +317,14 @@ export default class FullPagePost extends Vue {
 }
 
 .postBody {
-  margin: 10px 0px 15px 0px;
+  margin: 10px 0px 0px 0px;
 }
 
 .voteButtons {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  margin-top: 15px;
 }
 .voteButtons > p {
   font-size: 15px;
@@ -317,11 +383,11 @@ svg {
   border-color: var(--textTertiary);
 }
 
-.postComment {
-  position: absolute;
-  bottom: 6px;
-  right: 3px;
+button {
   padding: 5px 10px;
+  display: block;
+  margin-top: 10px;
+  margin-left: -10px;
 
   border: none;
   border-radius: 12px;
@@ -333,7 +399,13 @@ svg {
   background-color: transparent;
   color: #006cff;
 }
-.postComment:hover {
+button:hover {
   background-color: #006cff11;
+}
+
+.postComment {
+  position: absolute;
+  bottom: 6px;
+  right: 3px;
 }
 </style>
