@@ -13,6 +13,7 @@ defmodule Saturn.Comment do
 
     field(:content, :string)
     field(:hasVoted, :integer, virtual: true)
+    field(:replies, :integer, virtual: true)
 
     timestamps(type: :utc_datetime)
   end

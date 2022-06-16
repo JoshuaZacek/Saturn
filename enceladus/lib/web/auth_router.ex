@@ -3,7 +3,7 @@ defmodule Saturn.AuthRouter do
   alias Saturn.Repo
 
   plug(:match)
-  plug(Saturn.AuthPlug)
+  plug(Saturn.AuthRequiredPlug)
   plug(:dispatch)
 
   # AUTHENTICATION
