@@ -32,6 +32,23 @@ defmodule Saturn.Posts do
     )
   end
 
+  def delete(post_id, user_id) do
+    post = Repo.one(from(p in Post, where: p.id == ^post_id))
+
+    case post do
+      nil ->
+        {:error, :bad_request}
+
+      _ ->
+        if post.user_id == user_id do
+          Repo.delete!(post)
+          :ok
+        else
+          {:error, :forbidden}
+        end
+    end
+  end
+
   def create(attrs, user) do
     case Repo.insert(Post.changeset(%Post{user_id: user.id}, attrs)) do
       {:ok, post} ->

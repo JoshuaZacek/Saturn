@@ -20,10 +20,11 @@
       <Menu :options="['New', 'Top']" @select="changeContentSort" />
     </div>
 
-    <div v-for="content in profileContent" :key="content.id">
+    <div v-for="(content, index) in profileContent" :key="content.id">
       <Post
         v-if="content.type == 'post' || currentContentType == 'posts'"
         :post="content"
+        @delete="profileContent.splice(index, 1)"
       />
       <CommentProfile
         v-if="content.type == 'comment' || currentContentType == 'comments'"

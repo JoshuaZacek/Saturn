@@ -6,7 +6,7 @@ defmodule Saturn.Comment do
 
   @derive {Jason.Encoder, except: [:__meta__, :post_id, :user_id, :comment_id, :comment, :post]}
   schema "comments" do
-    has_many(:votes, Vote)
+    has_many(:votes, Vote, on_delete: :delete_all)
     belongs_to(:user, User)
     belongs_to(:post, Post)
     belongs_to(:comment, Comment)
