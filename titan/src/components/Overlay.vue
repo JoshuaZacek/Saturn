@@ -2,6 +2,7 @@
   <div class="overlay">
     <Loader v-if="status == 'load'" :size="40" bgColor="transparent" fgColor="#ffffff" />
     <img v-else-if="status == 'success'" src="/tick.svg" height="40" />
+    <img v-else-if="status == 'error'" src="/error.svg" height="40" />
 
     <!-- <p>{{ status }}</p> -->
     <p>{{ message }}</p>

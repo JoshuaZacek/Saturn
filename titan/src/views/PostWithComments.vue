@@ -50,6 +50,15 @@
       </svg>
     </div>
 
+    <button
+      class="toolbarButton"
+      @click="deletePost"
+      v-if="post.user.id == this.$store.getters.getUser.id"
+    >
+      <img src="/trash.svg" height="15" />
+      Delete
+    </button>
+
     <div v-if="!this.$route.params.comment">
       <div class="commentContainer" v-if="this.$store.getters.isLoggedIn">
         <textarea
@@ -208,6 +217,36 @@ export default class FullPagePost extends Vue {
   }
 
   // API
+  deletePost(): void {
+    this.overlayMessage = "Deleting post";
+    this.overlayStatus = "load";
+
+    axios
+      .delete(`http://localhost:4000/post/${this.post.id}`, {
+        withCredentials: true,
+      })
+      .then(() => {
+        this.overlayMessage = "Post deleted";
+        this.overlayStatus = "success";
+
+        setTimeout(() => {
+          this.overlayStatus = "";
+          this.overlayMessage = "";
+
+          this.$router.push({ name: "Home" });
+        }, 1000);
+      })
+      .catch(() => {
+        this.overlayStatus = "error";
+        this.overlayMessage = "Post couldn't be deleted";
+
+        setTimeout(() => {
+          this.overlayStatus = "";
+          this.overlayMessage = "";
+        }, 1000);
+      });
+  }
+
   postComment(post_id: number, content: string): void {
     this.overlayStatus = "load";
     this.overlayMessage = "Posting comment";
@@ -336,6 +375,7 @@ export default class FullPagePost extends Vue {
   align-items: center;
   gap: 7px;
   margin-top: 15px;
+  margin-right: 20px;
 }
 .voteButtons > p {
   font-size: 15px;
@@ -418,5 +458,29 @@ button:hover {
   position: absolute;
   bottom: 6px;
   right: 3px;
+}
+
+.toolbarButton {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  margin-top: -5px;
+
+  font-size: 15px;
+  font-weight: normal;
+
+  background-color: transparent;
+  color: var(--textPrimary);
+
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+.toolbarButton:hover {
+  background-color: var(--backgroundTertiary);
+}
+.toolbarButton > img {
+  margin-right: 5px;
 }
 </style>

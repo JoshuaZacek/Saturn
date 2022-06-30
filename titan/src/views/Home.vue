@@ -20,8 +20,8 @@
 
   <!-- posts -->
   <div>
-    <div v-for="post in posts" :key="post.id">
-      <Post :post="post" />
+    <div v-for="(post, index) in posts" :key="post.id">
+      <Post :post="post" @delete="posts.splice(index, 1)" />
     </div>
   </div>
 

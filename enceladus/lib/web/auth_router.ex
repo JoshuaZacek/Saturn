@@ -30,6 +30,19 @@ defmodule Saturn.AuthRouter do
     end
   end
 
+  delete "/post/:post_id" do
+    case Saturn.Posts.delete(post_id, conn.assigns.user_id) do
+      :ok ->
+        send_resp(conn, 204, "")
+
+      {:error, :forbidden} ->
+        send_resp(conn, 403, "Only the author can delete this post")
+
+      {:error, _} ->
+        send_resp(conn, 400, "Bad request")
+    end
+  end
+
   # VOTES
   # Upvote/downvote a post
   post "/vote" do

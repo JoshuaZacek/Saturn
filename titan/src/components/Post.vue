@@ -1,4 +1,6 @@
 <template>
+  <Overlay v-if="overlayStatus" :status="overlayStatus" :message="overlayMessage" />
+
   <div class="postContainer">
     <h3>{{ post.title }}</h3>
 
@@ -43,36 +45,47 @@
       </svg>
     </div>
 
-    <div
+    <button
       class="toolbarButton"
       @click="$router.push({ name: 'PostWithComments', params: { id: this.post.id } })"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1023.95 1024">
-        <path
-          d="M848.88,715.26C928.49,648,979.62,557,985.81,456l.64-.46-.63.33q.63-10.25.63-20.64C986.45,215.57,774,37.5,512,37.5S37.5,215.57,37.5,435.22,249.93,832.94,512,832.94c30.2,0,59.91-3.14,88.37-6.89h0C717.49,1001.8,927,987,945,985.65,937.2,976.93,844.39,882,848.88,715.27Z"
-          style="fill:none;stroke:#757575;stroke-miterlimit:10;stroke-width:75px"
-        />
-      </svg>
-      <p>{{ post.comments }}</p>
-    </div>
+      <img src="/comment.svg" height="15" />
+      {{ post.comments }}
+    </button>
+
+    <button
+      class="toolbarButton"
+      @click="deletePost"
+      v-if="post.user.id == this.$store.getters.getUser.id"
+    >
+      <img src="/trash.svg" height="15" />
+      Delete
+    </button>
   </div>
 </template>
 
 <script lang="ts">
 // Packages
 import { Options, Vue } from "vue-class-component";
+import Overlay from "@/components/Overlay.vue";
 import axios from "axios";
 import { relativeTime } from "@/relativeTime";
 
 @Options({
+  components: {
+    Overlay,
+  },
   props: {
     post: Object,
   },
+  emits: ["delete"],
 })
 export default class Post extends Vue {
   // Define variables and types
   currentVote = "";
   timeSince = "";
+  overlayMessage = "";
+  overlayStatus = "";
 
   post!: Record<string, unknown>;
 
@@ -88,6 +101,36 @@ export default class Post extends Vue {
   }
 
   // API
+  deletePost(): void {
+    this.overlayMessage = "Deleting post";
+    this.overlayStatus = "load";
+
+    axios
+      .delete(`http://localhost:4000/post/${this.post.id}`, {
+        withCredentials: true,
+      })
+      .then(() => {
+        this.overlayMessage = "Post deleted";
+        this.overlayStatus = "success";
+
+        setTimeout(() => {
+          this.overlayStatus = "";
+          this.overlayMessage = "";
+
+          this.$emit("delete");
+        }, 1000);
+      })
+      .catch(() => {
+        this.overlayStatus = "error";
+        this.overlayMessage = "Post couldn't be deleted";
+
+        setTimeout(() => {
+          this.overlayStatus = "";
+          this.overlayMessage = "";
+        }, 1000);
+      });
+  }
+
   deleteVote(): void {
     axios
       .delete(`http://localhost:4000/vote?post_id=${this.post.id}`, {
@@ -187,6 +230,7 @@ export default class Post extends Vue {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  margin-right: 10px;
 }
 .voteButtons > p {
   font-size: 15px;
@@ -214,24 +258,26 @@ svg {
 }
 
 .toolbarButton {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 15px;
-  padding: 5px 5px;
-  gap: 7px;
-  border-radius: 5px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 12px;
   cursor: pointer;
-
-  position: absolute;
   margin-top: -5px;
-}
-.toolbarButton > p {
+
   font-size: 15px;
+  font-weight: normal;
+
+  background-color: transparent;
+  color: var(--textPrimary);
+
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
 }
 .toolbarButton:hover {
   background-color: var(--backgroundTertiary);
 }
-.toolbarButton:active {
-  background-color: var(--textTertiary);
+.toolbarButton > img {
+  margin-right: 5px;
 }
 </style>
