@@ -4,7 +4,7 @@ defmodule Saturn.Comment do
 
   alias Saturn.{Vote, User, Post, Comment}
 
-  @derive {Jason.Encoder, except: [:__meta__, :post_id, :user_id, :comment_id, :post, :comment]}
+  @derive {Jason.Encoder, except: [:__meta__, :post_id, :user_id, :comment_id, :comment, :post]}
   schema "comments" do
     has_many(:votes, Vote)
     belongs_to(:user, User)

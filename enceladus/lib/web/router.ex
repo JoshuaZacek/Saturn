@@ -203,6 +203,92 @@ defmodule Saturn.Router do
     end
   end
 
+  # PROFILES
+  # Get user details by username
+  get "/user/:username" do
+    case Saturn.Accounts.get(username) do
+      nil ->
+        send_resp(conn, 404, "Not found")
+
+      user ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(
+          200,
+          Jason.encode!(user)
+        )
+    end
+  end
+
+  # Get a user's posts
+  get "/profile/:user_id/posts" do
+    case Saturn.Profiles.get_posts(
+           parse_int(user_id),
+           conn.params["sort"],
+           parse_cursor(conn.params["cursor"]),
+           parse_int(conn.params["limit"])
+         ) do
+      {:ok, posts} ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(
+          200,
+          Jason.encode!(posts)
+        )
+    end
+  end
+
+  # Get a user's comments
+  get "/profile/:user_id/comments" do
+    case Saturn.Profiles.get_comments(
+           parse_int(user_id),
+           conn.params["sort"],
+           parse_cursor(conn.params["cursor"]),
+           parse_int(conn.params["limit"])
+         ) do
+      {:ok, comments} ->
+        comments = %{
+          next_cursor: comments.next_cursor,
+          content:
+            Enum.map(comments.content, fn comment ->
+              Map.drop(comment, [
+                :__meta__,
+                :__struct__,
+                :post_id,
+                :user_id,
+                :comment_id,
+                :comment
+              ])
+            end)
+        }
+
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(
+          200,
+          Jason.encode!(comments)
+        )
+    end
+  end
+
+  # Get at user's overview
+  get "/profile/:user_id/overview" do
+    case Saturn.Profiles.overview(
+           parse_int(user_id),
+           conn.params["sort"],
+           parse_cursor(conn.params["cursor"]),
+           parse_int(conn.params["limit"])
+         ) do
+      {:ok, overview} ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(
+          200,
+          Jason.encode!(overview)
+        )
+    end
+  end
+
   forward("/", to: AuthRouter)
 
   defp parse_int(num) do

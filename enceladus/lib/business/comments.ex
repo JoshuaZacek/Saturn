@@ -86,7 +86,7 @@ defmodule Saturn.Comments do
           if cursor do
             dynamic(
               [c],
-              fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", c.id) <=
+              fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE comment_id = ?", c.id) <=
                 ^cursor["votes"] and
                 c.id <= ^cursor["id"]
             )
