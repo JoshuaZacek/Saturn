@@ -7,7 +7,14 @@
         <strong>/{{ post.moon.name }}</strong>
       </a>
 
-      <p>{{ post.user.username }}</p>
+      <p
+        class="username"
+        @click="
+          $router.push({ name: 'Profile', params: { username: post.user.username } })
+        "
+      >
+        {{ post.user.username }}
+      </p>
 
       <p>{{ timeSince }}</p>
     </div>
@@ -164,6 +171,10 @@ export default class Post extends Vue {
   color: var(--textSecondary);
 }
 .details > a:hover {
+  text-decoration: underline;
+  cursor: pointer;
+}
+.username:hover {
   text-decoration: underline;
   cursor: pointer;
 }

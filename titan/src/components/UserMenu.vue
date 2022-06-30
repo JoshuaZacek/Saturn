@@ -33,6 +33,7 @@ import { Options, Vue } from "vue-class-component";
 })
 export default class Menu extends Vue {
   options!: Array<string>;
+  username!: string;
 
   selected = this.options[0];
   showMenu = false;
@@ -125,6 +126,10 @@ export default class Menu extends Vue {
 
       case "Settings":
         this.$router.push({ name: "Settings" });
+        break;
+
+      case "Profile":
+        this.$router.push({ name: "Profile", params: { username: this.username } });
         break;
 
       default:

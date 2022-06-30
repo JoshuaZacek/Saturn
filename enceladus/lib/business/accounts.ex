@@ -152,4 +152,13 @@ defmodule Saturn.Accounts do
         {:error, %{errors: errors}}
     end
   end
+
+  def get(username) do
+    Repo.one(
+      from(u in User,
+        where: u.username == ^username,
+        select: map(u, [:id, :username, :inserted_at])
+      )
+    )
+  end
 end

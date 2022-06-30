@@ -6,6 +6,7 @@ import CreateMoon from '../views/CreateMoon.vue'
 import CreatePost from '../views/CreatePost.vue'
 import Settings from '../views/Settings.vue'
 import PostWithComments from '../views/PostWithComments.vue'
+import Profile from '../views/Profile.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -37,6 +38,11 @@ const routes: Array<RouteRecordRaw> = [
     path: '/post/:id/:comment?',
     name: "PostWithComments",
     component: PostWithComments
+  },
+  {
+    path: '/@:username(.*)',
+    name: 'Profile',
+    component: Profile
   },
   {
     path: '/:moon',
