@@ -1,39 +1,37 @@
 <template>
-  <SegmentedControl
-    class="segmentedControl"
-    :segments="Object.keys(postSorts)"
-    @change="changePostSort"
-  />
-
-  <!-- Post sort heading & time period dropdown -->
-  <div v-if="postSorts[currentPostSort]['timePeriodDropdown']" style="width: 550px;">
-    <p class="postSortHeadingDropdown">{{ currentPostSort }} posts from:</p>
-    <Menu
-      style="display: inline-block;"
-      :options="timePeriods"
-      @select="changeTimePeriod"
-    />
-  </div>
-  <div v-else>
-    <p class="postSortHeading">{{ currentPostSort }} posts</p>
-  </div>
-
-  <!-- posts -->
   <div>
-    <div v-for="(post, index) in posts" :key="post.id">
-      <Post :post="post" @delete="posts.splice(index, 1)" />
+    <SegmentedControl
+      class="segmentedControl"
+      :segments="Object.keys(sorts)"
+      @change="changeSort"
+    />
+
+    <div v-if="sorts[currentSort].timePeriodDropdown">
+      <p class="sortHeadingWithDropdown">{{ currentSort }} posts from:</p>
+      <Menu
+        class="sortHeadingWithDropdown"
+        :options="timePeriods"
+        @select="changeTimePeriod"
+      />
     </div>
+    <p v-else class="sortHeading">{{ currentSort }} posts</p>
   </div>
+
+  <Post
+    v-for="(post, index) in posts"
+    :key="post.id"
+    :post="post"
+    @delete="posts.splice(index, 1)"
+  />
 
   <Loader
     v-if="fetchingPosts"
     :size="40"
     bgColor="#fcfcfc"
     fgColor="#d9d9d9"
-    class="footerLoader"
+    class="loader"
   />
-  <p v-if="!nextCursor && !posts.length" class="footerText">Hmmm... empty</p>
-  <p v-else-if="!nextCursor && !fetchingPosts" class="footerText">That's all folks</p>
+  <p v-if="footer" class="footer">{{ footer }}</p>
 </template>
 
 <script lang="ts">
@@ -53,7 +51,7 @@ import axios from "axios";
   },
 })
 export default class Home extends Vue {
-  postSorts = {
+  sorts = {
     New: {
       timePeriodDropdown: false,
     },
@@ -62,8 +60,10 @@ export default class Home extends Vue {
     },
   };
   timePeriods = ["Today", "This Week", "This Month", "This Year", "All Time"];
-  fetchingPosts = false;
-  currentPostSort = Object.keys(this.postSorts)[0];
+  fetchingPosts = true;
+  footer = "Loading posts";
+
+  currentSort = Object.keys(this.sorts)[0];
   currentTimePeriod = this.timePeriods[0];
   posts: Record<string, unknown>[] = [];
   nextCursor: string | null = null;
@@ -71,52 +71,58 @@ export default class Home extends Vue {
   created(): void {
     window.onscroll = () => {
       if (window.innerHeight + window.pageYOffset >= document.body.offsetHeight - 2) {
-        this.fetchMorePosts();
+        if (this.nextCursor && !this.fetchingPosts) {
+          this.getPosts();
+        }
       }
     };
 
-    const url = this.createPostsURL(this.currentPostSort, this.currentTimePeriod);
-    this.getPosts(url).then(([posts, nextCursor]) => {
-      this.posts = <Record<string, unknown>[]>posts;
-      this.nextCursor = <string | null>nextCursor;
-    });
+    this.getPosts();
   }
 
-  changePostSort(sort: string): void {
-    this.currentPostSort = sort;
-    this.reloadPosts(this.timePeriods[0], sort);
+  getPosts(): void {
+    this.fetchingPosts = true;
+    this.footer = "Loading posts";
+
+    const url = this.createPostsURL(
+      this.currentSort,
+      this.currentTimePeriod,
+      this.nextCursor
+    );
+
+    axios
+      .get(url, { withCredentials: true })
+      .then((res) => {
+        if (!res.data.posts.length && !res.data.next_cursor) {
+          this.footer = "Hmmm... empty";
+        } else if (!res.data.next_cursor) {
+          this.footer = "That's all folks";
+        } else {
+          this.footer = "";
+        }
+        this.fetchingPosts = false;
+
+        this.posts = this.posts.concat(res.data.posts);
+        this.nextCursor = res.data.next_cursor;
+      })
+      .catch(() => {
+        this.fetchingPosts = false;
+        this.footer = "Posts couldn't be loaded. Please try again.";
+      });
+  }
+
+  changeSort(sort: string): void {
+    this.currentSort = sort;
+    this.posts = [];
+
+    this.getPosts();
   }
 
   changeTimePeriod(timePeriod: string): void {
     this.currentTimePeriod = timePeriod;
-    this.reloadPosts(timePeriod, this.currentPostSort);
-  }
-
-  // used when a new time period or post sort is selected
-  reloadPosts(timePeriod: string, sort: string): void {
     this.posts = [];
-    const url = this.createPostsURL(sort, timePeriod);
-    this.getPosts(url).then(([posts, nextCursor]) => {
-      this.posts = <Record<string, unknown>[]>posts;
-      this.nextCursor = <string | null>nextCursor;
-    });
-  }
 
-  fetchMorePosts(): void {
-    if (this.nextCursor && !this.fetchingPosts) {
-      this.fetchingPosts = true;
-
-      const url = this.createPostsURL(
-        this.currentPostSort,
-        this.currentTimePeriod,
-        this.nextCursor
-      );
-      this.getPosts(url).then(([posts, nextCursor]) => {
-        this.posts = this.posts.concat(<Record<string, unknown>[]>posts);
-        this.nextCursor = <string | null>nextCursor;
-        this.fetchingPosts = false;
-      });
-    }
+    this.getPosts();
   }
 
   // used to create & format the url to fetch posts from the api
@@ -137,39 +143,30 @@ export default class Home extends Vue {
       timePeriod ? "&time=" + timePeriodSeconds : ""
     }${cursor ? "&cursor=" + cursor : ""}`;
   }
-
-  // api call for posts
-  async getPosts(url: string): Promise<(Record<string, unknown>[] | string | null)[]> {
-    const res = await axios.get(url, { withCredentials: true });
-    return [res.data.posts, res.data.next_cursor];
-  }
 }
 </script>
 
 <style scoped>
-.postSortHeading {
-  margin-top: 4px;
-  margin-left: 10px;
-  width: 550px;
-  margin-bottom: 20px;
-}
-.postSortHeadingDropdown {
-  display: inline-block;
-  margin-right: 5px;
-  margin-left: 5px;
-  margin-bottom: 20px;
-}
 .segmentedControl {
   margin-top: 30px;
-  margin-bottom: 15px;
 }
-.footerText {
+
+.sortHeading {
+  margin: 20px 0;
+}
+.sortHeadingWithDropdown {
+  display: inline-block;
+}
+p.sortHeadingWithDropdown {
+  margin: 20px 5px 20px 0;
+}
+
+.footer {
   color: #d9d9d9;
-  margin-top: 20px;
-  margin-bottom: 40px;
+  margin-top: 10px;
+  margin-bottom: 30px;
 }
-.footerLoader {
-  margin-top: 20px;
-  margin-bottom: 40px;
+.loader {
+  margin-top: 10px;
 }
 </style>

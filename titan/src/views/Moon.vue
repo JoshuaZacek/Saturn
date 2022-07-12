@@ -1,43 +1,47 @@
 <template>
-  <div class="banner">
-    <h1>/{{ $route.params.moon }}</h1>
+  <div v-if="!moonStatus" class="banner">
+    <h1>/{{ moon.name }}</h1>
     <Button class="bannerButton" @click="this.$router.push({ name: 'CreatePost' })"
       >Create post</Button
     >
   </div>
-  <SegmentedControl
-    class="segmentedControl"
-    :segments="Object.keys(postSorts)"
-    @change="changePostSort"
-  />
 
-  <!-- Post sort heading & time period dropdown -->
-  <div v-if="postSorts[currentPostSort]['timePeriodDropdown']" style="width: 550px;">
-    <p class="postSortHeadingDropdown">{{ currentPostSort }} posts from:</p>
-    <Menu
-      style="display: inline-block;"
-      :options="timePeriods"
-      @select="changeTimePeriod"
+  <div v-if="!moonStatus">
+    <SegmentedControl
+      class="segmentedControl"
+      :segments="Object.keys(sorts)"
+      @change="changeSort"
+    />
+
+    <div v-if="sorts[currentSort].timePeriodDropdown">
+      <p class="sortHeadingWithDropdown">{{ currentSort }} posts from:</p>
+      <Menu
+        class="sortHeadingWithDropdown"
+        :options="timePeriods"
+        @select="changeTimePeriod"
+      />
+    </div>
+    <p v-else class="sortHeading">{{ currentSort }} posts</p>
+  </div>
+
+  <div v-if="!moonStatus">
+    <Post
+      v-for="(post, index) in posts"
+      :key="post.id"
+      :post="post"
+      @delete="posts.splice(index, 1)"
     />
   </div>
-  <div v-else>
-    <p class="postSortHeading">{{ currentPostSort }} posts</p>
-  </div>
 
-  <!-- posts -->
-  <div v-for="(post, index) in posts" :key="post.id">
-    <Post :post="post" @delete="posts.splice(index, 1)" />
+  <div :class="['loaderContainer', moonStatus ? 'moon' : 'post']">
+    <Loader
+      v-if="(moonStatus || postStatus) == 'fetching'"
+      :size="40"
+      bgColor="#fcfcfc"
+      fgColor="#d9d9d9"
+    />
+    <p v-if="footer">{{ footer }}</p>
   </div>
-
-  <Loader
-    v-if="fetchingPosts"
-    :size="40"
-    bgColor="#fcfcfc"
-    fgColor="#d9d9d9"
-    class="footerLoader"
-  />
-  <p v-if="!nextCursor && !posts.length" class="footerText">Hmmm... empty</p>
-  <p v-else-if="!nextCursor && !fetchingPosts" class="footerText">That's all folks</p>
 </template>
 
 <script lang="ts">
@@ -48,7 +52,6 @@ import Menu from "@/components/Menu.vue";
 import Post from "@/components/Post.vue";
 import Loader from "@/components/Loader.vue";
 import axios from "axios";
-import { RouteLocationNormalized, NavigationGuardNext } from "vue-router";
 
 @Options({
   components: {
@@ -58,27 +61,9 @@ import { RouteLocationNormalized, NavigationGuardNext } from "vue-router";
     Post,
     Loader,
   },
-  beforeRouteEnter(
-    to: RouteLocationNormalized,
-    _from: RouteLocationNormalized,
-    next: NavigationGuardNext
-  ): void {
-    axios
-      .get(`http://localhost:4000/moon/${to.params.moon}`)
-      .then(() => {
-        next();
-      })
-      .catch((err) => {
-        if (err.response.status == 404) {
-          next("/404");
-        } else {
-          throw err;
-        }
-      });
-  },
 })
 export default class Moon extends Vue {
-  postSorts = {
+  sorts = {
     New: {
       timePeriodDropdown: false,
     },
@@ -87,67 +72,87 @@ export default class Moon extends Vue {
     },
   };
   timePeriods = ["Today", "This Week", "This Month", "This Year", "All Time"];
-  fetchingPosts = false;
-  currentPostSort = Object.keys(this.postSorts)[0];
+  moonStatus = "fetching";
+  postStatus = "";
+  footer = "Loading moon";
+
+  currentSort = Object.keys(this.sorts)[0];
   currentTimePeriod = this.timePeriods[0];
   posts: Record<string, unknown>[] = [];
   moon: Record<string, never> = {};
   nextCursor: string | null = null;
 
-  created(): void {
+  async created(): Promise<void> {
     window.onscroll = () => {
-      if (window.innerHeight + window.pageYOffset >= document.body.offsetHeight) {
-        this.fetchMorePosts();
+      if (window.innerHeight + window.pageYOffset >= document.body.offsetHeight - 2) {
+        if (this.nextCursor && this.postStatus != "fetching") {
+          this.getPosts();
+        }
       }
     };
 
-    const url = this.createPostsURL(
-      this.currentPostSort,
-      this.currentTimePeriod,
-      <string>this.$route.params.moon
-    );
-    this.getPosts(url).then(([posts, nextCursor]) => {
-      this.posts = <Record<string, unknown>[]>posts;
-      this.nextCursor = <string | null>nextCursor;
-    });
+    axios
+      .get(`http://localhost:4000/moon/${this.$route.params.moon}`)
+      .then((res) => {
+        this.moon = res.data;
+        this.moonStatus = "";
+
+        this.getPosts();
+      })
+      .catch((err) => {
+        if (err?.response?.status == 404) {
+          this.$router.replace({ name: "404" });
+        } else {
+          this.moonStatus = "error";
+          this.footer = "Moon couldn't be loaded. Please try again.";
+        }
+      });
   }
 
-  changePostSort(sort: string): void {
-    this.currentPostSort = sort;
-    this.reloadPosts(this.timePeriods[0], sort);
+  getPosts(): void {
+    this.postStatus = "fetching";
+    this.footer = "Loading posts";
+
+    const url = this.createPostsURL(
+      this.currentSort,
+      this.currentTimePeriod,
+      this.moon.name,
+      this.nextCursor
+    );
+
+    axios
+      .get(url, { withCredentials: true })
+      .then((res) => {
+        if (!res.data.posts.length && !res.data.next_cursor) {
+          this.footer = "Hmmm... empty";
+        } else if (!res.data.next_cursor) {
+          this.footer = "That's all folks";
+        } else {
+          this.footer = "";
+        }
+        this.postStatus = "";
+
+        this.posts = this.posts.concat(res.data.posts);
+        this.nextCursor = res.data.next_cursor;
+      })
+      .catch(() => {
+        this.postStatus = "error";
+        this.footer = "Posts couldn't be loaded. Please try again.";
+      });
+  }
+
+  changeSort(sort: string): void {
+    this.currentSort = sort;
+    this.posts = [];
+
+    this.getPosts();
   }
 
   changeTimePeriod(timePeriod: string): void {
     this.currentTimePeriod = timePeriod;
-    this.reloadPosts(timePeriod, this.currentPostSort);
-  }
-
-  // used when a new time period or post sort is selected
-  reloadPosts(timePeriod: string, sort: string): void {
     this.posts = [];
-    const url = this.createPostsURL(sort, timePeriod, <string>this.$route.params.moon);
-    this.getPosts(url).then(([posts, nextCursor]) => {
-      this.posts = <Record<string, unknown>[]>posts;
-      this.nextCursor = <string | null>nextCursor;
-    });
-  }
 
-  fetchMorePosts(): void {
-    if (this.nextCursor && !this.fetchingPosts) {
-      this.fetchingPosts = true;
-
-      const url = this.createPostsURL(
-        this.currentPostSort,
-        this.currentTimePeriod,
-        <string>this.$route.params.moon,
-        this.nextCursor
-      );
-      this.getPosts(url).then(([posts, nextCursor]) => {
-        this.posts = this.posts.concat(<Record<string, unknown>[]>posts);
-        this.nextCursor = <string | null>nextCursor;
-        this.fetchingPosts = false;
-      });
-    }
+    this.getPosts();
   }
 
   // used to create & format the url to fetch posts from the api
@@ -173,12 +178,6 @@ export default class Moon extends Vue {
       timePeriod ? "&time=" + timePeriodSeconds : ""
     }${cursor ? "&cursor=" + cursor : ""}`;
   }
-
-  // api call for posts
-  async getPosts(url: string): Promise<(Record<string, unknown>[] | string | null)[]> {
-    const res = await axios.get(url, { withCredentials: true });
-    return [res.data.posts, res.data.next_cursor];
-  }
 }
 </script>
 
@@ -186,42 +185,49 @@ export default class Moon extends Vue {
 .banner {
   width: 100%;
   height: 175px;
-  background: var(--textSecondary);
-  padding: 15px 20px 20px;
   box-sizing: border-box;
+  padding: 15px 20px 20px;
+
+  background: var(--textSecondary);
+  color: var(--backgroundSecondary);
+
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
 }
 .bannerButton {
   margin-top: auto;
-  align-self: flex-start;
 }
-h1 {
-  color: var(--backgroundSecondary);
-}
-.postSortHeading {
-  margin-top: 4px;
-  margin-left: 10px;
-  width: 550px;
-  margin-bottom: 20px;
-}
-.postSortHeadingDropdown {
-  display: inline-block;
-  margin-right: 5px;
-  margin-left: 5px;
-  margin-bottom: 20px;
-}
+
 .segmentedControl {
   margin-top: 30px;
-  margin-bottom: 15px;
 }
-.footerText {
+
+.sortHeading {
+  margin: 20px 0;
+}
+.sortHeadingWithDropdown {
+  display: inline-block;
+}
+p.sortHeadingWithDropdown {
+  margin: 20px 5px 20px 0;
+}
+
+.loaderContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+
   color: #d9d9d9;
-  margin-top: 20px;
-  margin-bottom: 40px;
 }
-.footerLoader {
-  margin-top: 20px;
-  margin-bottom: 40px;
+.loaderContainer.post {
+  margin-top: 10px;
+  margin-bottom: 30px;
+}
+.loaderContainer.moon {
+  position: absolute;
+  top: calc(50% + 25px);
+  transform: translateY(-50%);
 }
 </style>

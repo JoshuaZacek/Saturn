@@ -1,9 +1,4 @@
 <template>
-  <div v-if="loadingProfile">
-    <Loader :size="40" bgColor="#fcfcfc" fgColor="#d9d9d9" />
-    <p>Loading profile...</p>
-  </div>
-
   <div v-if="!loadingProfile" class="profileBanner">
     <h1>@{{ userDetails.username }}</h1>
   </div>
@@ -11,30 +6,45 @@
   <div v-if="!loadingProfile" class="profileContainer">
     <SegmentedControl
       class="segmentedControl"
-      :segments="['Overview', 'Posts', 'Comments']"
+      :segments="contentTypes"
       @change="changeContentType"
     />
 
     <div class="sortDropdown">
       <p>Sort {{ currentContentType }} by:</p>
-      <Menu :options="['New', 'Top']" @select="changeContentSort" />
+      <Menu :options="contentSorts" @select="changeContentSort" />
     </div>
 
     <div v-for="(content, index) in profileContent" :key="content.id">
       <Post
-        v-if="content.type == 'post' || currentContentType == 'posts'"
+        v-if="content.contentType == 'post' || currentContentType == 'posts'"
         :post="content"
         @delete="profileContent.splice(index, 1)"
       />
       <CommentProfile
-        v-if="content.type == 'comment' || currentContentType == 'comments'"
+        v-if="content.contentType == 'comment' || currentContentType == 'comments'"
         :comment="content"
       />
     </div>
+  </div>
 
-    <div v-if="loadingContent && !loadingProfile">
-      <Loader :size="30" bgColor="#ffffff" fgColor="#d9d9d9" />
-    </div>
+  <div v-if="!loadingProfile && !loadingContent">
+    <p v-if="!nextCursor && profileContent.length == 0" class="footer">Hmmm... empty</p>
+    <p v-else-if="!nextCursor" class="footer">
+      That's all folks
+    </p>
+  </div>
+
+  <div
+    v-if="loadingProfile || loadingContent"
+    :class="['loaderContainer', loadingProfile ? 'profile' : 'content']"
+  >
+    <Loader v-if="!error" :size="40" bgColor="#fcfcfc" fgColor="#d9d9d9" />
+
+    <p v-if="error">{{ error }}</p>
+    <p v-else>
+      {{ loadingProfile ? "Loading profile" : "Loading content" }}
+    </p>
   </div>
 </template>
 
@@ -46,7 +56,6 @@ import CommentProfile from "@/components/CommentProfile.vue";
 import Post from "@/components/Post.vue";
 import Loader from "@/components/Loader.vue";
 import axios from "axios";
-import { AxiosError } from "axios";
 
 @Options({
   components: {
@@ -58,74 +67,66 @@ import { AxiosError } from "axios";
   },
 })
 export default class Profile extends Vue {
-  currentContentType = "overview";
-  currentContentSort = "new";
+  contentTypes = ["Overview", "Posts", "Comments"];
+  currentContentType = this.contentTypes[0].toLowerCase();
+  contentSorts = ["New", "Top"];
+  currentContentSort = this.contentSorts[0].toLowerCase();
   loadingProfile = true;
-  loadingContent = true;
+  loadingContent = false;
+  error = "";
+
   profileContent: Record<string, unknown>[] = [];
   userDetails!: Record<string, never>;
   nextCursor: string | null = null;
 
-  async created(): Promise<void> {
-    try {
-      const res = await axios.get(
-        `http://localhost:4000/user/${this.$route.params.username}`
-      );
-      this.userDetails = res.data;
-    } catch (err) {
-      if ((<AxiosError>err).response?.status == 404) {
-        this.$router.replace({ name: "404" });
-      } else {
-        throw err;
-      }
-    }
-    this.loadingProfile = false;
+  created(): void {
+    axios
+      .get(`http://localhost:4000/user/${this.$route.params.username}`)
+      .then((res) => {
+        this.userDetails = res.data;
+        this.loadingProfile = false;
 
-    this.fetchProfileContent(
-      this.userDetails.id,
-      this.currentContentType,
-      this.currentContentSort,
-      this.nextCursor
-    ).then(([content, nextCursor]) => {
-      this.profileContent = <Record<string, unknown>[]>content;
-      this.nextCursor = <string | null>nextCursor;
-    });
-    this.loadingContent = false;
+        this.fetchProfileContent();
+      })
+      .catch((err) => {
+        if (err.response?.status == 404) {
+          this.$router.replace({ name: "404" });
+        } else {
+          this.error = "Profile couldn't be loaded";
+        }
+      });
 
-    window.onscroll = () => {
+    window.onscroll = async () => {
       if (window.innerHeight + window.pageYOffset >= document.body.offsetHeight - 2) {
-        if (this.nextCursor && !this.loadingContent) {
-          this.loadingContent = true;
-
-          this.fetchProfileContent(
-            this.userDetails.id,
-            this.currentContentType,
-            this.currentContentSort,
-            this.nextCursor
-          ).then(([content, nextCursor]) => {
-            this.profileContent = this.profileContent.concat(
-              <Record<string, unknown>[]>content
-            );
-            this.nextCursor = <string | null>nextCursor;
-            this.loadingContent = false;
-          });
+        if (this.nextCursor && !this.loadingContent && !this.loadingProfile) {
+          await this.fetchProfileContent();
         }
       }
     };
   }
 
-  async fetchProfileContent(
-    user_id: number,
-    type: string,
-    sort: string,
-    cursor: string | null
-  ): Promise<(Record<string, unknown>[] | string | null)[]> {
-    const res = await axios.get(
-      `http://localhost:4000/profile/${user_id}/${type}?sort=${sort}&limit=5${
-        cursor ? `&cursor=${cursor}` : ""
-      }`
-    );
-    return [res.data.content, res.data.next_cursor];
+  async fetchProfileContent(): Promise<void> {
+    this.loadingContent = true;
+
+    const user_id = this.userDetails.id;
+    const type = this.currentContentType;
+    const sort = this.currentContentSort;
+    const cursor = this.nextCursor;
+
+    await axios
+      .get(
+        `http://localhost:4000/profile/${user_id}/${type}?sort=${sort}&limit=5${
+          cursor ? `&cursor=${cursor}` : ""
+        }`,
+        { withCredentials: true }
+      )
+      .then((res) => {
+        this.profileContent = this.profileContent.concat(res.data.content);
+        this.nextCursor = res.data.next_cursor;
+
+        this.loadingContent = false;
+      })
+      .catch(() => (this.error = "Content couldn't be loaded"));
   }
 
   changeContentType(type: string): void {
@@ -133,15 +134,7 @@ export default class Profile extends Vue {
     this.nextCursor = null;
     this.currentContentType = type.toLowerCase();
 
-    this.fetchProfileContent(
-      this.userDetails.id,
-      this.currentContentType,
-      this.currentContentSort,
-      this.nextCursor
-    ).then(([content, nextCursor]) => {
-      this.profileContent = <Record<string, unknown>[]>content;
-      this.nextCursor = <string | null>nextCursor;
-    });
+    this.fetchProfileContent();
   }
 
   changeContentSort(sort: string): void {
@@ -149,15 +142,7 @@ export default class Profile extends Vue {
     this.nextCursor = null;
     this.currentContentSort = sort.toLowerCase();
 
-    this.fetchProfileContent(
-      this.userDetails.id,
-      this.currentContentType,
-      this.currentContentSort,
-      this.nextCursor
-    ).then(([content, nextCursor]) => {
-      this.profileContent = <Record<string, unknown>[]>content;
-      this.nextCursor = <string | null>nextCursor;
-    });
+    this.fetchProfileContent();
   }
 }
 </script>
@@ -184,5 +169,29 @@ export default class Profile extends Vue {
 }
 .sortDropdown {
   width: 550px;
+}
+
+.footer {
+  color: #d9d9d9;
+  margin-top: 10px;
+  margin-bottom: 30px;
+}
+
+.loaderContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+
+  color: #d9d9d9;
+}
+.loaderContainer.content {
+  margin-top: 10px;
+  margin-bottom: 30px;
+}
+.loaderContainer.profile {
+  position: absolute;
+  top: calc(50% + 25px);
+  transform: translateY(-50%);
 }
 </style>

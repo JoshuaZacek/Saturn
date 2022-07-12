@@ -27,13 +27,12 @@ import { Options, Vue } from "vue-class-component";
 @Options({
   name: "UserMenu",
   props: {
-    options: Array,
     username: String,
   },
 })
 export default class Menu extends Vue {
-  options!: Array<string>;
   username!: string;
+  options = ["Settings", "Profile", "Create post", "Create moon", "Log out"];
 
   selected = this.options[0];
   showMenu = false;
@@ -130,10 +129,6 @@ export default class Menu extends Vue {
 
       case "Profile":
         this.$router.push({ name: "Profile", params: { username: this.username } });
-        break;
-
-      default:
-        console.log(option + " has been selected from the user menu!");
         break;
     }
   }

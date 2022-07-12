@@ -1,5 +1,5 @@
 <template>
-  <button :style="buttonWidth" :class="buttonType">
+  <button :class="[color, size]">
     <slot />
   </button>
 </template>
@@ -10,73 +10,57 @@ import { Options, Vue } from "vue-class-component";
 @Options({
   name: "Button",
   props: {
-    buttonType: {
+    color: {
       type: String,
-      default: "primary",
+      default: "blue",
     },
-    width: {
+    size: {
       type: String,
-      default: "",
+      default: "large",
     },
   },
 })
-export default class Button extends Vue {
-  width!: string;
-
-  get buttonWidth(): string {
-    if (this.width) {
-      return `width: ${this.width};`;
-    } else {
-      return "";
-    }
-  }
-}
+export default class Button extends Vue {}
 </script>
 
 <style scoped>
+/* Base */
 button {
+  display: inline-block;
+
   border: none;
   cursor: pointer;
-  font-weight: 600;
+
+  font-weight: 500;
   font-size: 16px;
-  padding: 9px 20px;
+
+  background-color: transparent;
+}
+
+/* Sizes */
+button.large {
+  padding: 10px 15px;
   border-radius: 15px;
-  height: 40px;
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
+}
+button.small {
+  padding: 5px 10px;
+  border-radius: 12px;
 }
 
-button.primary {
-  color: #fff;
-  background-color: #006cff;
+/* colors */
+button.blue {
+  color: #006cff;
 }
-button.primary:hover {
-  background-color: #005ff2;
-}
-button.primary:active {
-  background-color: #0053e6;
+button.blue:hover,
+button.blue.large {
+  background-color: #006cff11;
 }
 
-button.secondary {
-  color: #000;
-  background-color: var(--backgroundTertiary);
+button.red {
+  color: #ff0000;
 }
-button.secondary:hover {
-  background-color: #e2e2e2;
-}
-button.secondary:active {
-  background-color: #d6d6d6;
-}
-
-button.destructive {
-  color: #fff;
-  background-color: #ff0000;
-}
-button.destructive:hover {
-  background-color: #f20000;
-}
-button.destructive:active {
-  background-color: #e60000;
+button.red:hover,
+button.red.large {
+  background-color: #ff000011;
 }
 </style>

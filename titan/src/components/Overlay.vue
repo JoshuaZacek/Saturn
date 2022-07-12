@@ -28,7 +28,7 @@ export default class Overlay extends Vue {}
 <style scoped>
 .overlay {
   background-color: rgba(0, 0, 0, 0.9);
-  z-index: 100;
+  z-index: 1000;
   backdrop-filter: blur(4px);
   box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.2);
 

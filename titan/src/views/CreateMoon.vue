@@ -1,104 +1,113 @@
 <template>
+  <Overlay v-if="overlayStatus" :status="overlayStatus" :message="overlayMessage" />
+
   <div>
     <h1>Create moon</h1>
-    <div class="inputWrapper">
+    <p class="info">
+      Moons can only contain letters, numbers and underscores. Moon names cannot be
+      changed.
+    </p>
+
+    <div class="inputContainer">
       <input
         type="text"
-        name="name"
-        placeholder="name"
-        ref="moonName"
+        name="moon"
+        placeholder="moon"
+        ref="moon"
         spellcheck="false"
-        @keydown.enter="createMoon"
         :class="{ error: error }"
-        @input="validate"
+        @keydown.enter="createMoon"
+        @input="validateMoon($refs.moon.value, true)"
       />
-      <label for="name">/</label>
-      <p>{{ error }}</p>
-      <Tooltip class="tooltip"
-        >Moon names can only contain letters, numbers and underscores. This name cannot be
-        changed.</Tooltip
-      >
+      <label for="moon">/</label>
+      <p class="error">{{ error }}</p>
     </div>
-    <Button style="float: right;" @click="createMoon" width="91px">
-      <Loader v-if="loading" :size="30" bgColor="transparent" fgColor="#fff" />
-      <span v-else>Create</span>
-    </Button>
+
+    <Button class="createButton" @click="createMoon">Create</Button>
   </div>
 </template>
 
 <script lang="ts">
 import { Options, Vue } from "vue-class-component";
+import Overlay from "@/components/Overlay.vue";
 import Button from "@/components/Button.vue";
-import Tooltip from "@/components/Tooltip.vue";
-import Loader from "@/components/Loader.vue";
 import axios from "axios";
 
 @Options({
   components: {
+    Overlay,
     Button,
-    Tooltip,
-    Loader,
   },
 })
 export default class CreateMoon extends Vue {
-  loading = false;
+  overlayMessage = "";
+  overlayStatus = "";
   error = "";
 
-  capitalize(string: string): string {
-    return string.charAt(0).toUpperCase() + string.slice(1);
+  created(): void {
+    if (!this.$store.getters.isLoggedIn) {
+      this.$router.replace({ name: "404" });
+    }
+  }
+
+  async setOverlay(status: string, message: string, autoClear = true): Promise<void> {
+    this.overlayStatus = status;
+    this.overlayMessage = message;
+
+    if (autoClear) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      this.setOverlay("", "", false);
+    }
+  }
+
+  validateMoon(name: string, live = false): boolean {
+    let valid = true;
+
+    if (!name) {
+      this.error = "Please enter a moon";
+      valid = false;
+    }
+
+    if (!/^\w+$/.test(name) && name) {
+      this.error = "Moons can only contain letters, numbers and underscores";
+      valid = false;
+    } else if (live) {
+      this.error = "";
+    }
+
+    return valid;
   }
 
   createMoon(): void {
-    this.loading = true;
+    const moon = (<HTMLInputElement>this.$refs.moon).value;
 
-    const name = (<HTMLInputElement>this.$refs.moonName).value;
-    if (!name) {
-      this.error = "Please enter a name";
-    }
-
-    if (this.error) {
-      this.loading = false;
+    this.error = "";
+    if (!this.validateMoon(moon)) {
       return;
     }
 
+    this.setOverlay("load", "Creating moon", false);
+
     axios
-      .post(
-        "http://localhost:4000/moon",
-        { name: name },
-        {
-          withCredentials: true,
-        }
-      )
-      .then(() => {
-        this.loading = false;
-        this.$router.push({ name: "Moon", params: { moon: name } });
+      .post("http://localhost:4000/moon", { name: moon }, { withCredentials: true })
+      .then(async () => {
+        await this.setOverlay("success", "Created moon");
+
+        this.$router.push({ name: "Moon", params: { moon: moon } });
       })
       .catch((err) => {
-        this.loading = false;
         if (err?.response?.status == 400) {
-          const errors = err.response.data.errors;
-          const errorKeys = Object.keys(errors);
+          this.setOverlay("", "", false);
 
-          for (let i = 0; i < errorKeys.length; i++) {
-            const key = errorKeys[i];
-            this.error = `${this.capitalize(key)} ${errors[key]}`;
-          }
+          const errors = err.response.data.errors;
+
+          Object.keys(errors).forEach((key) => {
+            this.error = this.error.concat(errors[key][0], "\n");
+          });
         } else {
-          this.error = "Something went wrong, check console for details";
-          throw err;
+          this.setOverlay("error", "Couldn't create moon");
         }
       });
-  }
-
-  validate(): void {
-    const name = (<HTMLInputElement>this.$refs.moonName).value;
-
-    if (!/^\w+$/.test(name) && name) {
-      this.error = "Moon names must only contain letters, numbers and underscores";
-      this.loading = false;
-    } else {
-      this.error = "";
-    }
   }
 }
 </script>
@@ -107,31 +116,33 @@ export default class CreateMoon extends Vue {
 h1 {
   margin-top: 30px;
 }
-.inputWrapper {
+.info {
+  max-width: 500px;
+  color: var(--textSecondary);
+  margin-top: 5px;
+}
+
+.inputContainer {
   position: relative;
   margin-top: 20px;
-  margin-bottom: 30px;
 }
 input {
   width: 500px;
+  padding: 10px 50px 10px 30px;
+
   outline: none;
   border: none;
-  font-size: 35px;
-  font-weight: bold;
-  padding: 10px 50px 10px 30px;
-  -webkit-appearance: none;
-  background-color: white;
-  color: black;
   border-radius: 15px;
   box-sizing: border-box;
+
+  font-size: 35px;
+  font-weight: bold;
+
+  background-color: var(--backgroundSecondary);
+  color: var(--textPrimary);
 }
 input::placeholder {
   color: var(--textTertiary);
-}
-input.error {
-  border-color: #ff0000;
-  border-style: solid;
-  border-width: 2px;
 }
 label {
   position: absolute;
@@ -141,13 +152,24 @@ label {
   font-weight: bold;
   color: var(--textTertiary);
 }
-.tooltip {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-}
-p {
+
+p.error {
   color: red;
   margin-top: 10px;
+}
+input.error {
+  background-color: #ff000011;
+  color: #ff0000;
+}
+input.error::placeholder {
+  color: #ff000050;
+}
+input.error + label {
+  color: #ff000050;
+}
+
+.createButton {
+  float: right;
+  margin-top: 20px;
 }
 </style>

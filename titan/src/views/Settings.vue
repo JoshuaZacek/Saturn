@@ -1,214 +1,126 @@
 <template>
-  <div style="width: 550px;">
+  <div class="container">
     <h1>Settings</h1>
 
-    <div class="settingContainer">
+    <div class="option">
       <span>
-        <p class="settingTitle">Email</p>
-        <p class="settingDescription">{{ this.$store.getters.getUser.email }}</p>
+        <p class="title">Email</p>
+        <p class="description">{{ this.$store.getters.getUser.email }}</p>
       </span>
 
-      <button>Change</button>
+      <Button @click="currentModal = 'email'" size="small">Change</Button>
     </div>
 
-    <div class="settingContainer">
+    <div class="option">
       <span>
-        <p class="settingTitle">Password</p>
+        <p class="title">Password</p>
       </span>
 
-      <button @click="modalOpen('changePassword')">Change</button>
+      <Button @click="currentModal = 'password'" size="small">Change</Button>
     </div>
 
     <div class="divider"></div>
 
-    <div class="settingContainer" style="margin-top: 20px;">
+    <div class="option">
       <span>
-        <p class="settingTitle">Delete account</p>
-        <p class="settingDescription">
-          Your posts, comments, moons and profile will be deleted
-        </p>
+        <p class="title">Delete account</p>
+        <p class="description">Your posts, comments, moons and votes will be deleted</p>
       </span>
-      <button class="destructive">Delete</button>
+
+      <Button @click="currentModal = 'delete'" size="small" color="red">Delete</Button>
     </div>
   </div>
 
-  <Modal
-    title="Change password"
-    v-if="modal == 'changePassword'"
-    @close="modalClose"
-    @buttonClick="changePassword"
-  >
-    <template #message>Your new password should be at least 8 characters long</template>
-    <template #content>
-      <form @submit.prevent="changePassword" novalidate>
-        <Input
-          label="Old password"
-          name="oldPassword"
-          type="password"
-          :error="errors.oldPassword"
-          @input="eraseErrors"
-        />
-        <Input
-          label="New password"
-          name="newPassword"
-          type="password"
-          :error="errors.newPassword"
-          @input="eraseErrors"
-        />
-        <!-- this hidden submit button is needed for the form to submit when the enter key is pressed -->
-        <input type="submit" style="visibility: hidden; position: absolute;" />
-      </form>
-    </template>
-    <template #primaryButton>
-      <Loader v-if="processingRequest" :size="30" bgColor="transparent" fgColor="#fff" />
-      <span v-else>Change password</span>
-    </template>
-  </Modal>
+  <ChangePassword v-if="currentModal == 'password'" @close="currentModal = ''" />
+  <ChangeEmail v-if="currentModal == 'email'" @close="currentModal = ''" />
+  <DeleteAccount v-if="currentModal == 'delete'" @close="currentModal = ''" />
 </template>
 
 <script lang="ts">
 import { Options, Vue } from "vue-class-component";
+import Button from "@/components/Button.vue";
 import Modal from "@/components/Modal.vue";
-import Input from "@/components/Input.vue";
-import Loader from "@/components/Loader.vue";
-import axios from "axios";
+import ChangePassword from "@/components/Modals/ChangePassword.vue";
+import ChangeEmail from "@/components/Modals/ChangeEmail.vue";
+import DeleteAccount from "@/components/Modals/DeleteAccount.vue";
 
 @Options({
   components: {
-    Input,
-    Loader,
+    Button,
     Modal,
+    ChangePassword,
+    ChangeEmail,
+    DeleteAccount,
   },
 })
 export default class Settings extends Vue {
-  modal = "";
-  errors: Record<string, string> = {
-    oldPassword: "",
-    newPassword: "",
-  };
-  processingRequest = false;
+  currentModal = "";
 
-  // modal visibiliy/switching code
-  modalOpen(modal: string): void {
-    const exisingErrorKeys = Object.keys(this.errors);
-    for (let i = 0; i < exisingErrorKeys.length; i++) {
-      let key = exisingErrorKeys[i];
-      this.errors[key] = "";
+  created(): void {
+    if (!this.$store.getters.isLoggedIn) {
+      this.$router.replace({ name: "404" });
     }
-    this.modal = modal;
-  }
-  modalClose(): void {
-    const exisingErrorKeys = Object.keys(this.errors);
-    for (let i = 0; i < exisingErrorKeys.length; i++) {
-      let key = exisingErrorKeys[i];
-      this.errors[key] = "";
-    }
-    this.modal = "";
-  }
-  eraseErrors(e: InputEvent): void {
-    let name = (<HTMLInputElement>e.target).name;
-
-    if (this.errors[name]) {
-      this.errors[name] = "";
-    }
-  }
-
-  //change password
-  changePassword(): void {
-    this.processingRequest = true;
-    const oldPassword = (<HTMLInputElement>document.getElementsByName("oldPassword")[0])
-      .value;
-    const newPassword = (<HTMLInputElement>document.getElementsByName("newPassword")[0])
-      .value;
-
-    axios
-      .post(
-        "http://localhost:4000/account/password",
-        { oldPassword, newPassword },
-        { withCredentials: true }
-      )
-      .then(() => {
-        this.processingRequest = false;
-        this.modalClose();
-      })
-      .catch((err) => {
-        console.log(err?.response);
-        this.processingRequest = false;
-        if (err?.response?.status == 400) {
-          const errors = err.response.data.errors;
-          const errorKeys = Object.keys(errors);
-
-          for (let i = 0; i < errorKeys.length; i++) {
-            const key = errorKeys[i];
-            this.errors[key] = errors[key][0];
-          }
-        } else {
-          this.errors.password = "Something went wrong, check console for details.";
-          throw err;
-        }
-      });
   }
 }
 </script>
 
 <style scoped>
-h1 {
+.container {
+  width: 550px;
   margin-top: 30px;
 }
-.settingContainer {
+
+.option {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+
   margin-top: 20px;
 }
-button {
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 16px;
-  color: #006cff;
-  background: none;
+
+.option > button {
   position: relative;
+  padding-right: 20px;
 }
-button:before {
+.option > button:before {
   content: "";
   width: 2px;
   height: 10px;
-  background-color: #006cff;
+
   position: absolute;
-  right: -10px;
+  right: 10px;
   margin-top: 1px;
+
   border-radius: 1px;
   transform: rotate(-45deg);
 }
-button:after {
+.option > button:after {
   content: "";
   width: 2px;
   height: 10px;
-  background-color: #006cff;
+
   position: absolute;
-  right: -10px;
+  right: 10px;
   margin-top: 7px;
+
   border-radius: 1px;
   transform: rotate(45deg);
 }
-button.destructive {
-  color: red;
+.option > button.blue:before,
+.option > button.blue:after {
+  background-color: #006cff;
 }
-button.destructive:before {
+.option > button.red:before,
+.option > button.red:after {
   background-color: red;
 }
-button.destructive:after {
-  background-color: red;
-}
-.settingTitle {
+
+.title {
   margin-bottom: 2px;
   font-weight: bold;
 }
-.settingDescription {
+.description {
   color: var(--textSecondary);
-}
-form > div {
-  margin-top: 20px;
 }
 .divider {
   margin-top: 20px;

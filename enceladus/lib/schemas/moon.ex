@@ -8,7 +8,7 @@ defmodule Saturn.Moon do
   @derive {Jason.Encoder, except: [:__meta__]}
   schema "moons" do
     belongs_to(:user, User)
-    has_many(:posts, Post)
+    has_many(:posts, Post, on_delete: :delete_all)
 
     field(:name, :string)
 

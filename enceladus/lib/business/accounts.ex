@@ -95,30 +95,34 @@ defmodule Saturn.Accounts do
   def change_password(old_password, new_password, current_user) do
     case Argon2.verify_pass(old_password, current_user.password) do
       true ->
-        changeset = User.changeset(current_user, %{password: new_password})
+        if old_password == new_password do
+          {:error, %{errors: %{newPassword: ["Your new password cannot be the same"]}}}
+        else
+          changeset = User.changeset(current_user, %{password: new_password})
 
-        case Repo.update(changeset) do
-          {:ok, _} ->
-            :ok
+          case Repo.update(changeset) do
+            {:ok, _} ->
+              :ok
 
-          {:error, changeset} ->
-            errors =
-              Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
-                Enum.reduce(opts, msg, fn {key, _value}, acc ->
-                  String.replace(acc, "%{#{key}}", msg)
+            {:error, changeset} ->
+              errors =
+                Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+                  Enum.reduce(opts, msg, fn {key, _value}, acc ->
+                    String.replace(acc, "%{#{key}}", msg)
+                  end)
                 end)
-              end)
-              |> Enum.map(fn
-                {:password,
-                 ["should be at least should be at least %{count} character(s) character(s)"]} ->
-                  {:newPassword, ["Passwords should be 8 characters or more long"]}
+                |> Enum.map(fn
+                  {:password,
+                   ["should be at least should be at least %{count} character(s) character(s)"]} ->
+                    {:newPassword, ["Passwords should be 8 characters or more long"]}
 
-                other ->
-                  other
-              end)
-              |> Enum.into(%{})
+                  other ->
+                    other
+                end)
+                |> Enum.into(%{})
 
-            {:error, %{errors: errors}}
+              {:error, %{errors: errors}}
+          end
         end
 
       false ->
@@ -127,29 +131,36 @@ defmodule Saturn.Accounts do
   end
 
   def change_email(new_email, current_user) do
-    changeset = User.changeset(current_user, %{email: new_email})
+    if new_email == current_user.email do
+      {:error, %{errors: %{email: ["Your new email cannot be the same"]}}}
+    else
+      changeset = User.changeset(current_user, %{email: new_email})
 
-    case Repo.update(changeset) do
-      {:ok, _} ->
-        :ok
+      case Repo.update(changeset) do
+        {:ok, _} ->
+          :ok
 
-      {:error, changeset} ->
-        errors =
-          Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
-            Enum.reduce(opts, msg, fn {key, _value}, acc ->
-              String.replace(acc, "%{#{key}}", msg)
+        {:error, changeset} ->
+          errors =
+            Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+              Enum.reduce(opts, msg, fn {key, _value}, acc ->
+                String.replace(acc, "%{#{key}}", msg)
+              end)
             end)
-          end)
-          |> Enum.map(fn
-            {:email, ["has invalid format"]} ->
-              {:email, ["Please enter a valid email"]}
+            |> Enum.map(fn
+              {:email, ["has invalid format"]} ->
+                {:email, ["Please enter a valid email"]}
 
-            other ->
-              other
-          end)
-          |> Enum.into(%{})
+              {:email, ["has already been taken"]} ->
+                {:email, ["This email is used by someone else"]}
 
-        {:error, %{errors: errors}}
+              other ->
+                other
+            end)
+            |> Enum.into(%{})
+
+          {:error, %{errors: errors}}
+      end
     end
   end
 

@@ -128,10 +128,7 @@ defmodule Saturn.Router do
       post ->
         conn
         |> put_resp_content_type("application/json")
-        |> send_resp(
-          200,
-          Jason.encode!(Map.drop(post, [:__meta__, :__struct__, :user_id]))
-        )
+        |> send_resp(200, Jason.encode!(post))
     end
   end
 
@@ -168,13 +165,12 @@ defmodule Saturn.Router do
   # FILES
   # serve files
   get "/assets/:filename" do
-    case Saturn.Files.file_request(filename) do
+    case Saturn.Files.get(filename) do
       nil ->
         send_resp(conn, 404, "File not found")
 
-      _ ->
-        conn
-        |> send_file(200, Path.expand("./../files/#{filename}"))
+      file ->
+        send_file(conn, 200, file)
     end
   end
 
@@ -224,6 +220,7 @@ defmodule Saturn.Router do
   get "/profile/:user_id/posts" do
     case Saturn.Profiles.get_posts(
            parse_int(user_id),
+           conn.assigns.user_id,
            conn.params["sort"],
            parse_cursor(conn.params["cursor"]),
            parse_int(conn.params["limit"])
@@ -242,6 +239,7 @@ defmodule Saturn.Router do
   get "/profile/:user_id/comments" do
     case Saturn.Profiles.get_comments(
            parse_int(user_id),
+           conn.assigns.user_id,
            conn.params["sort"],
            parse_cursor(conn.params["cursor"]),
            parse_int(conn.params["limit"])
@@ -275,6 +273,7 @@ defmodule Saturn.Router do
   get "/profile/:user_id/overview" do
     case Saturn.Profiles.overview(
            parse_int(user_id),
+           conn.assigns.user_id,
            conn.params["sort"],
            parse_cursor(conn.params["cursor"]),
            parse_int(conn.params["limit"])
