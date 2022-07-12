@@ -49,6 +49,10 @@ const routes: Array<RouteRecordRaw> = [
     name: "Moon",
     component: Moon,
   },
+  {
+    path: "/:pathMatch(.*)*",
+    component: NotFound
+  }
   // {
   //   path: '/about',
   //   name: 'About',

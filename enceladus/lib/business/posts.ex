@@ -1,12 +1,7 @@
 defmodule Saturn.Posts do
   import Ecto.Query
 
-  alias Saturn.Repo
-  alias Saturn.Post
-  alias Saturn.User
-  alias Saturn.Moon
-  alias Saturn.Vote
-  alias Saturn.Comment
+  alias Saturn.{Repo, Post, User, Moon, Vote, Comment, Files, File}
 
   def get_by_id(id, user_id) do
     Repo.one(
@@ -33,7 +28,9 @@ defmodule Saturn.Posts do
   end
 
   def delete(post_id, user_id) do
-    post = Repo.one(from(p in Post, where: p.id == ^post_id))
+    post =
+      Repo.one(from(p in Post, where: p.id == ^post_id))
+      |> Repo.preload(files: from(f in File, select: f.filename))
 
     case post do
       nil ->
@@ -41,6 +38,10 @@ defmodule Saturn.Posts do
 
       _ ->
         if post.user_id == user_id do
+          if post.files do
+            Files.delete(post.files)
+          end
+
           Repo.delete!(post)
           :ok
         else
@@ -50,53 +51,87 @@ defmodule Saturn.Posts do
   end
 
   def create(attrs, user) do
-    case Repo.insert(Post.changeset(%Post{user_id: user.id}, attrs)) do
-      {:ok, post} ->
-        Repo.preload(post,
-          moon: from(m in Moon, select: %{id: m.id, name: m.name}),
-          user:
-            from(u in User,
-              select: %{username: u.username, id: u.id, inserted_at: u.inserted_at}
-            ),
-          comments:
-            from(c in Comment,
-              select:
-                fragment("SELECT COALESCE(COUNT(*), 0) FROM comments WHERE post_id = ?", ^post.id)
-            ),
-          votes:
-            from(v in Vote,
-              select: %{
-                votes:
-                  fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", ^post.id),
-                hasVoted:
-                  fragment(
-                    "SELECT vote FROM votes v WHERE v.post_id = ? AND v.user_id = ?",
-                    ^post.id,
-                    ^user.id
-                  )
-              }
+    file =
+      cond do
+        attrs["type"] == "image" and attrs["file"] ->
+          Files.upload(attrs["file"])
+
+        attrs["type"] == "text" ->
+          {:ok, nil}
+
+        true ->
+          {:error, :bad_request}
+      end
+
+    case file do
+      {:ok, filename} ->
+        attrs =
+          if filename do
+            Map.put(attrs, "body", filename)
+          else
+            attrs
+          end
+
+        case Repo.insert(Post.changeset(%Post{user_id: user.id}, attrs)) do
+          {:ok, post} ->
+            if filename do
+              Files.insert_db(filename, user, post)
+            end
+
+            Repo.preload(post,
+              moon: from(m in Moon, select: %{id: m.id, name: m.name}),
+              user:
+                from(u in User,
+                  select: %{username: u.username, id: u.id, inserted_at: u.inserted_at}
+                ),
+              comments:
+                from(c in Comment,
+                  select:
+                    fragment(
+                      "SELECT COALESCE(COUNT(*), 0) FROM comments WHERE post_id = ?",
+                      ^post.id
+                    )
+                ),
+              votes:
+                from(v in Vote,
+                  select: %{
+                    votes:
+                      fragment(
+                        "SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?",
+                        ^post.id
+                      ),
+                    hasVoted:
+                      fragment(
+                        "SELECT vote FROM votes v WHERE v.post_id = ? AND v.user_id = ?",
+                        ^post.id,
+                        ^user.id
+                      )
+                  }
+                )
             )
-        )
-        |> Map.drop([:__meta__, :user_id, :moon_id])
 
-      {:error, changeset} ->
-        # Format errors
-        errors =
-          Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
-            Enum.reduce(opts, msg, fn {key, _value}, acc ->
-              String.replace(acc, "%{#{key}}", msg)
-            end)
-          end)
-          |> Enum.map(fn
-            {k, ["can't be blank"]} ->
-              {k, ["Please enter a #{k}"]}
+          {:error, changeset} ->
+            # Format errors
+            errors =
+              Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+                Enum.reduce(opts, msg, fn {key, _value}, acc ->
+                  String.replace(acc, "%{#{key}}", msg)
+                end)
+              end)
+              |> Enum.map(fn
+                {k, ["can't be blank"]} ->
+                  {k, ["Please enter a #{k}"]}
 
-            other ->
-              other
-          end)
-          |> Enum.into(%{})
+                other ->
+                  other
+              end)
+              |> Enum.into(%{})
 
-        {:error, %{errors: errors}}
+            {:error, %{errors: errors}}
+        end
+
+      {:error, error} ->
+        {:error, error}
     end
   end
 

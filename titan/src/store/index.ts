@@ -15,6 +15,9 @@ export default createStore({
       state.user = {}
       state.loggedIn = false;
     },
+    CHANGE_EMAIL(state, newEmail) {
+      (<Record<string, unknown>>state.user).email = newEmail
+    },
   },
   actions: {
     login({ commit }, user) {
@@ -22,6 +25,9 @@ export default createStore({
     },
     logout({ commit }) {
       commit("LOG_OUT");
+    },
+    changeEmail({ commit }, newEmail) {
+      commit("CHANGE_EMAIL", newEmail);
     },
   },
   getters: {

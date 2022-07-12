@@ -60,7 +60,7 @@ defmodule Saturn.Comments do
   def get(params, user_id) do
     post_id = params["post_id"]
     parent_comment_id = params["parent_comment_id"]
-    sort = if params["sort"], do: params["sort"], else: "new"
+    sort = params["sort"]
     limit = parse_int(params["limit"])
     cursor = parse_cursor(params["cursor"])
 

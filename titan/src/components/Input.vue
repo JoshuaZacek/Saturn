@@ -13,17 +13,21 @@ import { Options, Vue } from "vue-class-component";
   name: "Input",
   props: {
     label: String,
-    name: String,
     type: String,
     error: String,
   },
 })
-export default class Input extends Vue {}
+export default class Input extends Vue {
+  label!: string;
+
+  get name(): string {
+    return this.label.toLowerCase().replace(/ /g, "");
+  }
+}
 </script>
 
 <style scoped>
 p {
-  max-width: 300px;
   background-color: #fff;
   color: #ff0000;
   font-size: 15px;
@@ -40,7 +44,7 @@ input {
   outline: none;
   border-color: #dddddd;
   border-style: solid;
-  border-width: 2px;
+  border-width: 1px;
   border-radius: 15px;
   font-size: 19px;
   font-weight: bold;
@@ -75,7 +79,7 @@ label {
   position: absolute;
   top: 0;
   left: 0;
-  transform: translateY(12px) translateX(17.5px);
+  transform: translateY(11px) translateX(17.5px);
   transform-origin: 0%;
   color: #dddddd;
   background-color: white;

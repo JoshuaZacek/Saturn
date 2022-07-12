@@ -178,6 +178,8 @@ ul {
   list-style: none;
   border-radius: 15px;
   width: max-content;
+  z-index: 10;
+  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.15);
 }
 
 li {

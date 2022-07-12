@@ -18,6 +18,12 @@ defmodule Saturn.AuthRouter do
   # Create post
   post "/post" do
     case Saturn.Posts.create(conn.params, conn.assigns.user) do
+      {:error, :file_not_supported} ->
+        send_resp(conn, 400, "File type not supported")
+
+      {:error, :bad_request} ->
+        send_resp(conn, 400, "Bad request")
+
       {:error, error} ->
         conn
         |> put_resp_content_type("application/json")
@@ -59,7 +65,7 @@ defmodule Saturn.AuthRouter do
            vote,
            conn.params["post_id"],
            conn.params["comment_id"],
-           conn.assigns.user.id
+           conn.assigns.user_id
          ) do
       :error ->
         send_resp(conn, 400, "Bad request")
@@ -114,7 +120,7 @@ defmodule Saturn.AuthRouter do
   # Change password
   post "/account/password" do
     case conn.params do
-      %{"oldPassword" => old_password, "newPassword" => new_password} ->
+      %{"oldpassword" => old_password, "newpassword" => new_password} ->
         case Saturn.Accounts.change_password(
                old_password,
                new_password,
@@ -137,9 +143,9 @@ defmodule Saturn.AuthRouter do
   # Change email
   post "/account/email" do
     case conn.params do
-      %{"email" => email} ->
+      %{"newemail" => newemail} ->
         case Saturn.Accounts.change_email(
-               email,
+               newemail,
                conn.assigns.user
              ) do
           :ok ->
@@ -156,15 +162,11 @@ defmodule Saturn.AuthRouter do
     end
   end
 
-  post "/upload" do
-    case conn.params do
-      %{"file" => file} ->
-        Saturn.Files.file_upload(file, conn.assigns.user)
-        send_resp(conn, 200, "Image uploaded")
-
-      _ ->
-        send_resp(conn, 400, "Bad request")
-    end
+  # Delete account
+  delete "/account" do
+    Repo.delete!(conn.assigns.user)
+    delete_resp_cookie(conn, "session_id")
+    send_resp(conn, 204, "")
   end
 
   match _ do

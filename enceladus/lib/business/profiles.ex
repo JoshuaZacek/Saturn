@@ -3,7 +3,7 @@ defmodule Saturn.Profiles do
 
   alias Saturn.{Repo, Post, Moon, User, Comment}
 
-  def get_posts(user_id, sort, cursor, limit) do
+  def get_posts(profile_id, user_id, sort, cursor, limit) do
     order_by =
       case sort do
         "new" ->
@@ -56,7 +56,7 @@ defmodule Saturn.Profiles do
     posts =
       Repo.all(
         from(p in Post,
-          where: p.user_id == ^user_id,
+          where: p.user_id == ^profile_id,
           where: ^cursor_query,
           order_by: ^order_by,
           limit: ^limit + 1,
@@ -88,7 +88,7 @@ defmodule Saturn.Profiles do
      }}
   end
 
-  def get_comments(user_id, sort, cursor, limit) do
+  def get_comments(profile_id, user_id, sort, cursor, limit) do
     order_by =
       case sort do
         "new" ->
@@ -141,7 +141,7 @@ defmodule Saturn.Profiles do
     comments =
       Repo.all(
         from(c in Comment,
-          where: c.user_id == ^user_id,
+          where: c.user_id == ^profile_id,
           where: ^cursor_query,
           order_by: ^order_by,
           limit: ^limit + 1,
@@ -172,15 +172,16 @@ defmodule Saturn.Profiles do
      }}
   end
 
-  def overview(user_id, sort, cursor, limit) do
+  def overview(profile_id, user_id, sort, cursor, limit) do
     posts_query =
       from(p in Post,
-        where: p.user_id == ^user_id,
+        where: p.user_id == ^profile_id,
         select: %{
           id: p.id,
           inserted_at: p.inserted_at,
           updated_at: p.updated_at,
           user_id: p.user_id,
+          type: p.type,
           user: nil,
           moon_id: p.moon_id,
           moon: nil,
@@ -189,7 +190,8 @@ defmodule Saturn.Profiles do
           content: nil,
           post_id: nil,
           post: nil,
-          type: "post",
+          contentType: "post",
+          row: nil,
           comments:
             fragment("SELECT COALESCE(COUNT(*), 0) FROM comments WHERE post_id = ?", p.id),
           votes: fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", p.id),
@@ -204,12 +206,13 @@ defmodule Saturn.Profiles do
 
     comments_query =
       from(c in Comment,
-        where: c.user_id == ^user_id,
+        where: c.user_id == ^profile_id,
         select: %{
           id: c.id,
           inserted_at: c.inserted_at,
           updated_at: c.updated_at,
           user_id: c.user_id,
+          type: nil,
           user: nil,
           moon_id: nil,
           moon: nil,
@@ -218,7 +221,8 @@ defmodule Saturn.Profiles do
           content: c.content,
           post_id: c.post_id,
           post: nil,
-          type: "comment",
+          contentType: "comment",
+          row: nil,
           comments: nil,
           votes: fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE comment_id = ?", c.id),
           hasVoted:
@@ -232,7 +236,7 @@ defmodule Saturn.Profiles do
 
     union_query = union_all(comments_query, ^posts_query)
 
-    order_by =
+    order_by_row_number =
       case sort do
         "new" ->
           [
@@ -240,8 +244,7 @@ defmodule Saturn.Profiles do
               dynamic(
                 [q],
                 q.inserted_at
-              ),
-            desc: dynamic([q], q.id)
+              )
           ]
 
         "top" ->
@@ -250,8 +253,7 @@ defmodule Saturn.Profiles do
               dynamic(
                 [q],
                 q.votes
-              ),
-            desc: dynamic([q], q.id)
+              )
           ]
       end
 
@@ -260,9 +262,8 @@ defmodule Saturn.Profiles do
         "new" ->
           if cursor do
             dynamic(
-              [q],
-              q.id <= ^cursor["id"] and
-                q.inserted_at <= ^DateTime.from_unix!(cursor["inserted_at"])
+              [rq],
+              rq.row >= ^cursor["row"]
             )
           else
             is_nil(cursor)
@@ -271,27 +272,34 @@ defmodule Saturn.Profiles do
         "top" ->
           if cursor do
             dynamic(
-              [q],
-              q.votes <=
-                ^cursor["votes"] and
-                q.id <= ^cursor["id"]
+              [rq],
+              rq.row >= ^cursor["row"]
             )
           else
             is_nil(cursor)
           end
       end
 
+    row_query =
+      from(q in subquery(union_query),
+        select: %{
+          q
+          | row: row_number() |> over(:ordered_content)
+        },
+        windows: [ordered_content: [order_by: ^order_by_row_number]]
+      )
+
     overview =
       Repo.all(
-        from(q in subquery(union_query),
+        from(rq in subquery(row_query),
           left_join: m in Moon,
-          on: q.moon_id == m.id,
+          on: rq.moon_id == m.id,
           left_join: p in Post,
-          on: q.post_id == p.id,
+          on: rq.post_id == p.id,
           join: u in User,
-          on: q.user_id == u.id,
+          on: rq.user_id == u.id,
           select: %{
-            q
+            rq
             | user: %{
                 id: u.id,
                 username: u.username,
@@ -308,12 +316,12 @@ defmodule Saturn.Profiles do
               }
           },
           where: ^cursor_query,
-          order_by: ^order_by,
+          order_by: rq.row,
           limit: ^limit + 1
         )
       )
 
-    {next_cursor, overview} = get_next_cursor(overview, limit, sort)
+    {next_cursor, overview} = get_next_cursor(overview, limit, sort, true)
 
     {:ok,
      %{
@@ -322,31 +330,54 @@ defmodule Saturn.Profiles do
      }}
   end
 
-  defp get_next_cursor(comments, limit, sort) when length(comments) > 0 do
+  defp get_next_cursor(comments, limit, sort, is_overview \\ false)
+
+  defp get_next_cursor(comments, limit, sort, is_overview) when length(comments) > 0 do
     [head | tail] = Enum.reverse(comments)
 
-    cond do
-      length(tail) == limit and sort == "new" ->
-        cursor =
-          %{
-            inserted_at: head.inserted_at |> DateTime.to_unix(),
-            id: head.id
-          }
-          |> Jason.encode!()
-          |> Base.url_encode64()
+    if is_overview do
+      cond do
+        length(tail) == limit and sort == "new" ->
+          cursor =
+            %{
+              row: head.row
+            }
+            |> Jason.encode!()
+            |> Base.url_encode64()
 
-        {cursor, Enum.reverse(tail)}
+          {cursor, Enum.reverse(tail)}
 
-      length(tail) == limit and sort == "top" ->
-        cursor = %{votes: head.votes, id: head.id} |> Jason.encode!() |> Base.url_encode64()
-        {cursor, Enum.reverse(tail)}
+        length(tail) == limit and sort == "top" ->
+          cursor = %{row: head.row} |> Jason.encode!() |> Base.url_encode64()
+          {cursor, Enum.reverse(tail)}
 
-      true ->
-        {nil, comments}
+        true ->
+          {nil, comments}
+      end
+    else
+      cond do
+        length(tail) == limit and sort == "new" ->
+          cursor =
+            %{
+              inserted_at: head.inserted_at |> DateTime.to_unix(),
+              id: head.id
+            }
+            |> Jason.encode!()
+            |> Base.url_encode64()
+
+          {cursor, Enum.reverse(tail)}
+
+        length(tail) == limit and sort == "top" ->
+          cursor = %{votes: head.votes, id: head.id} |> Jason.encode!() |> Base.url_encode64()
+          {cursor, Enum.reverse(tail)}
+
+        true ->
+          {nil, comments}
+      end
     end
   end
 
-  defp get_next_cursor(comments, _, _) do
+  defp get_next_cursor(comments, _, _, _) do
     {nil, comments}
   end
 end

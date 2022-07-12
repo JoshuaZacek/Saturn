@@ -1,41 +1,40 @@
 <template>
+  <Overlay v-if="overlayStatus" :status="overlayStatus" :message="overlayMessage" />
+
   <div>
     <h1>Create post</h1>
-    <SegmentedControl :segments="['Text', 'Image']" style="margin-top: 20px;" />
+    <SegmentedControl
+      :segments="postTypes"
+      @change="changePostType"
+      class="segmentedControl"
+    />
 
-    <div>
-      <input placeholder="Moon" ref="moon" @input="clearError('moon')" />
-      <p class="error">{{ this.errors.moon }}</p>
-    </div>
+    <MoonSearch class="moonSearch" @click="errors.moon = ''" @select="changeMoon" />
+    <p v-if="this.errors.moon">{{ this.errors.moon }}</p>
 
-    <div style="margin-top: 30px;">
-      <div>
-        <textarea
-          name="title"
-          placeholder="Title"
-          class="title"
-          ref="title"
-          @input="onInput, clearError('form')"
-          @keypress="onKeypress($event)"
-          rows="1"
-        />
-      </div>
-      <div style="margin-top: 15px;">
-        <textarea
-          name="text"
-          placeholder="Text"
-          class="text"
-          ref="text"
-          @input="clearError('form')"
-        />
-        <p class="error">{{ this.errors.form }}</p>
-      </div>
-    </div>
+    <textarea
+      placeholder="Title"
+      class="title"
+      ref="title"
+      @input="
+        changeInputHeight();
+        errors.form = '';
+      "
+      @keypress.enter.prevent
+      rows="1"
+    />
+    <textarea
+      v-if="currentPostType == 'Text'"
+      placeholder="Text"
+      class="text"
+      ref="text"
+      @input="errors.form = ''"
+    />
+    <input v-if="currentPostType == 'Image'" type="file" ref="file" accept="image/*" />
 
-    <Button style="float: right; margin: 30px 0px;" width="91px" @click="createPost">
-      <Loader v-if="loading" :size="30" bgColor="transparent" fgColor="#fff" />
-      <span v-else>Create</span>
-    </Button>
+    <p v-if="this.errors.form">{{ this.errors.form }}</p>
+
+    <Button class="createButton" @click="createPost">Create</Button>
   </div>
 </template>
 
@@ -44,6 +43,8 @@ import { Options, Vue } from "vue-class-component";
 import SegmentedControl from "@/components/SegmentedControl.vue";
 import Button from "@/components/Button.vue";
 import Loader from "@/components/Loader.vue";
+import MoonSearch from "@/components/MoonSearch.vue";
+import Overlay from "@/components/Overlay.vue";
 import axios from "axios";
 
 @Options({
@@ -51,82 +52,124 @@ import axios from "axios";
     SegmentedControl,
     Button,
     Loader,
+    MoonSearch,
+    Overlay,
   },
 })
 export default class CreateMoon extends Vue {
-  loading = false;
   errors = {
     moon: "",
     form: "",
   };
+  currentMoon: Record<string, unknown> = {};
+  overlayStatus = "";
+  overlayMessage = "";
+  postTypes = ["Text", "Image"];
+  currentPostType = this.postTypes[0];
+  declare $refs: {
+    title: HTMLTextAreaElement;
+    text: HTMLTextAreaElement;
+    file: HTMLInputElement;
+  };
 
-  onInput(): void {
-    const title = <HTMLTextAreaElement>this.$refs.title;
+  created(): void {
+    if (!this.$store.getters.isLoggedIn) {
+      this.$router.replace({ name: "404" });
+    }
+  }
+
+  changePostType(postType: string): void {
+    this.errors = {
+      moon: "",
+      form: "",
+    };
+    this.currentPostType = postType;
+  }
+
+  changeMoon(moon: Record<string, unknown>): void {
+    this.currentMoon = moon;
+  }
+
+  changeInputHeight(): void {
+    const title = this.$refs.title;
     title.style.height = "auto";
     title.style.height = title.scrollHeight - 20 + "px";
   }
 
-  onKeypress(event: KeyboardEvent): void {
-    if (event.key == "Enter") {
-      event.preventDefault();
+  async setOverlay(status: string, message: string, autoClear = true): Promise<void> {
+    this.overlayStatus = status;
+    this.overlayMessage = message;
+
+    if (autoClear) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      this.setOverlay("", "", false);
     }
   }
 
-  clearError(field: string): void {
-    (<Record<string, unknown>>this.errors)[field] = "";
+  validatePost(
+    moon: Record<string, unknown>,
+    title: string,
+    text: string,
+    fileList: FileList
+  ): boolean {
+    let valid = true;
+
+    if (!moon.id) {
+      this.errors.moon = "Please choose a moon";
+      valid = false;
+    }
+    if (!fileList?.length && this.currentPostType == "Image") {
+      this.errors.form = "Please upload an image";
+      valid = false;
+    }
+    if (!title) {
+      this.errors.form = "Please fill in all fields";
+      valid = false;
+    }
+    if (!text && this.currentPostType == "Text") {
+      this.errors.form = "Please fill in all fields";
+      valid = false;
+    }
+
+    return valid;
   }
 
   async createPost(): Promise<void> {
-    this.loading = true;
+    const moon = this.currentMoon;
+    const title = this.$refs.title.value;
+    const text = this.$refs.text?.value;
+    const fileList = <FileList>this.$refs?.file?.files;
 
-    const title = (<HTMLTextAreaElement>this.$refs.title).value;
-    const text = (<HTMLTextAreaElement>this.$refs.text).value;
-    const moon = (<HTMLInputElement>this.$refs.moon).value;
-
-    let isFormValid = true;
-    if (!moon) {
-      this.errors.moon = "Please fill this out";
-      isFormValid = false;
-    }
-    if (!title || !text) {
-      this.errors.form = "Please fill out all fields";
-      isFormValid = false;
-    }
-
-    if (!isFormValid) {
-      this.loading = false;
+    this.errors = {
+      moon: "",
+      form: "",
+    };
+    if (!this.validatePost(moon, title, text, fileList)) {
       return;
     }
 
-    const res = await axios
-      .get(`http://localhost:4000/moon/${moon}`, {
-        withCredentials: true,
-      })
-      .catch((err) => {
-        return err.response;
-      });
+    this.setOverlay("load", "Creating post", false);
 
-    if (res.data == "Not found") {
-      this.errors.moon = "This moon doesn't exist";
-      this.loading = false;
-      return;
+    const formData = new FormData();
+    formData.append("moon_id", <string>this.currentMoon.id);
+    formData.append("title", title);
+    formData.append("body", text);
+    formData.append("type", this.currentPostType.toLowerCase());
+    if (this.currentPostType == "Image") {
+      formData.append("file", fileList[0]);
     }
 
     axios
-      .post(
-        "http://localhost:4000/post",
-        { title: title, body: text, moon_id: res.data.id },
-        {
-          withCredentials: true,
-        }
-      )
-      .then(() => {
-        this.loading = false;
-        this.$router.push({ name: "Moon", params: { moon: moon } });
+      .post("http://localhost:4000/post", formData, {
+        withCredentials: true,
       })
-      .catch((err) => {
-        this.loading = false;
-        console.log(err.response);
+      .then(async (res) => {
+        await this.setOverlay("success", "Created post");
+
+        this.$router.push({ name: "PostWithComments", params: { id: res.data.id } });
+      })
+      .catch(() => {
+        this.setOverlay("error", "Couldn't create post");
       });
   }
 }
@@ -136,52 +179,60 @@ export default class CreateMoon extends Vue {
 h1 {
   margin-top: 30px;
 }
+
+.segmentedControl {
+  margin-top: 20px;
+}
+
+.moonSearch {
+  margin-top: 30px;
+}
 .title {
+  margin-top: 30px;
   width: 520px;
+
   resize: none;
   overflow-y: hidden;
 }
 .text {
+  margin-top: 15px;
   width: 520px;
+
   height: 150px;
   min-height: 150px;
+
   resize: vertical;
 }
+
 textarea {
-  font-size: 20px;
-  outline: none;
-  border: none;
-  font-weight: normal;
-  padding: 10px 15px 10px 15px;
-  -webkit-appearance: none;
   background-color: white;
   color: black;
-  border-radius: 15px;
+
+  font-size: 20px;
   font-family: inherit;
+  font-weight: normal;
+
+  padding: 10px 15px 10px 15px;
+  display: block;
+
+  outline: none;
+  border: none;
+  border-radius: 15px;
 }
 textarea::placeholder {
   color: var(--textTertiary);
 }
 
 input {
-  background-color: var(--backgroundSecondary);
-  color: var(--textPrimary);
-  font-size: 20px;
-  padding: 10px 15px 10px 15px;
-  border-radius: 15px;
-  border: none;
-  outline: none;
-  width: 200px;
-  display: flex;
-  align-items: center;
+  margin-top: 15px;
+}
+
+.createButton {
+  float: right;
   margin-top: 30px;
 }
 
-::placeholder {
-  color: var(--textTertiary);
-}
-
-.error {
+p {
   color: red;
   margin-top: 5px;
 }

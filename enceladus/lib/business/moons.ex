@@ -28,6 +28,9 @@ defmodule Saturn.Moons do
             {k, ["can't be blank"]} ->
               {k, ["Please enter a #{k}"]}
 
+            {k, ["has already been taken"]} ->
+              {k, ["This moon has already been taken"]}
+
             other ->
               other
           end)
