@@ -1,6 +1,6 @@
 <template>
   <div class="background" @click.self="if (easyCloseMode) close();">
-    <div class="modal">
+    <div class="modal" ref="modal">
       <CloseButton v-if="easyCloseMode" @click="close" />
 
       <slot></slot>
@@ -29,16 +29,42 @@ import CloseButton from "@/components/CloseButton.vue";
 })
 export default class Modal extends Vue {
   easyCloseMode!: boolean;
+  firstFocusable!: HTMLElement;
+  lastFocusable!: HTMLElement;
+  declare $refs: {
+    modal: HTMLDivElement;
+  };
 
   handler(e: KeyboardEvent): void {
-    if (e.code == "Escape") this.close();
+    if (e.code == "Escape" && this.easyCloseMode) {
+      this.close();
+    }
+    if (e.code == "Tab") {
+      if (e.shiftKey && document.activeElement == this.firstFocusable) {
+        this.firstFocusable.focus();
+        e.preventDefault();
+      } else if (!e.shiftKey && document.activeElement == this.lastFocusable) {
+        this.lastFocusable.focus();
+        e.preventDefault();
+      }
+    }
   }
 
-  created(): void {
-    if (this.easyCloseMode) window.addEventListener("keydown", this.handler);
+  mounted(): void {
+    document.addEventListener("keydown", this.handler);
+
+    const modal = this.$refs.modal;
+    const focusableElements = modal.querySelectorAll(
+      'a[href], button, input, textarea, select, details, [tabindex]:not([tabindex="-1"])'
+    );
+
+    this.firstFocusable = <HTMLElement>focusableElements[0];
+    this.lastFocusable = <HTMLElement>focusableElements[focusableElements.length - 1];
+
+    this.firstFocusable.focus();
   }
   beforeUnmount(): void {
-    if (this.easyCloseMode) window.removeEventListener("keydown", this.handler);
+    document.removeEventListener("keydown", this.handler);
   }
 
   close(): void {
