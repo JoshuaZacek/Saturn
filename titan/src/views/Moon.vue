@@ -116,7 +116,7 @@ export default class Moon extends Vue {
     const url = this.createPostsURL(
       this.currentSort,
       this.currentTimePeriod,
-      this.moon.name,
+      this.moon.id,
       this.nextCursor
     );
 
@@ -159,7 +159,7 @@ export default class Moon extends Vue {
   createPostsURL(
     sort: string,
     timePeriod: string,
-    moon: string,
+    moon_id: number,
     cursor?: string | null
   ): string {
     let timePeriodSeconds;
@@ -174,8 +174,8 @@ export default class Moon extends Vue {
     } else {
       timePeriodSeconds = 0;
     }
-    return `http://localhost:4000/posts/${moon}?sort=${sort.toLowerCase()}&limit=5${
-      timePeriod ? "&time=" + timePeriodSeconds : ""
+    return `http://localhost:4000/posts?moon_id=${moon_id}&sort=${sort.toLowerCase()}&limit=5${
+      timePeriod ? "&time_period=" + timePeriodSeconds : ""
     }${cursor ? "&cursor=" + cursor : ""}`;
   }
 }

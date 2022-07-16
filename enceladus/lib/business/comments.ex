@@ -1,10 +1,16 @@
 defmodule Saturn.Comments do
   import Ecto.Query
+  import Saturn.Functions
 
   alias Saturn.{Comment, User, Repo, Vote}
 
-  def create(attrs, user) do
-    case %Comment{user_id: user.id} |> Comment.changeset(attrs) |> Repo.insert() do
+  def create(params, user) do
+    inserted_comment =
+      %Comment{user_id: user.id}
+      |> Comment.changeset(params)
+      |> Repo.insert()
+
+    case inserted_comment do
       {:ok, comment} ->
         comment
         |> Repo.preload(
@@ -28,7 +34,7 @@ defmodule Saturn.Comments do
         )
 
       {:error, changeset} ->
-        {:error, changeset}
+        {:error, format_changeset(changeset)}
     end
   end
 
@@ -58,19 +64,15 @@ defmodule Saturn.Comments do
   end
 
   def get(params, user_id) do
-    post_id = params["post_id"]
-    parent_comment_id = params["parent_comment_id"]
-    sort = params["sort"]
-    limit = parse_int(params["limit"])
-    cursor = parse_cursor(params["cursor"])
+    cursor = parse_cursor(params.cursor)
 
     replies_query =
-      if parent_comment_id,
-        do: dynamic([c], c.comment_id == ^parent_comment_id),
+      if params.parent_comment_id,
+        do: dynamic([c], c.comment_id == ^params.parent_comment_id),
         else: dynamic([c], is_nil(c.comment_id))
 
     sort_query =
-      case sort do
+      case params.sort do
         "new" ->
           if cursor do
             dynamic(
@@ -96,7 +98,7 @@ defmodule Saturn.Comments do
       end
 
     order_query =
-      case sort do
+      case params.sort do
         "new" ->
           [
             desc:
@@ -121,11 +123,11 @@ defmodule Saturn.Comments do
     comments =
       Repo.all(
         from(c in Comment,
-          where: c.post_id == ^post_id,
+          where: c.post_id == ^params.post_id,
           where: ^replies_query,
           where: ^sort_query,
           order_by: ^order_query,
-          limit: ^limit + 1,
+          limit: ^params.limit + 1,
           select: %{
             c
             | votes:
@@ -146,13 +148,12 @@ defmodule Saturn.Comments do
       )
       |> Repo.preload(user: from(u in User, select: map(u, [:username, :id, :inserted_at])))
 
-    {next_cursor, comments} = get_next_cursor(comments, limit, sort)
+    {next_cursor, comments} = get_next_cursor(comments, params.limit, params.sort)
 
-    {:ok,
-     %{
-       comments: comments,
-       next_cursor: next_cursor
-     }}
+    %{
+      comments: comments,
+      next_cursor: next_cursor
+    }
   end
 
   defp get_next_cursor(comments, limit, sort) when length(comments) > 0 do
@@ -183,20 +184,13 @@ defmodule Saturn.Comments do
     {nil, comments}
   end
 
-  defp parse_int(num) do
-    case Integer.parse(num || "") do
-      {int, ""} -> int
-      :error -> num
-    end
-  end
-
   defp parse_cursor(cursor) do
     try do
       cursor
       |> Base.url_decode64!()
       |> Jason.decode!()
     rescue
-      _ -> cursor
+      _ -> nil
     end
   end
 end

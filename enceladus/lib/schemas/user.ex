@@ -29,6 +29,7 @@ defmodule Saturn.User do
     |> unique_constraint([:email, :username], name: :users_email_username_index)
     |> validate_format(:email, ~r/.+@(?=[^@]+$).+\.(?=[^.]+$)/)
     |> validate_length(:password, min: 8)
+    |> validate_format(:username, ~r/^\w+$/)
     |> hash_password()
   end
 

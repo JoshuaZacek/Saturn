@@ -63,6 +63,22 @@ export default class Signup extends Vue {
   validateDetails(email: string, username: string, password: string): boolean {
     let valid = true;
 
+    if (!/.+@(?=[^@]+$).+\.(?=[^.]+$)/.test(email)) {
+      this.errors.email = "This is not a valid email";
+      valid = false;
+    }
+
+    if (password.length < 8) {
+      this.errors.password = "Your password must contain 8 characters or more";
+      valid = false;
+    }
+
+    if (!/^\w+$/.test(username) && username) {
+      this.errors.username =
+        "Usernames can only contain letters, numbers and underscores";
+      valid = false;
+    }
+
     if (!email) {
       this.errors.email = "Please enter an email";
       valid = false;
@@ -110,14 +126,14 @@ export default class Signup extends Vue {
     this.setOverlay("load", "Signing up", false);
 
     axios
-      .post("http://localhost:4000/signup", formData, { withCredentials: true })
+      .post("http://localhost:4000/user/signup", formData, { withCredentials: true })
       .then(async (res) => {
         this.$store.dispatch("login", res.data);
         await this.setOverlay("success", "Signed up");
         this.$router.go(0);
       })
       .catch((err) => {
-        if (err?.response?.status == 401) {
+        if (err?.response?.status == 400) {
           this.setOverlay("", "", false);
 
           const errors = err.response.data.errors;

@@ -27,7 +27,8 @@ defmodule Saturn.MixProject do
       {:postgrex, "~> 0.15.1"},
       {:ecto_sql, "~> 3.7.0"},
       {:argon2_elixir, "~> 2.0"},
-      {:corsica, "~> 1.1.3"}
+      {:corsica, "~> 1.1.3"},
+      {:tarams, "~> 1.6"}
     ]
   end
 end

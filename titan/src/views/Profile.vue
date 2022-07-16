@@ -115,7 +115,7 @@ export default class Profile extends Vue {
 
     await axios
       .get(
-        `http://localhost:4000/profile/${user_id}/${type}?sort=${sort}&limit=5${
+        `http://localhost:4000/profile/${type}?user_id=${user_id}&sort=${sort}&limit=5${
           cursor ? `&cursor=${cursor}` : ""
         }`,
         { withCredentials: true }
