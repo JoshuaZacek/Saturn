@@ -51,7 +51,6 @@ button.small {
 button.blue {
   color: #006cff;
 }
-button.blue:hover,
 button.blue.large {
   background-color: #006cff11;
 }
@@ -59,8 +58,16 @@ button.blue.large {
 button.red {
   color: #ff0000;
 }
-button.red:hover,
 button.red.large {
   background-color: #ff000011;
+}
+
+@media (hover: hover) {
+  button.blue:hover {
+    background-color: #006cff11;
+  }
+  button.red:hover {
+    background-color: #ff000011;
+  }
 }
 </style>

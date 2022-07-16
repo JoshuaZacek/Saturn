@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="segmentedContainer">
     <SegmentedControl
       class="segmentedControl"
       :segments="Object.keys(sorts)"
@@ -113,6 +113,7 @@ export default class Home extends Vue {
 
   changeSort(sort: string): void {
     this.currentSort = sort;
+    this.nextCursor = null;
     this.posts = [];
 
     this.getPosts();
@@ -120,6 +121,7 @@ export default class Home extends Vue {
 
   changeTimePeriod(timePeriod: string): void {
     this.currentTimePeriod = timePeriod;
+    this.nextCursor = null;
     this.posts = [];
 
     this.getPosts();
@@ -139,7 +141,7 @@ export default class Home extends Vue {
     } else {
       timePeriodSeconds = 0;
     }
-    return `http://localhost:4000/posts/?sort=${sort.toLowerCase()}&limit=5${
+    return `${process.env.VUE_APP_API_URL}posts/?sort=${sort.toLowerCase()}&limit=5${
       timePeriod ? "&time_period=" + timePeriodSeconds : ""
     }${cursor ? "&cursor=" + cursor : ""}`;
   }
@@ -147,10 +149,6 @@ export default class Home extends Vue {
 </script>
 
 <style scoped>
-.segmentedControl {
-  margin-top: 30px;
-}
-
 .sortHeading {
   margin: 20px 0;
 }
@@ -168,5 +166,15 @@ p.sortHeadingWithDropdown {
 }
 .loader {
   margin-top: 10px;
+}
+.segmentedContainer {
+  width: 550px;
+  position: relative;
+}
+
+@media screen and (max-width: 590px) {
+  .segmentedContainer {
+    width: calc(100% - 40px);
+  }
 }
 </style>

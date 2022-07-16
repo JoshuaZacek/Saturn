@@ -128,4 +128,14 @@ export default class Settings extends Vue {
   height: 1px;
   background: var(--backgroundTertiary);
 }
+
+@media screen and (max-width: 590px) {
+  .container {
+    width: calc(100% - 40px);
+  }
+
+  .divider {
+    width: 100%;
+  }
+}
 </style>

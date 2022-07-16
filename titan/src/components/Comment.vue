@@ -113,7 +113,7 @@ export default class Comment extends Vue {
   }
 
   generateURL(): string {
-    return `http://localhost:4000/comments?post_id=${this.$route.params.id}&parent_comment_id=${this.comment.id}&limit=10&sort=${this.currentSort}`;
+    return `${process.env.VUE_APP_API_URL}comments?post_id=${this.$route.params.id}&parent_comment_id=${this.comment.id}&limit=10&sort=${this.currentSort}`;
   }
 
   async setOverlay(status: string, message: string, autoClear = true): Promise<void> {
@@ -151,7 +151,7 @@ export default class Comment extends Vue {
     };
 
     axios
-      .post("http://localhost:4000/comment", data, { withCredentials: true })
+      .post(`${process.env.VUE_APP_API_URL}comment`, data, { withCredentials: true })
       .then((res) => {
         res.data.votes = 0;
         this.replies.push(res.data);
@@ -274,8 +274,10 @@ export default class Comment extends Vue {
   justify-content: center;
   align-items: center;
 }
-.toolbarButton:hover {
-  background-color: var(--backgroundTertiary);
+@media (hover: hover) {
+  .toolbarButton:hover {
+    background-color: var(--backgroundTertiary);
+  }
 }
 .toolbarButton > img {
   margin-right: 5px;

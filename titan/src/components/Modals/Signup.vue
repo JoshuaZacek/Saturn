@@ -5,7 +5,7 @@
     <h2>Log in</h2>
     <p class="message">
       Already have an account?
-      <Button size="small" @click="$emit('loginInstead')">Log in instead</Button>
+      <Button size="small" @click="$emit('loginInstead')">Log in</Button>
     </p>
 
     <form ref="form" @submit.prevent="submitDetails" novalidate>
@@ -126,7 +126,9 @@ export default class Signup extends Vue {
     this.setOverlay("load", "Signing up", false);
 
     axios
-      .post("http://localhost:4000/user/signup", formData, { withCredentials: true })
+      .post(`${process.env.VUE_APP_API_URL}user/signup`, formData, {
+        withCredentials: true,
+      })
       .then(async (res) => {
         this.$store.dispatch("login", res.data);
         await this.setOverlay("success", "Signed up");

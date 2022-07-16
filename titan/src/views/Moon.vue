@@ -6,7 +6,7 @@
     >
   </div>
 
-  <div v-if="!moonStatus">
+  <div v-if="!moonStatus" class="segmentedContainer">
     <SegmentedControl
       class="segmentedControl"
       :segments="Object.keys(sorts)"
@@ -24,7 +24,7 @@
     <p v-else class="sortHeading">{{ currentSort }} posts</p>
   </div>
 
-  <div v-if="!moonStatus">
+  <div v-if="!moonStatus" class="postsContainer">
     <Post
       v-for="(post, index) in posts"
       :key="post.id"
@@ -92,7 +92,7 @@ export default class Moon extends Vue {
     };
 
     axios
-      .get(`http://localhost:4000/moon/${this.$route.params.moon}`)
+      .get(`${process.env.VUE_APP_API_URL}moon/${this.$route.params.moon}`)
       .then((res) => {
         this.moon = res.data;
         this.moonStatus = "";
@@ -144,6 +144,7 @@ export default class Moon extends Vue {
   changeSort(sort: string): void {
     this.currentSort = sort;
     this.posts = [];
+    this.nextCursor = null;
 
     this.getPosts();
   }
@@ -151,6 +152,7 @@ export default class Moon extends Vue {
   changeTimePeriod(timePeriod: string): void {
     this.currentTimePeriod = timePeriod;
     this.posts = [];
+    this.nextCursor = null;
 
     this.getPosts();
   }
@@ -174,7 +176,9 @@ export default class Moon extends Vue {
     } else {
       timePeriodSeconds = 0;
     }
-    return `http://localhost:4000/posts?moon_id=${moon_id}&sort=${sort.toLowerCase()}&limit=5${
+    return `${
+      process.env.VUE_APP_API_URL
+    }posts?moon_id=${moon_id}&sort=${sort.toLowerCase()}&limit=5${
       timePeriod ? "&time_period=" + timePeriodSeconds : ""
     }${cursor ? "&cursor=" + cursor : ""}`;
   }
@@ -229,5 +233,23 @@ p.sortHeadingWithDropdown {
   position: absolute;
   top: calc(50% + 25px);
   transform: translateY(-50%);
+}
+
+.segmentedContainer {
+  width: 550px;
+  position: relative;
+}
+
+.postsContainer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+@media screen and (max-width: 590px) {
+  .segmentedContainer {
+    width: calc(100% - 40px);
+  }
 }
 </style>

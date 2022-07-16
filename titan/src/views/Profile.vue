@@ -4,18 +4,24 @@
   </div>
 
   <div v-if="!loadingProfile" class="profileContainer">
-    <SegmentedControl
-      class="segmentedControl"
-      :segments="contentTypes"
-      @change="changeContentType"
-    />
+    <div class="segmentedContainer">
+      <SegmentedControl
+        class="segmentedControl"
+        :segments="contentTypes"
+        @change="changeContentType"
+      />
 
-    <div class="sortDropdown">
-      <p>Sort {{ currentContentType }} by:</p>
-      <Menu :options="contentSorts" @select="changeContentSort" />
+      <div class="sortDropdown">
+        <p>Sort {{ currentContentType }} by:</p>
+        <Menu :options="contentSorts" @select="changeContentSort" />
+      </div>
     </div>
 
-    <div v-for="(content, index) in profileContent" :key="content.id">
+    <div
+      v-for="(content, index) in profileContent"
+      :key="content.id"
+      class="contentContainer"
+    >
       <Post
         v-if="content.contentType == 'post' || currentContentType == 'posts'"
         :post="content"
@@ -81,7 +87,7 @@ export default class Profile extends Vue {
 
   created(): void {
     axios
-      .get(`http://localhost:4000/user/${this.$route.params.username}`)
+      .get(`${process.env.VUE_APP_API_URL}user/${this.$route.params.username}`)
       .then((res) => {
         this.userDetails = res.data;
         this.loadingProfile = false;
@@ -115,7 +121,9 @@ export default class Profile extends Vue {
 
     await axios
       .get(
-        `http://localhost:4000/profile/${type}?user_id=${user_id}&sort=${sort}&limit=5${
+        `${
+          process.env.VUE_APP_API_URL
+        }profile/${type}?user_id=${user_id}&sort=${sort}&limit=5${
           cursor ? `&cursor=${cursor}` : ""
         }`,
         { withCredentials: true }
@@ -167,9 +175,6 @@ export default class Profile extends Vue {
 .sortDropdown > p {
   margin: 0px 5px 20px;
 }
-.sortDropdown {
-  width: 550px;
-}
 
 .footer {
   color: #d9d9d9;
@@ -193,5 +198,30 @@ export default class Profile extends Vue {
   position: absolute;
   top: calc(50% + 25px);
   transform: translateY(-50%);
+}
+
+.segmentedContainer {
+  width: 550px;
+  position: relative;
+}
+
+.profileContainer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.contentContainer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+@media screen and (max-width: 590px) {
+  .segmentedContainer {
+    width: calc(100% - 40px);
+  }
 }
 </style>

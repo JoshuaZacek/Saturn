@@ -3,7 +3,13 @@ defmodule Saturn.Router do
   alias Saturn.{AuthRouter, SessionPlug, Users, Posts, Moons, Comments, Profiles}
 
   plug(Plug.Logger)
-  plug(Corsica, origins: "http://localhost:8080", allow_headers: :all, allow_credentials: true)
+
+  plug(Corsica,
+    origins: Application.fetch_env!(:saturn, :frontend_url),
+    allow_headers: :all,
+    allow_credentials: true
+  )
+
   plug(:fetch_cookies)
   plug(:match)
   plug(Plug.Parsers, parsers: [:json, :urlencoded, :multipart], json_decoder: Jason)
@@ -20,7 +26,10 @@ defmodule Saturn.Router do
 
           session ->
             conn
-            |> put_resp_cookie("session_id", session.session_id, same_site: "Strict")
+            |> put_resp_cookie("session_id", session.session_id,
+              same_site: "Strict",
+              max_age: 31_536_000
+            )
             |> send_resp(200, Jason.encode!(session.user))
         end
 
@@ -38,7 +47,10 @@ defmodule Saturn.Router do
 
           session ->
             conn
-            |> put_resp_cookie("session_id", session.session_id, same_site: "Strict")
+            |> put_resp_cookie("session_id", session.session_id,
+              same_site: "Strict",
+              max_age: 31_536_000
+            )
             |> send_resp(200, Jason.encode!(session.user))
         end
 

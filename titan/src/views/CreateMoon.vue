@@ -1,7 +1,7 @@
 <template>
   <Overlay v-if="overlayStatus" :status="overlayStatus" :message="overlayMessage" />
 
-  <div>
+  <div class="container">
     <h1>Create moon</h1>
     <p class="info">
       Moons can only contain letters, numbers and underscores. Moon names cannot be
@@ -89,7 +89,11 @@ export default class CreateMoon extends Vue {
     this.setOverlay("load", "Creating moon", false);
 
     axios
-      .post("http://localhost:4000/moon", { name: moon }, { withCredentials: true })
+      .post(
+        `${process.env.VUE_APP_API_URL}moon`,
+        { name: moon },
+        { withCredentials: true }
+      )
       .then(async () => {
         await this.setOverlay("success", "Created moon");
 
@@ -124,10 +128,11 @@ h1 {
 
 .inputContainer {
   position: relative;
+  width: 100%;
   margin-top: 20px;
 }
 input {
-  width: 500px;
+  width: 100%;
   padding: 10px 50px 10px 30px;
 
   outline: none;
@@ -171,5 +176,15 @@ input.error + label {
 .createButton {
   float: right;
   margin-top: 20px;
+}
+
+.container {
+  width: 500px;
+}
+
+@media screen and (max-width: 540px) {
+  .container {
+    width: calc(100% - 40px);
+  }
 }
 </style>
