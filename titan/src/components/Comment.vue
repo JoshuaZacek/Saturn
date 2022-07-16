@@ -158,7 +158,7 @@ export default class Comment extends Vue {
         this.replyToggled = false;
         this.incrementComments();
 
-        this.setOverlay("success", "Reply send");
+        this.setOverlay("success", "Reply sent");
       });
   }
 }

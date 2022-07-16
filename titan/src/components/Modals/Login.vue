@@ -96,14 +96,14 @@ export default class Login extends Vue {
     this.setOverlay("load", "Logging in", false);
 
     axios
-      .post("http://localhost:4000/login", formData, { withCredentials: true })
+      .post("http://localhost:4000/user/login", formData, { withCredentials: true })
       .then(async (res) => {
         this.$store.dispatch("login", res.data);
         await this.setOverlay("success", "Logged in");
         this.$router.go(0);
       })
       .catch((err) => {
-        if (err?.response?.status == 401) {
+        if (err?.response?.status == 400) {
           this.setOverlay("", "", false);
 
           const errors = err.response.data.errors;

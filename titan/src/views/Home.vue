@@ -139,8 +139,8 @@ export default class Home extends Vue {
     } else {
       timePeriodSeconds = 0;
     }
-    return `http://localhost:4000/posts/all?sort=${sort.toLowerCase()}&limit=5${
-      timePeriod ? "&time=" + timePeriodSeconds : ""
+    return `http://localhost:4000/posts/?sort=${sort.toLowerCase()}&limit=5${
+      timePeriod ? "&time_period=" + timePeriodSeconds : ""
     }${cursor ? "&cursor=" + cursor : ""}`;
   }
 }

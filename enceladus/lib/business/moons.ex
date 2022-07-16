@@ -1,42 +1,23 @@
 defmodule Saturn.Moons do
   import Ecto.Query
+  import Saturn.Functions
 
-  alias Saturn.Moon
-  alias Saturn.User
-  alias Saturn.Repo
+  alias Saturn.{Moon, User, Repo}
 
-  def create(attrs, user) do
-    case Repo.insert(Moon.changeset(%Moon{user_id: user.id}, attrs)) do
+  def create(params, user) do
+    inserted_post =
+      %Moon{user_id: user.id}
+      |> Moon.changeset(params)
+      |> Repo.insert()
+
+    case inserted_post do
       {:ok, moon} ->
-        Repo.preload(moon,
-          user:
-            from(u in User,
-              select: %{username: u.username, id: u.id, inserted_at: u.inserted_at}
-            )
-        )
+        moon
+        |> Repo.preload(user: from(u in User, select: map(u, [:id, :username, :inserted_at])))
         |> Map.drop([:__meta__, :user_id, :posts, :__struct__])
 
       {:error, changeset} ->
-        # Format errors
-        errors =
-          Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
-            Enum.reduce(opts, msg, fn {key, _value}, acc ->
-              String.replace(acc, "%{#{key}}", msg)
-            end)
-          end)
-          |> Enum.map(fn
-            {k, ["can't be blank"]} ->
-              {k, ["Please enter a #{k}"]}
-
-            {k, ["has already been taken"]} ->
-              {k, ["This moon has already been taken"]}
-
-            other ->
-              other
-          end)
-          |> Enum.into(%{})
-
-        {:error, %{errors: errors}}
+        {:error, %{errors: format_changeset(changeset)}}
     end
   end
 
@@ -53,7 +34,6 @@ defmodule Saturn.Moons do
     %{results: results}
   end
 
-  # Database stuff
   def get(moon) do
     Repo.get_by(Moon, name: moon)
   end

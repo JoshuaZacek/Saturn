@@ -3,9 +3,11 @@ defmodule Saturn.Profiles do
 
   alias Saturn.{Repo, Post, Moon, User, Comment}
 
-  def get_posts(profile_id, user_id, sort, cursor, limit) do
+  def get_posts(params, user_id) do
+    cursor = parse_cursor(params.cursor)
+
     order_by =
-      case sort do
+      case params.sort do
         "new" ->
           [
             desc:
@@ -28,7 +30,7 @@ defmodule Saturn.Profiles do
       end
 
     cursor_query =
-      case sort do
+      case params.sort do
         "new" ->
           if cursor do
             dynamic(
@@ -56,10 +58,10 @@ defmodule Saturn.Profiles do
     posts =
       Repo.all(
         from(p in Post,
-          where: p.user_id == ^profile_id,
+          where: p.user_id == ^params.user_id,
           where: ^cursor_query,
           order_by: ^order_by,
-          limit: ^limit + 1,
+          limit: ^params.limit + 1,
           select: %{
             p
             | votes: fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", p.id),
@@ -79,18 +81,19 @@ defmodule Saturn.Profiles do
         user: from(u in User, select: map(u, [:username, :id, :inserted_at]))
       )
 
-    {next_cursor, posts} = get_next_cursor(posts, limit, sort)
+    {next_cursor, posts} = get_next_cursor(posts, params.limit, params.sort)
 
-    {:ok,
-     %{
-       content: posts,
-       next_cursor: next_cursor
-     }}
+    %{
+      content: posts,
+      next_cursor: next_cursor
+    }
   end
 
-  def get_comments(profile_id, user_id, sort, cursor, limit) do
+  def get_comments(params, user_id) do
+    cursor = parse_cursor(params.cursor)
+
     order_by =
-      case sort do
+      case params.sort do
         "new" ->
           [
             desc:
@@ -113,7 +116,7 @@ defmodule Saturn.Profiles do
       end
 
     cursor_query =
-      case sort do
+      case params.sort do
         "new" ->
           if cursor do
             dynamic(
@@ -141,10 +144,10 @@ defmodule Saturn.Profiles do
     comments =
       Repo.all(
         from(c in Comment,
-          where: c.user_id == ^profile_id,
+          where: c.user_id == ^params.user_id,
           where: ^cursor_query,
           order_by: ^order_by,
-          limit: ^limit + 1,
+          limit: ^params.limit + 1,
           select: %{
             c
             | votes:
@@ -163,19 +166,20 @@ defmodule Saturn.Profiles do
         post: from(p in Post, select: map(p, [:id, :title]))
       )
 
-    {next_cursor, comments} = get_next_cursor(comments, limit, sort)
+    {next_cursor, comments} = get_next_cursor(comments, params.limit, params.sort)
 
-    {:ok,
-     %{
-       content: comments,
-       next_cursor: next_cursor
-     }}
+    %{
+      content: comments,
+      next_cursor: next_cursor
+    }
   end
 
-  def overview(profile_id, user_id, sort, cursor, limit) do
+  def overview(params, user_id) do
+    cursor = parse_cursor(params.cursor)
+
     posts_query =
       from(p in Post,
-        where: p.user_id == ^profile_id,
+        where: p.user_id == ^params.user_id,
         select: %{
           id: p.id,
           inserted_at: p.inserted_at,
@@ -206,7 +210,7 @@ defmodule Saturn.Profiles do
 
     comments_query =
       from(c in Comment,
-        where: c.user_id == ^profile_id,
+        where: c.user_id == ^params.user_id,
         select: %{
           id: c.id,
           inserted_at: c.inserted_at,
@@ -237,7 +241,7 @@ defmodule Saturn.Profiles do
     union_query = union_all(comments_query, ^posts_query)
 
     order_by_row_number =
-      case sort do
+      case params.sort do
         "new" ->
           [
             desc:
@@ -258,7 +262,7 @@ defmodule Saturn.Profiles do
       end
 
     cursor_query =
-      case sort do
+      case params.sort do
         "new" ->
           if cursor do
             dynamic(
@@ -317,17 +321,16 @@ defmodule Saturn.Profiles do
           },
           where: ^cursor_query,
           order_by: rq.row,
-          limit: ^limit + 1
+          limit: ^params.limit + 1
         )
       )
 
-    {next_cursor, overview} = get_next_cursor(overview, limit, sort, true)
+    {next_cursor, overview} = get_next_cursor(overview, params.limit, params.sort, true)
 
-    {:ok,
-     %{
-       content: overview,
-       next_cursor: next_cursor
-     }}
+    %{
+      content: overview,
+      next_cursor: next_cursor
+    }
   end
 
   defp get_next_cursor(comments, limit, sort, is_overview \\ false)
@@ -379,5 +382,15 @@ defmodule Saturn.Profiles do
 
   defp get_next_cursor(comments, _, _, _) do
     {nil, comments}
+  end
+
+  defp parse_cursor(cursor) do
+    try do
+      cursor
+      |> Base.url_decode64!()
+      |> Jason.decode!()
+    rescue
+      _ -> nil
+    end
   end
 end

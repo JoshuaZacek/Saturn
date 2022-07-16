@@ -106,7 +106,7 @@ export default class Menu extends Vue {
     switch (option) {
       case "Log out":
         axios
-          .delete("http://localhost:4000/logout", {
+          .delete("http://localhost:4000/user/logout", {
             withCredentials: true,
           })
           .then(() => {

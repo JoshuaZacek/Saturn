@@ -55,7 +55,7 @@ export default class DeleteAccount extends Vue {
   deleteAccount(): void {
     this.setOverlay("load", "Deleting account", false);
 
-    axios.delete("http://localhost:4000/account", { withCredentials: true })
+    axios.delete("http://localhost:4000/user", { withCredentials: true })
     .then(async () => {
       this.$store.dispatch("logout");
       await this.setOverlay("success", "Account deleted");
