@@ -2,7 +2,7 @@
   <Overlay v-if="overlayStatus" :status="overlayStatus" :message="overlayMessage" />
 
   <div class="voteButtons">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 946.15">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 946.15" ontouchstart>
       <path
         d="M659.21,143.52c-82.32-141.36-218.55-141.36-295.78,0L72,653.61c-80.86,140.64-14.57,255,145.71,255H804.92c162.46,0,228.76-114.4,145.7-255Z"
         style="fill:none;stroke:#757575;stroke-miterlimit:10;stroke-width:75px;cursor:pointer;"
@@ -55,13 +55,13 @@ export default class VoteButtons extends Vue {
   }
 
   createSubmitURL(vote: string): string {
-    return `http://localhost:4000/vote?vote=${vote}&${
+    return `${process.env.VUE_APP_API_URL}vote?vote=${vote}&${
       this.type == "post" ? "post_id" : "comment_id"
     }=${this.content.id}`;
   }
 
   createDeleteURL(): string {
-    return `http://localhost:4000/vote?${
+    return `${process.env.VUE_APP_API_URL}vote?${
       this.type == "post" ? "post_id" : "comment_id"
     }=${this.content.id}`;
   }
@@ -143,25 +143,26 @@ export default class VoteButtons extends Vue {
   font-size: 15px;
 }
 
-.vote:not(.down, .up):hover {
-  fill: var(--textSecondary) !important;
-}
-
 .vote.down {
   stroke: red !important;
 }
-.vote.down:hover {
-  fill: #ff0000 !important;
-}
-
 .vote.up {
   stroke: #006cff !important;
-}
-.vote.up:hover {
-  fill: #006cff !important;
 }
 
 svg {
   height: 15px;
+}
+
+@media (hover: hover) {
+  .vote.down:hover {
+    fill: #ff0000 !important;
+  }
+  .vote.up:hover {
+    fill: #006cff !important;
+  }
+  .vote:not(.down, .up):hover {
+    fill: var(--textSecondary) !important;
+  }
 }
 </style>

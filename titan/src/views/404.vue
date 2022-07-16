@@ -6,9 +6,23 @@
       spelling.
     </p>
 
-    <button @click="$router.push({ name: 'Home' })">Go to the front page</button>
+    <Button @click="$router.push({ name: 'Home' })" size="small"
+      >Go to the front page</Button
+    >
   </div>
 </template>
+
+<script lang="ts">
+import { Options, Vue } from "vue-class-component";
+import Button from "@/components/Button.vue";
+
+@Options({
+  components: {
+    Button,
+  },
+})
+export default class NotFund extends Vue {}
+</script>
 
 <style scoped>
 div {
@@ -31,23 +45,5 @@ p {
   color: var(--textSecondary);
   max-width: 60%;
   text-align: center;
-}
-
-button {
-  padding: 5px 10px;
-  display: block;
-
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-
-  font-weight: 500;
-  font-size: 15px;
-
-  background-color: transparent;
-  color: #006cff;
-}
-button:hover {
-  background-color: #006cff11;
 }
 </style>

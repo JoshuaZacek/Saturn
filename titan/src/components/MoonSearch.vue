@@ -12,7 +12,7 @@
       {{ selected?.name || "Select moon..." }}
     </button>
 
-    <div v-show="toggled" class="searchContainer">
+    <div v-show="toggled" class="searchContainer" ref="searchContainer">
       <input
         @input="search($refs.search.value)"
         @blur="close"
@@ -60,26 +60,35 @@ export default class MoonSearch extends Vue {
   declare $refs: {
     search: HTMLInputElement;
     button: HTMLButtonElement;
+    searchContainer: HTMLDivElement;
   };
 
   async search(moon: string): Promise<void> {
     this.highlightedResult = -1;
 
     if (moon) {
-      const res = await axios.get(`http://localhost:4000/moon/search/${moon}`);
+      const res = await axios.get(`${process.env.VUE_APP_API_URL}moon/search/${moon}`);
       this.searchResults = res.data.results;
     } else {
       this.searchResults = [];
     }
   }
 
+  tapOusideElement(e: TouchEvent): void {
+    if (!this.$refs.searchContainer.contains(<Element>e.target)) {
+      this.close();
+    }
+  }
+
   close(): void {
+    window.removeEventListener("touchstart", this.tapOusideElement);
     this.toggled = false;
     this.$emit("select", this.selected);
     setTimeout(() => this.$refs.button.focus(), 0); // setTimeout of 0 needed so that element exists in DOM when focusing
   }
 
   open(): void {
+    window.addEventListener("touchstart", this.tapOusideElement);
     this.highlightedResult = -1;
     this.toggled = true;
     setTimeout(() => this.$refs.search.focus(), 0); // setTimeout of 0 needed so that element exists in DOM when focusing
@@ -103,6 +112,7 @@ export default class MoonSearch extends Vue {
 <style scoped>
 .container {
   width: 275px;
+  max-width: 275px;
   position: relative;
 }
 

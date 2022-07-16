@@ -21,12 +21,7 @@
       <p>{{ timeSince }}</p>
     </div>
 
-    <img
-      v-if="post.type == 'image'"
-      :src="`http://localhost:4000/assets/${post.body}`"
-      :alt="post.body"
-      class="postImage"
-    />
+    <img v-if="post.type == 'image'" :src="imageURL" :alt="post.body" class="postImage" />
     <p class="postBody" v-else>{{ post.body }}</p>
 
     <VoteButtons :content="post" type="post" />
@@ -78,6 +73,10 @@ export default class Post extends Vue {
     return relativeTime(new Date(<string>this.post.inserted_at));
   }
 
+  get imageURL(): string {
+    return `${process.env.VUE_APP_API_URL}assets/${this.post.body}`;
+  }
+
   async setOverlay(status: string, message: string, autoClear = true): Promise<void> {
     this.overlayStatus = status;
     this.overlayMessage = message;
@@ -92,7 +91,7 @@ export default class Post extends Vue {
     this.setOverlay("load", "Deleting post", false);
 
     axios
-      .delete(`http://localhost:4000/post/${this.post.id}`, {
+      .delete(`${process.env.VUE_APP_API_URL}post/${this.post.id}`, {
         withCredentials: true,
       })
       .then(async () => {
@@ -170,10 +169,22 @@ export default class Post extends Vue {
   justify-content: center;
   align-items: center;
 }
-.toolbarButton:hover {
+
+.toolbarButton:active {
   background-color: var(--backgroundTertiary);
+}
+@media (hover: hover) {
+  .toolbarButton:hover {
+    background-color: var(--backgroundTertiary);
+  }
 }
 .toolbarButton > img {
   margin-right: 5px;
+}
+
+@media screen and (max-width: 590px) {
+  .postContainer {
+    width: calc(100% - 40px);
+  }
 }
 </style>

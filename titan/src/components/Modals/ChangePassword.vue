@@ -96,7 +96,9 @@ export default class ChangePassword extends Vue {
     this.setOverlay("load", "Changing password", false);
 
     axios
-      .post("http://localhost:4000/user/password", formData, { withCredentials: true })
+      .post(`${process.env.VUE_APP_API_URL}user/password`, formData, {
+        withCredentials: true,
+      })
       .then(async () => {
         await this.setOverlay("success", "Password changed");
         this.$emit("close");

@@ -47,6 +47,7 @@ export default class Menu extends Vue {
     setTimeout(() => {
       if (document?.activeElement?.parentNode != this.$refs.menu) {
         this.showMenu = false;
+        window.removeEventListener("touchstart", this.checkClickTarget);
         this.$refs.button.focus();
       }
     }, 0);
@@ -61,8 +62,17 @@ export default class Menu extends Vue {
     }
   }
 
+  checkClickTarget(e: TouchEvent): void {
+    if (!this.$refs.menu.contains(<Element>e.target)) {
+      this.showMenu = false;
+      window.removeEventListener("touchstart", this.checkClickTarget);
+      this.$refs.button.focus();
+    }
+  }
+
   openMenu(): void {
     this.showMenu = true;
+    window.addEventListener("touchstart", this.checkClickTarget);
     // if setTimeout is removed, the menu option (li) won't focus.
     setTimeout(() => {
       this?.$refs[this.options[0]].focus();
@@ -106,7 +116,7 @@ export default class Menu extends Vue {
     switch (option) {
       case "Log out":
         axios
-          .delete("http://localhost:4000/user/logout", {
+          .delete(`${process.env.VUE_APP_API_URL}user/logout`, {
             withCredentials: true,
           })
           .then(() => {

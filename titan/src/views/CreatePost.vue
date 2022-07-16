@@ -1,8 +1,9 @@
 <template>
   <Overlay v-if="overlayStatus" :status="overlayStatus" :message="overlayMessage" />
 
-  <div>
+  <div class="container">
     <h1>Create post</h1>
+
     <SegmentedControl
       :segments="postTypes"
       @change="changePostType"
@@ -160,7 +161,7 @@ export default class CreateMoon extends Vue {
     }
 
     axios
-      .post("http://localhost:4000/post", formData, {
+      .post(`${process.env.VUE_APP_API_URL}post`, formData, {
         withCredentials: true,
       })
       .then(async (res) => {
@@ -189,14 +190,14 @@ h1 {
 }
 .title {
   margin-top: 30px;
-  width: 520px;
+  width: calc(100% - 30px);
 
   resize: none;
   overflow-y: hidden;
 }
 .text {
   margin-top: 15px;
-  width: 520px;
+  width: calc(100% - 30px);
 
   height: 150px;
   min-height: 150px;
@@ -235,5 +236,15 @@ input {
 p {
   color: red;
   margin-top: 5px;
+}
+
+.container {
+  width: 550px;
+}
+
+@media screen and (max-width: 590px) {
+  .container {
+    width: calc(100% - 40px);
+  }
 }
 </style>

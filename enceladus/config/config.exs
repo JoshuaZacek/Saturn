@@ -1,5 +1,7 @@
 import Config
 
+config :saturn, frontend_url: "*"
+
 config :saturn, ecto_repos: [Saturn.Repo]
 
 config :saturn, Saturn.Repo,

@@ -26,12 +26,7 @@
       <p>{{ timeSince }}</p>
     </div>
 
-    <img
-      v-if="post.type == 'image'"
-      :src="`http://localhost:4000/assets/${post.body}`"
-      :alt="post.body"
-      class="postImage"
-    />
+    <img v-if="post.type == 'image'" :src="imageURL" :alt="post.body" class="postImage" />
     <p class="postBody" v-else>{{ post.body }}</p>
 
     <VoteButtons :content="post" type="post" />
@@ -143,6 +138,10 @@ export default class PostWithComments extends Vue {
     comment: HTMLTextAreaElement;
   };
 
+  get imageURL(): string {
+    return `${process.env.VUE_APP_API_URL}assets/${this.post.body}`;
+  }
+
   incrementComments(): void {
     this.numberOfComments += 1;
   }
@@ -156,7 +155,7 @@ export default class PostWithComments extends Vue {
   // Lifecycle hooks
   async created(): Promise<void> {
     await axios
-      .get(`http://localhost:4000/post/${this.$route.params.id}`, {
+      .get(`${process.env.VUE_APP_API_URL}post/${this.$route.params.id}`, {
         withCredentials: true,
       })
       .then((res) => {
@@ -208,7 +207,7 @@ export default class PostWithComments extends Vue {
 
     axios
       .get(
-        `http://localhost:4000/comments${
+        `${process.env.VUE_APP_API_URL}comments${
           this.$route.params.comment
             ? `/${this.$route.params.comment}`
             : `?post_id=${this.$route.params.id}&limit=10${
@@ -238,7 +237,7 @@ export default class PostWithComments extends Vue {
     this.setOverlay("load", "Deleting post", false);
 
     axios
-      .delete(`http://localhost:4000/post/${this.post.id}`, {
+      .delete(`${process.env.VUE_APP_API_URL}post/${this.post.id}`, {
         withCredentials: true,
       })
       .then(async () => {
@@ -257,7 +256,7 @@ export default class PostWithComments extends Vue {
 
     axios
       .post(
-        "http://localhost:4000/comment",
+        `${process.env.VUE_APP_API_URL}comment`,
         {
           post_id: this.post.id,
           content: content,
@@ -283,6 +282,12 @@ export default class PostWithComments extends Vue {
   border-radius: 15px;
   box-sizing: border-box;
   margin: 30px 0;
+}
+
+@media screen and (max-width: 740px) {
+  .postContainer {
+    width: calc(100% - 40px);
+  }
 }
 
 .details {
@@ -337,8 +342,10 @@ export default class PostWithComments extends Vue {
   justify-content: center;
   align-items: center;
 }
-.toolbarButton:hover {
-  background-color: var(--backgroundTertiary);
+@media (hover: hover) {
+  .toolbarButton:hover {
+    background-color: var(--backgroundTertiary);
+  }
 }
 .toolbarButton > img {
   margin-right: 5px;

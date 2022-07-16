@@ -71,7 +71,7 @@ defmodule Saturn.Posts do
     cursor = parse_cursor(cursor)
 
     posts_after_query =
-      if sort == "top" do
+      if sort == "top" and time_period > 0 do
         dynamic(
           [p],
           p.inserted_at >
@@ -134,8 +134,8 @@ defmodule Saturn.Posts do
       Repo.all(
         from(p in Post,
           where: ^moon_query,
-          where: ^cursor_query,
           where: ^posts_after_query,
+          where: ^cursor_query,
           order_by: ^order_by_query,
           limit: ^limit + 1,
           select: %{

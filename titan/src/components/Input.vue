@@ -36,11 +36,11 @@ p {
 
 div {
   position: relative;
-  width: 100%;
+  width: calc(100% - 30px);
 }
 
 input {
-  width: 315px;
+  width: 100%;
   outline: none;
   border-color: #dddddd;
   border-style: solid;

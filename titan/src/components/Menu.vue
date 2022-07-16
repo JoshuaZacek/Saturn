@@ -45,11 +45,16 @@ export default class Menu extends Vue {
     [key: string]: HTMLElement;
   };
 
+  beforeUnmount(): void {
+    window.removeEventListener("touchstart", this.checkClickTarget);
+  }
+
   checkFocus(): void {
     // setTimeout is needed, otherwise the active element return previously selected element, not current
     setTimeout(() => {
       if (document?.activeElement?.parentNode != this.$refs.menu) {
         this.showMenu = false;
+        window.removeEventListener("touchstart", this.checkClickTarget);
         this.$refs.button.focus();
       }
     }, 0);
@@ -64,8 +69,17 @@ export default class Menu extends Vue {
     }
   }
 
+  checkClickTarget(e: TouchEvent): void {
+    if (!this.$refs.menu.contains(<Element>e.target)) {
+      this.showMenu = false;
+      window.removeEventListener("touchstart", this.checkClickTarget);
+      this.$refs.button.focus();
+    }
+  }
+
   openMenu(): void {
     this.showMenu = true;
+    window.addEventListener("touchstart", this.checkClickTarget);
     // if setTimeout is removed, the menu option (li) won't focus.
     setTimeout(() => {
       this?.$refs[this.selected].focus();
@@ -106,6 +120,8 @@ export default class Menu extends Vue {
     this.$refs.button.focus();
     if (this.selected == option) {
       this.showMenu = false;
+      window.removeEventListener("touchstart", this.checkClickTarget);
+      this.$refs.button.focus();
     } else {
       this.selected = option;
     }
@@ -162,12 +178,6 @@ button:before {
   position: absolute;
   top: 12px;
   right: 14px;
-}
-button:hover {
-  background: #e2e2e2;
-}
-button:active {
-  background: #d6d6d6;
 }
 
 ul {

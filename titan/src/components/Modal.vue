@@ -91,8 +91,15 @@ export default class Modal extends Vue {
 .modal {
   width: 350px;
   padding: 15px 20px 20px;
+  margin: 0 20px;
   border-radius: 20px;
   background: var(--backgroundSecondary);
   position: relative;
+}
+
+@media screen and (max-width: 350px) {
+  .modal {
+    width: 100%;
+  }
 }
 </style>

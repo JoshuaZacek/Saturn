@@ -148,10 +148,18 @@ export default class CommentProfile extends Vue {
   justify-content: center;
   align-items: center;
 }
-.replyButton:hover {
-  background-color: var(--backgroundTertiary);
+@media (hover: hover) {
+  .replyButton:hover {
+    background-color: var(--backgroundTertiary);
+  }
 }
 .replyButton > img {
   margin-right: 5px;
+}
+
+@media screen and (max-width: 590px) {
+  .container {
+    width: calc(100% - 40px);
+  }
 }
 </style>
