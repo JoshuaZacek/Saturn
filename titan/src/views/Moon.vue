@@ -92,7 +92,7 @@ export default class Moon extends Vue {
     };
 
     axios
-      .get(`${process.env.VUE_APP_API_URL}moon/${this.$route.params.moon}`)
+      .get(`${process.env.VUE_APP_API_URL}/moon/${this.$route.params.moon}`)
       .then((res) => {
         this.moon = res.data;
         this.moonStatus = "";
@@ -178,7 +178,7 @@ export default class Moon extends Vue {
     }
     return `${
       process.env.VUE_APP_API_URL
-    }posts?moon_id=${moon_id}&sort=${sort.toLowerCase()}&limit=5${
+    }/posts?moon_id=${moon_id}&sort=${sort.toLowerCase()}&limit=5${
       timePeriod ? "&time_period=" + timePeriodSeconds : ""
     }${cursor ? "&cursor=" + cursor : ""}`;
   }

@@ -141,7 +141,7 @@ export default class Home extends Vue {
     } else {
       timePeriodSeconds = 0;
     }
-    return `${process.env.VUE_APP_API_URL}posts/?sort=${sort.toLowerCase()}&limit=5${
+    return `${process.env.VUE_APP_API_URL}/posts/?sort=${sort.toLowerCase()}&limit=5${
       timePeriod ? "&time_period=" + timePeriodSeconds : ""
     }${cursor ? "&cursor=" + cursor : ""}`;
   }

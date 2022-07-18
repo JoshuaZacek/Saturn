@@ -9,7 +9,7 @@ export function relativeTime(timeStamp: Date): string {
 
   const timePassed = (Date.now() - timeStamp.getTime()) / 1000;
   if (timePassed < minute) {
-    const interval = Math.floor(timePassed);
+    const interval = Math.floor(timePassed) < 0 ? 0 : Math.floor(timePassed);
     return interval == 1 ? "1 second ago" : `${interval} seconds ago`;
   } else if (timePassed < hour) {
     const interval = Math.floor(timePassed / minute);

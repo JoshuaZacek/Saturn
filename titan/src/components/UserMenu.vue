@@ -39,7 +39,7 @@ export default class Menu extends Vue {
   declare $refs: {
     button: HTMLButtonElement;
     menu: HTMLUListElement;
-    [key: string]: HTMLElement;
+    [key: string]: unknown;
   };
 
   checkFocus(): void {
@@ -75,13 +75,13 @@ export default class Menu extends Vue {
     window.addEventListener("touchstart", this.checkClickTarget);
     // if setTimeout is removed, the menu option (li) won't focus.
     setTimeout(() => {
-      this?.$refs[this.options[0]].focus();
+      (<HTMLElement[]>this.$refs[this.options[0]])[0].focus();
     }, 0);
   }
 
   selectOption(e: KeyboardEvent, option: string, index: number): void {
-    const nextSibling = this.$refs[this.options[index + 1]];
-    const previousSibling = this.$refs[this.options[index - 1]];
+    const nextSibling = (<HTMLElement[]>this.$refs[this.options[index + 1]] || [])[0];
+    const previousSibling = (<HTMLElement[]>this.$refs[this.options[index - 1]] || [])[0];
     switch (e.code) {
       case "Enter":
       case "Space":
@@ -116,7 +116,7 @@ export default class Menu extends Vue {
     switch (option) {
       case "Log out":
         axios
-          .delete(`${process.env.VUE_APP_API_URL}user/logout`, {
+          .delete(`${process.env.VUE_APP_API_URL}/user/logout`, {
             withCredentials: true,
           })
           .then(() => {

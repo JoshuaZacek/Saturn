@@ -22,14 +22,19 @@
     </div>
 
     <img v-if="post.type == 'image'" :src="imageURL" :alt="post.body" class="postImage" />
-    <p class="postBody" v-else>{{ post.body }}</p>
+    <div :class="['postBodyContainer', isOverflowing ? 'isOverflowing' : '']" v-else>
+      <p :class="['postBody', isOverflowing ? 'isOverflowing' : '']">
+        {{ post.body }}
+      </p>
+
+      <Button v-if="isOverflowing" size="small" @click="goToPostWithComments"
+        >Read more</Button
+      >
+    </div>
 
     <VoteButtons :content="post" type="post" />
 
-    <button
-      class="toolbarButton"
-      @click="$router.push({ name: 'PostWithComments', params: { id: this.post.id } })"
-    >
+    <button class="toolbarButton" @click="goToPostWithComments">
       <img src="/comment.svg" height="15" />
       {{ post.comments }}
     </button>
@@ -49,6 +54,7 @@
 // Packages
 import { Options, Vue } from "vue-class-component";
 import Overlay from "@/components/Overlay.vue";
+import Button from "@/components/Button.vue";
 import VoteButtons from "@/components/VoteButtons.vue";
 import axios from "axios";
 import { relativeTime } from "@/relativeTime";
@@ -57,6 +63,7 @@ import { relativeTime } from "@/relativeTime";
   components: {
     Overlay,
     VoteButtons,
+    Button,
   },
   props: {
     post: Object,
@@ -66,15 +73,23 @@ import { relativeTime } from "@/relativeTime";
 export default class Post extends Vue {
   overlayMessage = "";
   overlayStatus = "";
+  isOverflowing = false;
 
   post!: Record<string, unknown>;
+
+  created(): void {
+    const postBody = <string>this.post.body;
+
+    this.isOverflowing = postBody.length > 400 ? true : false;
+    this.post.body = `${postBody.substring(0, 400)}${this.isOverflowing ? "..." : ""}`;
+  }
 
   get timeSince(): string {
     return relativeTime(new Date(<string>this.post.inserted_at));
   }
 
   get imageURL(): string {
-    return `${process.env.VUE_APP_API_URL}assets/${this.post.body}`;
+    return `${process.env.VUE_APP_API_URL}/assets/${this.post.body}`;
   }
 
   async setOverlay(status: string, message: string, autoClear = true): Promise<void> {
@@ -87,11 +102,15 @@ export default class Post extends Vue {
     }
   }
 
+  goToPostWithComments(): void {
+    this.$router.push({ name: "PostWithComments", params: { id: <number>this.post.id } });
+  }
+
   deletePost(): void {
     this.setOverlay("load", "Deleting post", false);
 
     axios
-      .delete(`${process.env.VUE_APP_API_URL}post/${this.post.id}`, {
+      .delete(`${process.env.VUE_APP_API_URL}/post/${this.post.id}`, {
         withCredentials: true,
       })
       .then(async () => {
@@ -148,8 +167,27 @@ export default class Post extends Vue {
   cursor: pointer;
 }
 
-.postBody {
+.postBodyContainer {
   margin: 10px 0px 15px 0px;
+  position: relative;
+}
+.postBodyContainer > button {
+  z-index: 10;
+}
+.postBody {
+  line-height: 18px;
+  max-height: 90px;
+}
+
+.postBodyContainer.isOverflowing {
+  margin: 10px 0px 5px 0px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.postBody.isOverflowing {
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) -20%, rgba(0, 0, 0, 0));
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) -20%, rgba(0, 0, 0, 0));
 }
 
 .toolbarButton {

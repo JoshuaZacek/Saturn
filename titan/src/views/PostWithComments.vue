@@ -139,7 +139,7 @@ export default class PostWithComments extends Vue {
   };
 
   get imageURL(): string {
-    return `${process.env.VUE_APP_API_URL}assets/${this.post.body}`;
+    return `${process.env.VUE_APP_API_URL}/assets/${this.post.body}`;
   }
 
   incrementComments(): void {
@@ -155,7 +155,7 @@ export default class PostWithComments extends Vue {
   // Lifecycle hooks
   async created(): Promise<void> {
     await axios
-      .get(`${process.env.VUE_APP_API_URL}post/${this.$route.params.id}`, {
+      .get(`${process.env.VUE_APP_API_URL}/post/${this.$route.params.id}`, {
         withCredentials: true,
       })
       .then((res) => {
@@ -207,7 +207,7 @@ export default class PostWithComments extends Vue {
 
     axios
       .get(
-        `${process.env.VUE_APP_API_URL}comments${
+        `${process.env.VUE_APP_API_URL}/comments${
           this.$route.params.comment
             ? `/${this.$route.params.comment}`
             : `?post_id=${this.$route.params.id}&limit=10${
@@ -237,7 +237,7 @@ export default class PostWithComments extends Vue {
     this.setOverlay("load", "Deleting post", false);
 
     axios
-      .delete(`${process.env.VUE_APP_API_URL}post/${this.post.id}`, {
+      .delete(`${process.env.VUE_APP_API_URL}/post/${this.post.id}`, {
         withCredentials: true,
       })
       .then(async () => {
@@ -256,7 +256,7 @@ export default class PostWithComments extends Vue {
 
     axios
       .post(
-        `${process.env.VUE_APP_API_URL}comment`,
+        `${process.env.VUE_APP_API_URL}/comment`,
         {
           post_id: this.post.id,
           content: content,

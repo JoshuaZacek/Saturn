@@ -7,11 +7,14 @@ defmodule Saturn.Application do
 
   @impl true
   def start(_type, _args) do
+    Dotenv.load()
+    Mix.Task.run("loadconfig")
+
     children = [
       Plug.Cowboy.child_spec(
         scheme: :http,
         plug: Saturn.Router,
-        options: [port: 4000]
+        options: [port: String.to_integer(System.get_env("PORT") || "4000")]
       ),
       Saturn.Repo
     ]

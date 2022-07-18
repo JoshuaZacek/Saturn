@@ -13,7 +13,7 @@
 
       <div class="sortDropdown">
         <p>Sort {{ currentContentType }} by:</p>
-        <Menu :options="contentSorts" @select="changeContentSort" />
+        <!-- <Menu :options="contentSorts" @select="changeContentSort" /> -->
       </div>
     </div>
 
@@ -36,9 +36,7 @@
 
   <div v-if="!loadingProfile && !loadingContent">
     <p v-if="!nextCursor && profileContent.length == 0" class="footer">Hmmm... empty</p>
-    <p v-else-if="!nextCursor" class="footer">
-      That's all folks
-    </p>
+    <p v-else-if="!nextCursor" class="footer">That's all folks</p>
   </div>
 
   <div
@@ -87,7 +85,7 @@ export default class Profile extends Vue {
 
   created(): void {
     axios
-      .get(`${process.env.VUE_APP_API_URL}user/${this.$route.params.username}`)
+      .get(`${process.env.VUE_APP_API_URL}/user/${this.$route.params.username}`)
       .then((res) => {
         this.userDetails = res.data;
         this.loadingProfile = false;
@@ -123,7 +121,7 @@ export default class Profile extends Vue {
       .get(
         `${
           process.env.VUE_APP_API_URL
-        }profile/${type}?user_id=${user_id}&sort=${sort}&limit=5${
+        }/profile/${type}?user_id=${user_id}&sort=${sort}&limit=5${
           cursor ? `&cursor=${cursor}` : ""
         }`,
         { withCredentials: true }

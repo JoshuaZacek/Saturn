@@ -126,7 +126,7 @@ export default class Signup extends Vue {
     this.setOverlay("load", "Signing up", false);
 
     axios
-      .post(`${process.env.VUE_APP_API_URL}user/signup`, formData, {
+      .post(`${process.env.VUE_APP_API_URL}/user/signup`, formData, {
         withCredentials: true,
       })
       .then(async (res) => {

@@ -5,7 +5,7 @@ defmodule Saturn.Router do
   plug(Plug.Logger)
 
   plug(Corsica,
-    origins: Application.fetch_env!(:saturn, :frontend_url),
+    origins: System.get_env("CORS_URL") || "*",
     allow_headers: :all,
     allow_credentials: true
   )
