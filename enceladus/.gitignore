@@ -27,3 +27,6 @@ saturn-*.tar
 
 # Elixir LS files
 /.elixir_ls
+
+# Environment variables
+.env

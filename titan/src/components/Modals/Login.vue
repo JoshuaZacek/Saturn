@@ -96,7 +96,7 @@ export default class Login extends Vue {
     this.setOverlay("load", "Logging in", false);
 
     axios
-      .post(`${process.env.VUE_APP_API_URL}user/login`, formData, {
+      .post(`${process.env.VUE_APP_API_URL}/user/login`, formData, {
         withCredentials: true,
       })
       .then(async (res) => {

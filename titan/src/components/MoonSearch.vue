@@ -67,7 +67,7 @@ export default class MoonSearch extends Vue {
     this.highlightedResult = -1;
 
     if (moon) {
-      const res = await axios.get(`${process.env.VUE_APP_API_URL}moon/search/${moon}`);
+      const res = await axios.get(`${process.env.VUE_APP_API_URL}/moon/search/${moon}`);
       this.searchResults = res.data.results;
     } else {
       this.searchResults = [];

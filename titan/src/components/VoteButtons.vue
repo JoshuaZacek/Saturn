@@ -55,13 +55,13 @@ export default class VoteButtons extends Vue {
   }
 
   createSubmitURL(vote: string): string {
-    return `${process.env.VUE_APP_API_URL}vote?vote=${vote}&${
+    return `${process.env.VUE_APP_API_URL}/vote?vote=${vote}&${
       this.type == "post" ? "post_id" : "comment_id"
     }=${this.content.id}`;
   }
 
   createDeleteURL(): string {
-    return `${process.env.VUE_APP_API_URL}vote?${
+    return `${process.env.VUE_APP_API_URL}/vote?${
       this.type == "post" ? "post_id" : "comment_id"
     }=${this.content.id}`;
   }

@@ -90,7 +90,7 @@ export default class CreateMoon extends Vue {
 
     axios
       .post(
-        `${process.env.VUE_APP_API_URL}moon`,
+        `${process.env.VUE_APP_API_URL}/moon`,
         { name: moon },
         { withCredentials: true }
       )

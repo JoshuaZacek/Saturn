@@ -22,20 +22,18 @@
         <p>{{ timeSince }}</p>
       </div>
 
-      <p>{{ comment.content }}</p>
+      <div :class="['commentTextContainer', isOverflowing ? 'isOverflowing' : '']">
+        <p :class="['commentText', isOverflowing ? 'isOverflowing' : '']">
+          {{ comment.content }}
+        </p>
+
+        <Button v-if="isOverflowing" @click="goToComment" size="small">Read more</Button>
+      </div>
     </div>
 
     <VoteButtons :content="comment" type="comment" />
 
-    <button
-      class="replyButton"
-      @click="
-        $router.push({
-          name: 'PostWithComments',
-          params: { id: comment.post.id, comment: comment.id },
-        })
-      "
-    >
+    <button class="replyButton" @click="goToComment">
       <img src="/comment.svg" height="15" />
       See replies
     </button>
@@ -44,6 +42,7 @@
 
 <script lang="ts">
 import { Options, Vue } from "vue-class-component";
+import Button from "@/components/Button.vue";
 import VoteButtons from "@/components/VoteButtons.vue";
 import { relativeTime } from "@/relativeTime";
 
@@ -52,14 +51,35 @@ import { relativeTime } from "@/relativeTime";
     comment: Object,
   },
   components: {
+    Button,
     VoteButtons,
   },
 })
 export default class CommentProfile extends Vue {
+  isOverflowing = false;
   comment!: Record<string, unknown>;
+
+  created(): void {
+    const commentText = <string>this.comment.content;
+
+    this.isOverflowing = commentText.length > 400 ? true : false;
+    this.comment.content = `${commentText.substring(0, 400)}${
+      this.isOverflowing ? "..." : ""
+    }`;
+  }
 
   get timeSince(): string {
     return relativeTime(new Date(<string>this.comment.inserted_at));
+  }
+
+  goToComment(): void {
+    this.$router.push({
+      name: "PostWithComments",
+      params: {
+        id: (<Record<string, number>>this.comment.post).id,
+        comment: <number>this.comment.id,
+      },
+    });
   }
 }
 </script>
@@ -95,6 +115,7 @@ export default class CommentProfile extends Vue {
   left: -5px;
   top: 20px;
   border-radius: 1px;
+  max-height: 95px;
 }
 .commentHeader {
   font-size: 14px;
@@ -107,6 +128,27 @@ export default class CommentProfile extends Vue {
 .postTitle:hover {
   text-decoration: underline;
   cursor: pointer;
+}
+
+.commentTextContainer {
+  position: relative;
+}
+.commentTextContainer > button {
+  z-index: 10;
+}
+.commentText {
+  line-height: 18px;
+  max-height: 90px;
+}
+
+.commentTextContainer.isOverflowing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.commentText.isOverflowing {
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) -20%, rgba(0, 0, 0, 0));
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) -20%, rgba(0, 0, 0, 0));
 }
 
 .details {

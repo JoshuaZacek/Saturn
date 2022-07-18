@@ -95,7 +95,7 @@ export default class ChangeEmail extends Vue {
     this.setOverlay("load", "Changing email", false);
 
     axios
-      .post(`${process.env.VUE_APP_API_URL}user/email`, formData, {
+      .post(`${process.env.VUE_APP_API_URL}/user/email`, formData, {
         withCredentials: true,
       })
       .then(async () => {

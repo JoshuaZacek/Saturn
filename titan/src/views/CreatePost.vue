@@ -161,7 +161,7 @@ export default class CreateMoon extends Vue {
     }
 
     axios
-      .post(`${process.env.VUE_APP_API_URL}post`, formData, {
+      .post(`${process.env.VUE_APP_API_URL}/post`, formData, {
         withCredentials: true,
       })
       .then(async (res) => {

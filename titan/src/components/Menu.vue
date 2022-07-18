@@ -10,7 +10,7 @@
         :key="option"
         :ref="option"
         @click="menuClick(option)"
-        @mouseover="$refs[options[index]].focus()"
+        @mouseover="$refs[options[index]][0].focus()"
         @keydown.prevent="selectOption($event, option, index)"
         @blur="checkFocus"
       >
@@ -39,10 +39,11 @@ export default class Menu extends Vue {
 
   selected = this.options[0];
   showMenu = false;
+
   declare $refs: {
     button: HTMLButtonElement;
     menu: HTMLUListElement;
-    [key: string]: HTMLElement;
+    [key: string]: unknown;
   };
 
   beforeUnmount(): void {
@@ -82,13 +83,13 @@ export default class Menu extends Vue {
     window.addEventListener("touchstart", this.checkClickTarget);
     // if setTimeout is removed, the menu option (li) won't focus.
     setTimeout(() => {
-      this?.$refs[this.selected].focus();
+      (<HTMLElement[]>this?.$refs[this.selected])[0].focus();
     }, 0);
   }
 
   selectOption(e: KeyboardEvent, option: string, index: number): void {
-    const nextSibling = this.$refs[this.options[index + 1]];
-    const previousSibling = this.$refs[this.options[index - 1]];
+    const nextSibling = (<HTMLElement[]>this.$refs[this.options[index + 1]] || [])[0];
+    const previousSibling = (<HTMLElement[]>this.$refs[this.options[index - 1]] || [])[0];
     switch (e.code) {
       case "Enter":
       case "Space":
@@ -128,15 +129,15 @@ export default class Menu extends Vue {
   }
 
   updateMenu(selectedOption: string, oldOption: string): void {
-    this.$refs[oldOption].classList.remove("selected");
-    this.$refs[selectedOption].classList.add("selected");
+    (<HTMLElement[]>this.$refs[oldOption])[0].classList.remove("selected");
+    (<HTMLElement[]>this.$refs[selectedOption])[0].classList.add("selected");
     this.selected = selectedOption;
     this.showMenu = false;
     this.$emit("select", selectedOption);
   }
 
   mounted(): void {
-    this.$refs[this.selected].classList.add("selected");
+    (<HTMLElement[]>this.$refs[this.selected])[0].classList.add("selected");
   }
 }
 </script>
