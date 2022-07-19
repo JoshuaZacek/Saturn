@@ -19,7 +19,7 @@
         <p>{{ timeSince }}</p>
       </div>
 
-      <p>{{ comment.content }}</p>
+      <p class="commentContent">{{ comment.content }}</p>
 
       <VoteButtons :content="comment" type="type" />
 
@@ -153,6 +153,7 @@ export default class Comment extends Vue {
     axios
       .post(`${process.env.VUE_APP_API_URL}/comment`, data, { withCredentials: true })
       .then((res) => {
+        this.$refs.reply.value = "";
         res.data.votes = 0;
         this.replies.push(res.data);
         this.replyToggled = false;
@@ -219,6 +220,10 @@ export default class Comment extends Vue {
 .details > p:first-child:hover {
   text-decoration: underline;
   cursor: pointer;
+}
+
+.commentContent {
+  white-space: pre-wrap;
 }
 
 .replyContainer {

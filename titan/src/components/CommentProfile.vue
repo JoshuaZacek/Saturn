@@ -139,12 +139,15 @@ export default class CommentProfile extends Vue {
 .commentText {
   line-height: 18px;
   max-height: 90px;
+  white-space: pre-wrap;
 }
 
 .commentTextContainer.isOverflowing {
   display: flex;
   flex-direction: column;
-  align-items: center;
+}
+.commentTextContainer.isOverflowing > button {
+  margin: 0 auto;
 }
 .commentText.isOverflowing {
   mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) -20%, rgba(0, 0, 0, 0));
