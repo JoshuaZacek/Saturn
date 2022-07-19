@@ -87,9 +87,10 @@ export default class Post extends Vue {
 
   mounted(): void {
     const postBodyContainer = this.$refs.postBodyContainer;
-    this.isOverflowing = postBodyContainer.scrollHeight > postBodyContainer.clientHeight;
 
-    if (this.isOverflowing) {
+    if (postBodyContainer) {
+      this.isOverflowing =
+        postBodyContainer.scrollHeight > postBodyContainer.clientHeight;
       postBodyContainer.style.overflow = "hidden";
     }
   }

@@ -22,7 +22,10 @@
         <p>{{ timeSince }}</p>
       </div>
 
-      <div :class="['commentTextContainer', isOverflowing ? 'isOverflowing' : '']">
+      <div
+        :class="['commentTextContainer', isOverflowing ? 'isOverflowing' : '']"
+        ref="commentTextContainer"
+      >
         <p :class="['commentText', isOverflowing ? 'isOverflowing' : '']">
           {{ comment.content }}
         </p>
@@ -59,13 +62,15 @@ export default class CommentProfile extends Vue {
   isOverflowing = false;
   comment!: Record<string, unknown>;
 
-  created(): void {
-    const commentText = <string>this.comment.content;
+  declare $refs: {
+    commentTextContainer: HTMLDivElement;
+  };
 
-    this.isOverflowing = commentText.length > 400 ? true : false;
-    this.comment.content = `${commentText.substring(0, 400)}${
-      this.isOverflowing ? "..." : ""
-    }`;
+  mounted(): void {
+    const commentTextContainer = this.$refs.commentTextContainer;
+    this.isOverflowing =
+      commentTextContainer.scrollHeight > commentTextContainer.clientHeight;
+    commentTextContainer.style.overflow = "hidden";
   }
 
   get timeSince(): string {
