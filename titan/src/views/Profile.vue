@@ -13,7 +13,7 @@
 
       <div class="sortDropdown">
         <p>Sort {{ currentContentType }} by:</p>
-        <!-- <Menu :options="contentSorts" @select="changeContentSort" /> -->
+        <Menu :options="contentSorts" @select="changeContentSort" />
       </div>
     </div>
 

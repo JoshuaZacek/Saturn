@@ -264,11 +264,15 @@ export default class PostWithComments extends Vue {
         { withCredentials: true }
       )
       .then((res) => {
-        this.setOverlay("success", "Comment posted");
-
+        this.$refs.comment.value = "";
         res.data.votes = 0;
         this.comments.unshift(res.data);
         this.incrementComments();
+
+        this.setOverlay("success", "Comment posted");
+      })
+      .catch(() => {
+        this.setOverlay("error", "Comment couldn't be posted");
       });
   }
 }
@@ -317,6 +321,7 @@ export default class PostWithComments extends Vue {
 
 .postBody {
   margin: 10px 0px 15px 0px;
+  white-space: pre-wrap;
 }
 .postImage {
   width: calc(100% + 40px);

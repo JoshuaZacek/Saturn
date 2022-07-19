@@ -22,7 +22,11 @@
     </div>
 
     <img v-if="post.type == 'image'" :src="imageURL" :alt="post.body" class="postImage" />
-    <div :class="['postBodyContainer', isOverflowing ? 'isOverflowing' : '']" v-else>
+    <div
+      :class="['postBodyContainer', isOverflowing ? 'isOverflowing' : '']"
+      ref="postBodyContainer"
+      v-else
+    >
       <p :class="['postBody', isOverflowing ? 'isOverflowing' : '']">
         {{ post.body }}
       </p>
@@ -77,11 +81,17 @@ export default class Post extends Vue {
 
   post!: Record<string, unknown>;
 
-  created(): void {
-    const postBody = <string>this.post.body;
+  declare $refs: {
+    postBodyContainer: HTMLDivElement;
+  };
 
-    this.isOverflowing = postBody.length > 400 ? true : false;
-    this.post.body = `${postBody.substring(0, 400)}${this.isOverflowing ? "..." : ""}`;
+  mounted(): void {
+    const postBodyContainer = this.$refs.postBodyContainer;
+    this.isOverflowing = postBodyContainer.scrollHeight > postBodyContainer.clientHeight;
+
+    if (this.isOverflowing) {
+      postBodyContainer.style.overflow = "hidden";
+    }
   }
 
   get timeSince(): string {
@@ -177,13 +187,16 @@ export default class Post extends Vue {
 .postBody {
   line-height: 18px;
   max-height: 90px;
+  white-space: pre-wrap;
 }
 
 .postBodyContainer.isOverflowing {
   margin: 10px 0px 5px 0px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+}
+.postBodyContainer.isOverflowing > button {
+  margin: 0 auto;
 }
 .postBody.isOverflowing {
   mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) -20%, rgba(0, 0, 0, 0));
