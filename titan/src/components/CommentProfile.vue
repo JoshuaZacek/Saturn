@@ -138,9 +138,6 @@ export default class CommentProfile extends Vue {
 .commentTextContainer {
   position: relative;
 }
-.commentTextContainer > button {
-  z-index: 10;
-}
 .commentText {
   line-height: 18px;
   max-height: 90px;
