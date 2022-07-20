@@ -182,9 +182,6 @@ export default class Post extends Vue {
   margin: 10px 0px 15px 0px;
   position: relative;
 }
-.postBodyContainer > button {
-  z-index: 10;
-}
 .postBody {
   line-height: 18px;
   max-height: 90px;
