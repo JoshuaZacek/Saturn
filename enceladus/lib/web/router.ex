@@ -38,7 +38,7 @@ defmodule Saturn.Router do
     end
   end
 
-  post "/user/signup" do
+  post "/user/create" do
     case conn.params do
       %{"username" => username, "email" => email, "password" => password} ->
         case Users.signup(username, email, password) do
