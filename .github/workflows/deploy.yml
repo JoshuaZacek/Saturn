@@ -21,15 +21,13 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
 
           script: |
-            source ~/.bashrc
-            
             cd /var/www/saturn
             git pull origin main
 
             cd enceladus
 
-            mix deps.get
-            mix compile
-            mix ecto.migrate
+            ~/.asdf/shims/mix deps.get
+            ~/.asdf/shims/mix compile
+            ~/.asdf/shims/mix ecto.migrate
 
             systemctl restart saturn
