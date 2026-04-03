@@ -3,10 +3,15 @@ defmodule Saturn.AuthRouter do
   alias Saturn.{Repo, Posts, Votes, Moons, Comments, Users}
 
   plug(:match)
-  plug(Saturn.AuthRequiredPlug)
   plug(:dispatch)
 
+  defp protected(conn) do
+    Saturn.AuthRequiredPlug.call(conn, [])
+  end
+
   post "/post" do
+    conn = protected(conn)
+
     case Posts.create(conn.params, conn.assigns.user) do
       {:error, :file_not_supported} ->
         send_resp(conn, 400, "File type not supported")
@@ -20,6 +25,8 @@ defmodule Saturn.AuthRouter do
   end
 
   delete "/post/:post_id" do
+    conn = protected(conn)
+
     case Posts.delete(post_id, conn.assigns.user_id) do
       :ok ->
         send_resp(conn, 204, "")
@@ -33,6 +40,8 @@ defmodule Saturn.AuthRouter do
   end
 
   post "/vote" do
+    conn = protected(conn)
+
     case Votes.create(conn.params, conn.assigns.user_id) do
       :error ->
         send_resp(conn, 400, "Bad request")
@@ -43,6 +52,8 @@ defmodule Saturn.AuthRouter do
   end
 
   delete "/vote" do
+    conn = protected(conn)
+
     schema = %{
       post_id: [type: :integer, required: if(conn.params["comment_id"], do: false, else: true)],
       comment_id: [type: :integer, required: if(conn.params["post_id"], do: false, else: true)]
@@ -63,6 +74,8 @@ defmodule Saturn.AuthRouter do
   end
 
   post "/moon" do
+    conn = protected(conn)
+
     case Moons.create(conn.params, conn.assigns.user) do
       {:error, error} ->
         send_resp(conn, 400, Jason.encode!(error))
@@ -73,6 +86,8 @@ defmodule Saturn.AuthRouter do
   end
 
   post "/comment" do
+    conn = protected(conn)
+
     case Comments.create(conn.params, conn.assigns.user) do
       {:error, error} ->
         send_resp(conn, 400, Jason.encode!(error))
@@ -83,6 +98,8 @@ defmodule Saturn.AuthRouter do
   end
 
   post "/user/password" do
+    conn = protected(conn)
+
     case conn.params do
       %{"oldpassword" => old_password, "newpassword" => new_password} ->
         case Users.change_password(old_password, new_password, conn.assigns.user) do
@@ -101,6 +118,8 @@ defmodule Saturn.AuthRouter do
   end
 
   post "/user/email" do
+    conn = protected(conn)
+
     case conn.params do
       %{"newemail" => new_email} ->
         case Users.change_email(new_email, conn.assigns.user) do
@@ -119,12 +138,14 @@ defmodule Saturn.AuthRouter do
   end
 
   delete "/user/logout" do
+    conn = protected(conn)
     Repo.delete(conn.assigns.session)
     delete_resp_cookie(conn, "session_id")
     send_resp(conn, 204, "")
   end
 
   delete "/user" do
+    conn = protected(conn)
     Repo.delete!(conn.assigns.user)
     delete_resp_cookie(conn, "session_id")
     send_resp(conn, 204, "")
