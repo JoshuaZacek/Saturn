@@ -26,8 +26,8 @@ jobs:
 
             cd enceladus
 
-            ~/.asdf/shims/mix deps.get
-            ~/.asdf/shims/mix compile
-            ~/.asdf/shims/mix ecto.migrate
+            mix deps.get
+            mix compile
+            mix ecto.migrate
 
             systemctl restart saturn
