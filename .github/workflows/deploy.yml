@@ -21,8 +21,6 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
 
           script: |
-            export MIX_ENV=prod
-            
             cd /var/www/saturn
             git pull origin main
 
@@ -30,6 +28,6 @@ jobs:
 
             mix deps.get
             mix compile
-            DATABASE_URL=${{ secrets.DATABASE_URL }} mix ecto.migrate
+            mix ecto.migrate
 
             systemctl restart saturn
