@@ -23,6 +23,11 @@ jobs:
             export DATABASE_URL=${{ secrets.DATABASE_URL }}
             export MIX_ENV=prod
             export CORS_URL=${{ vars.CORS_URL }}
+            export S3_BUCKET=${{ vars.S3_BUCKET }}
+            export AWS_REGION=${{ vars.AWS_REGION }}
+            export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            export S3_SIGNED_URL_TTL=${{ vars.S3_SIGNED_URL_TTL }}
           
             cd /var/www/saturn
             git pull origin main
