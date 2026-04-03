@@ -234,8 +234,13 @@ defmodule Saturn.Router do
       nil ->
         send_resp(conn, 404, "File not found")
 
-      file ->
-        send_file(conn, 200, file)
+      {:ok, url} ->
+        conn
+        |> put_resp_header("location", url)
+        |> send_resp(302, "")
+
+      {:error, _reason} ->
+        send_resp(conn, 500, "Error fetching file")
     end
   end
 

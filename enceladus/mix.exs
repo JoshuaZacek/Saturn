@@ -29,7 +29,11 @@ defmodule Saturn.MixProject do
       {:argon2_elixir, "~> 4.1"},
       {:corsica, "~> 1.1.3"},
       {:tarams, "~> 1.8"},
-      {:dotenv, "~> 3.1"}
+      {:dotenv, "~> 3.1"},
+      {:ex_aws, "~> 2.5"},
+      {:ex_aws_s3, "~> 2.5"},
+      {:hackney, "~> 1.20"},
+      {:sweet_xml, "~> 0.7"}
     ]
   end
 end

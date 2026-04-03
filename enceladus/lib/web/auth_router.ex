@@ -16,6 +16,9 @@ defmodule Saturn.AuthRouter do
       {:error, :file_not_supported} ->
         send_resp(conn, 400, "File type not supported")
 
+      {:error, :upload_failed} ->
+        send_resp(conn, 502, "Image upload failed")
+
       {:error, error} ->
         send_resp(conn, 400, Jason.encode!(error))
 
