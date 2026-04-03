@@ -25,7 +25,9 @@ jobs:
             git pull origin main
 
             cd enceladus
+
             mix deps.get
             mix compile
+            mix ecto.migrate
 
             sudo systemctl restart saturn
