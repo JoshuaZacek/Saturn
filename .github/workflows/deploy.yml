@@ -22,9 +22,9 @@ jobs:
 
           script: |
             cd /var/www/saturn
-
             git pull origin main
 
+            cd enceladus
             mix deps.get
             mix compile
 
