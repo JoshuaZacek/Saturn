@@ -62,6 +62,9 @@ defmodule Saturn.Posts do
       {:error, :file_not_supported} ->
         {:error, :file_not_supported}
 
+      {:error, :missing_s3_config} ->
+        {:error, :missing_s3_config}
+
       {:error, :upload_failed} ->
         {:error, :upload_failed}
     end
