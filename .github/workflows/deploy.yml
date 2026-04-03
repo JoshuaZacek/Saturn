@@ -19,10 +19,10 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-
           script: |
             export DATABASE_URL=${{ secrets.DATABASE_URL }}
             export MIX_ENV=prod
+            export CORS_URL=${{ vars.CORS_URL }}
           
             cd /var/www/saturn
             git pull origin main
