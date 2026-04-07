@@ -5,6 +5,16 @@ import NotFoundPage from '@/views/NotFoundPage.vue'
 import PostPage from '@/views/PostPage.vue'
 import SubscribedPage from '@/views/SubscribedPage.vue'
 
+export const isCorrectTimePeriod = (value: unknown) => {
+  if (typeof value !== 'string') {
+    return false
+  }
+
+  const validTimePeriods = ['day', 'week', 'month', 'year', 'all']
+
+  return validTimePeriods.includes(value)
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -17,6 +27,20 @@ const router = createRouter({
       path: '/all',
       name: 'all',
       component: AllPage,
+      beforeEnter: (to) => {
+        const sort = to.query.sort
+        const t = to.query.t
+
+        if (sort === 'new') {
+          return true
+        }
+
+        if (sort === 'top' && isCorrectTimePeriod(t)) {
+          return true
+        }
+
+        return { name: 'not-found' }
+      },
     },
     {
       path: '/:moon',
