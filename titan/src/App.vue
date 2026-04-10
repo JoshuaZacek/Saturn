@@ -44,6 +44,7 @@ body,
   flex: 1;
   display: flex;
   justify-content: center;
-  padding: 5rem 0;
+  padding-top: 5rem;
+  overflow-y: scroll;
 }
 </style>
