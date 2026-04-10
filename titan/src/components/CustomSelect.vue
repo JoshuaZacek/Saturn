@@ -498,10 +498,10 @@ onBeforeUnmount(() => {
 .trigger {
   width: 100%;
   height: 2rem;
-  border: 1px solid var(--bg-3);
+  border: none;
   border-radius: 0.5rem;
   padding: 0 0.75rem;
-  background: var(--bg-1);
+  background: var(--bg-2);
   color: var(--text-1);
   display: flex;
   justify-content: space-between;

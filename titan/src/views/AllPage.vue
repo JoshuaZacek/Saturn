@@ -3,18 +3,10 @@ import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQueryValue } from 'vue-router'
 import CustomSelect from '@/components/CustomSelect.vue'
+import PostCard from '@/components/PostCard.vue'
+import type { Post, PostsResponse } from '@/types/post'
 
 type SortType = 'new' | 'top'
-
-interface Post {
-  id: number
-  title: string
-}
-
-interface PostsResponse {
-  next_cursor: string | null
-  posts: Post[]
-}
 
 const capitalizeFirstLetter = (s: string | undefined) =>
   s ? s.charAt(0).toUpperCase() + s.slice(1) : ''
@@ -134,20 +126,24 @@ watch(
       @update:model-value="onTimePeriodChange"
     />
 
-    <div>
-      <p v-for="post in posts" :key="post.id">
-        {{ post.title }}
-      </p>
+    <div class="postsContainer">
+      <PostCard v-for="post in posts" :key="post.id" :post="post" />
     </div>
   </main>
 </template>
 
 <style scoped>
-main {
-  padding: 5rem 7.5rem;
-}
-
 h1 {
   margin-bottom: 1rem;
+}
+
+.postsContainer {
+  margin-top: 1.5rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+main {
+  width: 40rem;
 }
 </style>
