@@ -17,7 +17,18 @@
     </div>
 
     <h2 class="title">{{ post.title }}</h2>
-    <p v-if="post.body" class="body">{{ post.body }}</p>
+
+    <div v-if="post.type == 'text'" class="bodyContainer">
+      <p v-if="post.body" :class="['body', isOverflowing ? 'isOverflowing' : '']" ref="body">
+        {{ post.body }}
+      </p>
+
+      <router-link v-if="isOverflowing" class="overflowButton" :to="`/post/${post.id}`"
+        >Read more</router-link
+      >
+    </div>
+
+    <img loading="lazy" v-if="post.type == 'image'" :src="imageURL" :alt="post.title" />
 
     <div class="stats">
       <VoteButtons :id="post.id" :votes="post.votes" :hasVoted="post.hasVoted" type="post" />
@@ -29,7 +40,7 @@
   </article>
 </template>
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref, useTemplateRef } from 'vue'
 import ChatCircleIcon from '@/components/icons/ChatCircleIcon.vue'
 import ClockIcon from '@/components/icons/ClockIcon.vue'
 import VoteButtons from '@/components/VoteButtons.vue'
@@ -39,6 +50,19 @@ import type { Post } from '@/types/post'
 const props = defineProps<{
   post: Post
 }>()
+
+const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
+const imageURL = computed(() => {
+  return `${backendUrl}/assets/${props.post.body}`
+})
+
+const isOverflowing = ref(false)
+const body = useTemplateRef<HTMLParagraphElement>('body')
+onMounted(() => {
+  if (body.value) {
+    isOverflowing.value = body.value.scrollHeight > body.value.clientHeight
+  }
+})
 
 const dateCreated = computed(() => {
   return new Date(props.post.inserted_at).toLocaleString()
@@ -118,6 +142,13 @@ const postedDate = computed(() => {
   margin-top: 0.25rem;
   line-height: 1.4;
   white-space: pre-wrap;
+  max-height: 7rem;
+  overflow: hidden;
+}
+
+.body.isOverflowing {
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) -10%, rgba(0, 0, 0, 0));
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) -10%, rgba(0, 0, 0, 0));
 }
 
 .stats {
@@ -154,5 +185,27 @@ const postedDate = computed(() => {
 }
 .comments:hover {
   background: var(--bg-2);
+}
+
+.overflowButton {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.9rem;
+  border-radius: 10px;
+  background: var(--bg-2);
+  text-decoration: none;
+}
+
+.bodyContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+img {
+  margin-top: 0.5rem;
+  border-radius: 0.5rem;
+  height: 10rem;
+  border: 1px solid var(--bg-2);
 }
 </style>

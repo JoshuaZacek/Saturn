@@ -1,3 +1,24 @@
+<template>
+  <main>
+    <h1>{{ capitalizeFirstLetter(sort) }} posts on Saturn{{ sort === 'top' ? '...' : '' }}</h1>
+    <CustomSelect
+      v-if="sort === 'top'"
+      label="Top time period"
+      :model-value="selectedTimePeriod"
+      :options="timePeriodOptions"
+      @update:model-value="onTimePeriodChange"
+    />
+
+    <div v-if="posts.length > 0" class="postsContainer">
+      <PostCard v-for="post in posts" :key="post.id" :post="post" />
+    </div>
+
+    <p v-if="!nextCursor && posts.length > 0">You've reached the end.</p>
+
+    <p v-else-if="!nextCursor && posts.length == 0">Hmmm... empty.</p>
+  </main>
+</template>
+
 <script setup lang="ts">
 import axios from 'axios'
 import { computed, ref, watch } from 'vue'
@@ -61,6 +82,7 @@ const onTimePeriodChange = (value: string) => {
   })
 }
 
+const nextCursor = ref<string | null>(null)
 const storedPosts = ref<Post[]>([])
 const posts = computed(() => storedPosts.value)
 
@@ -96,6 +118,7 @@ const fetchPosts = async () => {
       return
     }
 
+    nextCursor.value = response.data.next_cursor
     storedPosts.value.push(...response.data.posts)
   } catch {
     if (currentRequestId !== requestId) {
@@ -115,23 +138,6 @@ watch(
 )
 </script>
 
-<template>
-  <main>
-    <h1>{{ capitalizeFirstLetter(sort) }} posts on Saturn{{ sort === 'top' ? '...' : '' }}</h1>
-    <CustomSelect
-      v-if="sort === 'top'"
-      label="Top time period"
-      :model-value="selectedTimePeriod"
-      :options="timePeriodOptions"
-      @update:model-value="onTimePeriodChange"
-    />
-
-    <div class="postsContainer">
-      <PostCard v-for="post in posts" :key="post.id" :post="post" />
-    </div>
-  </main>
-</template>
-
 <style scoped>
 h1 {
   margin-bottom: 1rem;
@@ -145,5 +151,17 @@ h1 {
 
 main {
   width: 40rem;
+}
+
+p {
+  color: var(--text-2);
+  margin-top: 2rem;
+  text-align: center;
+}
+
+main::after {
+  content: '';
+  display: block;
+  height: 5rem;
 }
 </style>
