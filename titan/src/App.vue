@@ -39,4 +39,11 @@ body,
 #app {
   display: flex;
 }
+
+.page-content {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 5rem 0;
+}
 </style>

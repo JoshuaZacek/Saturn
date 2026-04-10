@@ -99,6 +99,7 @@ onBeforeUnmount(() => {
       type="button"
       aria-label="Resize sidebar"
       @pointerdown="startResizing"
+      tabindex="-1"
     />
   </aside>
 </template>

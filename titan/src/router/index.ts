@@ -4,6 +4,7 @@ import MoonPage from '@/views/MoonPage.vue'
 import NotFoundPage from '@/views/NotFoundPage.vue'
 import PostPage from '@/views/PostPage.vue'
 import SubscribedPage from '@/views/SubscribedPage.vue'
+import ProfilePage from '@/views/ProfilePage.vue'
 
 export const isCorrectTimePeriod = (value: unknown) => {
   if (typeof value !== 'string') {
@@ -41,6 +42,11 @@ const router = createRouter({
 
         return { name: 'not-found' }
       },
+    },
+    {
+      path: '/@:username',
+      name: 'profile',
+      component: ProfilePage,
     },
     {
       path: '/:moon',
