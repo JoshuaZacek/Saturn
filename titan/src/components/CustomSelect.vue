@@ -518,7 +518,7 @@ onBeforeUnmount(() => {
   list-style: none;
   border: 1px solid var(--bg-3);
   border-radius: 0.5rem;
-  background: var(--bg-1);
+  background: var(--bg-sub);
   box-shadow: 0 10px 20px rgb(0 0 0 / 10%);
   overflow-y: auto;
 }

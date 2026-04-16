@@ -3,8 +3,9 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUIStore } from '@/stores/ui'
 import FeedButton from '@/components/FeedButton.vue'
+import AccountCard from '@/components/AccountCard.vue'
 import NewIcon from '@/components/icons/NewIcon.vue'
-import SubscribedIcon from '@/components/icons/SubscribedIcon.vue'
+import HomeIcon from '@/components/icons/HomeIcon.vue'
 import TopIcon from '@/components/icons/TopIcon.vue'
 import { isCorrectTimePeriod } from '@/router/index.ts'
 
@@ -16,14 +17,14 @@ const getSingleQueryValue = (value: unknown) => (Array.isArray(value) ? value[0]
 const sortQuery = computed(() => getSingleQueryValue(route.query.sort))
 const tQuery = computed(() => getSingleQueryValue(route.query.t))
 
-const isSubscribedPage = computed(() => route.name === 'subscribed')
+const isHomePage = computed(() => route.name === 'home')
 const isTopPage = computed(
   () => route.name === 'all' && sortQuery.value === 'top' && isCorrectTimePeriod(tQuery.value),
 )
 const isNewPage = computed(() => route.name === 'all' && sortQuery.value === 'new')
 
-const goToSubscribed = () => {
-  router.push({ name: 'subscribed' })
+const goToHome = () => {
+  router.push({ name: 'home' })
 }
 
 const goToTop = () => {
@@ -80,19 +81,18 @@ onBeforeUnmount(() => {
     :class="{ resizing: isResizing }"
     :style="{ width: `${uiStore.sidebarWidthPx}px` }"
   >
-    <img width="50" height="50" src="/logo.png" alt="Logo" />
+    <router-link to="/">
+      <img class="logo" width="50" height="50" src="/logo.png" alt="Logo" />
+    </router-link>
 
     <div class="feedsGroup">
       <p class="groupTitle">Feeds</p>
-      <FeedButton
-        label="Subscribed"
-        :icon="SubscribedIcon"
-        :active="isSubscribedPage"
-        @click="goToSubscribed"
-      />
+      <FeedButton label="Home" :icon="HomeIcon" :active="isHomePage" @click="goToHome" />
       <FeedButton label="Top" :icon="TopIcon" :active="isTopPage" @click="goToTop" />
       <FeedButton label="New" :icon="NewIcon" :active="isNewPage" @click="goToNew" />
     </div>
+
+    <AccountCard />
 
     <button
       class="resize-handle"
@@ -107,20 +107,24 @@ onBeforeUnmount(() => {
 <style scoped>
 .sidebar {
   position: relative;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-width: 15rem;
   max-width: 30rem;
   border-right: 1px solid var(--bg-2);
   padding: 1rem;
+  padding-bottom: 0rem;
   user-select: none;
   overflow-y: scroll;
   overflow-x: hidden;
   flex-shrink: 0;
 }
 
-img {
+.logo {
   user-select: none;
   -webkit-user-drag: none;
+  cursor: pointer;
 }
 
 .resize-handle {
