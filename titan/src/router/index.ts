@@ -3,7 +3,7 @@ import AllPage from '@/views/AllPage.vue'
 import MoonPage from '@/views/MoonPage.vue'
 import NotFoundPage from '@/views/NotFoundPage.vue'
 import PostPage from '@/views/PostPage.vue'
-import SubscribedPage from '@/views/SubscribedPage.vue'
+import HomePage from '@/views/HomePage.vue'
 import ProfilePage from '@/views/ProfilePage.vue'
 
 export const isCorrectTimePeriod = (value: unknown) => {
@@ -21,8 +21,8 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'subscribed',
-      component: SubscribedPage,
+      name: 'home',
+      component: HomePage,
     },
     {
       path: '/all',

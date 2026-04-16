@@ -12,7 +12,7 @@ const moon = computed(() => route.params.moon as string)
     <h1>{{ moon }}</h1>
 
     <nav>
-      <RouterLink to="/">Subscribed</RouterLink>
+      <RouterLink to="/">Home</RouterLink>
       <RouterLink :to="{ name: 'all' }">All</RouterLink>
       <RouterLink :to="{ name: 'moon', params: { moon: 'news' } }">Moon</RouterLink>
       <RouterLink :to="{ name: 'post', params: { post_id: '123' } }">Post</RouterLink>

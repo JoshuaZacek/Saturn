@@ -114,6 +114,7 @@ const postedDate = computed(() => {
   padding: 1rem 1.25rem;
   padding-bottom: 0.65rem;
   max-width: 40rem;
+  background-color: var(--bg-sub);
 }
 
 .metadataContainer {

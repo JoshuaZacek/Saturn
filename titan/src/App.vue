@@ -11,12 +11,15 @@ import AppSidebar from '@/components/AppSidebar.vue'
 
 <style>
 :root {
-  --bg-1: #faf9f6;
-  --bg-2: #ede9de;
-  --bg-3: #d7cfb7;
-
-  --text-1: #14110b;
-  --text-2: #625737;
+  --bg-1: #faf9f6; /* main background color */
+  --bg-2: #ede9de; /* used for borders and some backgrounds */
+  --bg-3: #d7cfb7; /* used for some backgrounds */
+  --bg-error: #ff9999; /* error color */
+  --bg-sub: #ffffff; /* used rarely to focus attention on content i.e. posts */
+  --text-1: #14110b; /* main text color */
+  --text-2: #625737; /* secondary text color, used for things like dates and usernames */
+  --text-3: #918973; /* lighter text, used for placeholders */
+  --text-error: #ff3333; /* error color */
 }
 
 html,
