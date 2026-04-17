@@ -144,7 +144,7 @@ h1 {
 }
 
 .postsContainer {
-  margin-top: 1.5rem;
+  margin-top: 2rem;
   display: grid;
   gap: 1.5rem;
 }

@@ -20,3 +20,9 @@ const username = computed(() => route.params.username as string)
     </nav>
   </main>
 </template>
+
+<style scoped>
+main {
+  width: 40rem;
+}
+</style>

@@ -10,3 +10,9 @@
     </nav>
   </main>
 </template>
+
+<style scoped>
+main {
+  width: 40rem;
+}
+</style>

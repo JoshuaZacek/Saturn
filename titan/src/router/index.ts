@@ -52,6 +52,28 @@ const router = createRouter({
       path: '/:moon',
       name: 'moon',
       component: MoonPage,
+      beforeEnter: (to) => {
+        const sort = to.query.sort
+        const t = to.query.t
+
+        if (sort === 'new') {
+          return true
+        }
+
+        if (sort === 'top' && isCorrectTimePeriod(t)) {
+          return true
+        }
+
+        return {
+          name: 'moon',
+          params: to.params,
+          query: {
+            ...to.query,
+            sort: 'top',
+            t: 'day',
+          },
+        }
+      },
     },
     {
       path: '/post/:post_id',

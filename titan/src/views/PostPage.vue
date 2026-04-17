@@ -20,3 +20,9 @@ const post_id = computed(() => route.params.post_id as string)
     </nav>
   </main>
 </template>
+
+<style scoped>
+main {
+  width: 40rem;
+}
+</style>

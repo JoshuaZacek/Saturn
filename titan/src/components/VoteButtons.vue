@@ -1,8 +1,18 @@
 <template>
   <div class="voteButtons">
-    <ArrowIcon direction="up" :filled="currentVote === 'up'" @vote="submitVote('up')" />
-    <span>{{ voteCount }}</span>
-    <ArrowIcon direction="down" :filled="currentVote === 'down'" @vote="submitVote('down')" />
+    <ArrowIcon
+      direction="up"
+      :class="currentVote === 'up' ? 'up' : ''"
+      :filled="currentVote === 'up'"
+      @vote="submitVote('up')"
+    />
+    <span :class="currentVote">{{ voteCount }}</span>
+    <ArrowIcon
+      direction="down"
+      :class="currentVote === 'down' ? 'down' : ''"
+      :filled="currentVote === 'down'"
+      @vote="submitVote('down')"
+    />
   </div>
 </template>
 
@@ -39,7 +49,7 @@ if (props.hasVoted === 1) {
 
 const deleteVote = (): void => {
   axios
-    .delete(createDeleteURL(), { withCredentials: true })
+    .delete(createDeleteURL())
     .then(() => {
       if (currentVote.value == 'up') {
         voteCount.value -= 1
@@ -61,7 +71,7 @@ const submitVote = (vote: string): void => {
   }
 
   axios
-    .post(createSubmitURL(vote), {}, { withCredentials: true })
+    .post(createSubmitURL(vote), {})
     .then(() => {
       if (vote == 'up') {
         if (currentVote.value == 'down') {
@@ -98,5 +108,15 @@ const submitVote = (vote: string): void => {
   align-items: center;
   gap: 0.25rem;
   font-size: 1rem;
+}
+
+.up {
+  color: var(--vote-up);
+  font-weight: bold;
+}
+
+.down {
+  color: var(--vote-down);
+  font-weight: bold;
 }
 </style>
