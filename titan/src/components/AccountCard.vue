@@ -290,7 +290,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const headerText = computed(() => {
   return authStore.loggedIn && authStore.user.username
-    ? authStore.user.username
+    ? '@' + authStore.user.username
     : 'Log in or Sign up'
 })
 
@@ -490,14 +490,10 @@ const leaveMenu = (el: Element) => {
 }
 
 const handleLogout = () => {
-  axios
-    .delete(`${backendUrl}/user/logout`, {
-      withCredentials: true,
-    })
-    .then(() => {
-      authStore.logout()
-      router.go(0)
-    })
+  axios.delete(`${backendUrl}/user/logout`).then(() => {
+    authStore.logout()
+    router.go(0)
+  })
 }
 
 const handleSubmit = async () => {
@@ -565,9 +561,7 @@ const handleSubmit = async () => {
   const endpoint = createOrLogin.value === 'signup' ? '/user/create' : '/user/login'
 
   try {
-    const res = await axios.post(`${backendUrl}${endpoint}`, formData, {
-      withCredentials: true,
-    })
+    const res = await axios.post(`${backendUrl}${endpoint}`, formData)
 
     authStore.login(res.data)
     router.go(0)

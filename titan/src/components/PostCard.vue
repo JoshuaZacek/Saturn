@@ -59,6 +59,7 @@ const imageURL = computed(() => {
 const isOverflowing = ref(false)
 const body = useTemplateRef<HTMLParagraphElement>('body')
 onMounted(() => {
+  console.log(props.post)
   if (body.value) {
     isOverflowing.value = body.value.scrollHeight > body.value.clientHeight
   }
@@ -155,7 +156,7 @@ const postedDate = computed(() => {
 .stats {
   margin-top: 0.65rem;
   display: flex;
-  gap: 0.5rem;
+  gap: 0.25rem;
 }
 
 .action {

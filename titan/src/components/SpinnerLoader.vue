@@ -15,8 +15,8 @@ const props = withDefaults(
   }>(),
   {
     size: 40,
-    bgColor: '#d1d1d6',
-    fgColor: '#111111',
+    bgColor: 'var(--bg-1)',
+    fgColor: 'var(--text-1)',
   },
 )
 

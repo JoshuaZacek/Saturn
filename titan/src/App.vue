@@ -20,6 +20,8 @@ import AppSidebar from '@/components/AppSidebar.vue'
   --text-2: #625737; /* secondary text color, used for things like dates and usernames */
   --text-3: #918973; /* lighter text, used for placeholders */
   --text-error: #ff3333; /* error color */
+  --vote-up: #96b85d; /* upvote color */
+  --vote-down: #ff6501; /* downvote color */
 }
 
 html,

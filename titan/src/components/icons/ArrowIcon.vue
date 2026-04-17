@@ -32,8 +32,8 @@ const pathData = computed(() => {
       viewBox="0 0 256 256"
       :width="props.size"
       :height="props.size"
-      :class="props.filled ? 'filled' : ''"
       aria-hidden="true"
+      :class="filled ? direction : ''"
     >
       <path :d="pathData" />
     </svg>
@@ -52,7 +52,11 @@ svg {
   fill: var(--text-1);
 }
 
-.filled {
-  fill: var(--text-2);
+.up {
+  fill: var(--vote-up) !important;
+}
+
+.down {
+  fill: var(--vote-down) !important;
 }
 </style>
