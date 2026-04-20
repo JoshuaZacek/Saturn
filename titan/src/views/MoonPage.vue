@@ -16,7 +16,7 @@
     />
 
     <div v-if="posts.length > 0" class="postsContainer">
-      <PostCard v-for="post in posts" :key="post.id" :post="post" />
+      <PostCard v-for="post in posts" :key="post.id" :post="post" @deleted="removePost" />
     </div>
 
     <p v-if="!nextCursor && posts.length > 0">You've reached the end.</p>
@@ -84,6 +84,10 @@ const storedPosts = ref<Post[]>([])
 const moon = ref<Moon | null>(null)
 const posts = computed(() => storedPosts.value)
 
+const removePost = (postId: number) => {
+  storedPosts.value = storedPosts.value.filter((post) => post.id !== postId)
+}
+
 const onSortChange = (value: string) => {
   if (value !== 'top' && value !== 'new') {
     return
@@ -94,7 +98,7 @@ const onSortChange = (value: string) => {
     query: {
       ...route.query,
       sort: value,
-      ...(value === 'new' ? { t: undefined } : {}),
+      ...(value === 'new' ? { t: undefined } : { t: 'day' }),
     },
     params: {
       moon: route.params.moon,
@@ -186,7 +190,7 @@ watch(
 
 <style scoped>
 h1 {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .postsContainer {

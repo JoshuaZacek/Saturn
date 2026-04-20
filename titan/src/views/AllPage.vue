@@ -1,6 +1,8 @@
 <template>
   <main>
-    <h1>{{ capitalizeFirstLetter(sort) }} posts on Saturn{{ sort === 'top' ? '...' : '' }}</h1>
+    <h1 :style="sort === 'new' ? 'margin-bottom: 0rem !important;' : ''">
+      {{ capitalizeFirstLetter(sort) }} posts on Saturn{{ sort === 'top' ? '...' : '' }}
+    </h1>
     <CustomSelect
       v-if="sort === 'top'"
       label="Top time period"
@@ -9,8 +11,12 @@
       @update:model-value="onTimePeriodChange"
     />
 
-    <div v-if="posts.length > 0" class="postsContainer">
-      <PostCard v-for="post in posts" :key="post.id" :post="post" />
+    <div
+      v-if="posts.length > 0"
+      class="postsContainer"
+      :style="sort === 'new' ? 'margin-top: 1.5rem !important;' : ''"
+    >
+      <PostCard v-for="post in posts" :key="post.id" :post="post" @deleted="removePost" />
     </div>
 
     <p v-if="!nextCursor && posts.length > 0">You've reached the end.</p>
@@ -86,6 +92,10 @@ const nextCursor = ref<string | null>(null)
 const storedPosts = ref<Post[]>([])
 const posts = computed(() => storedPosts.value)
 
+const removePost = (postId: number) => {
+  storedPosts.value = storedPosts.value.filter((post) => post.id !== postId)
+}
+
 let requestId = 0
 
 const fetchPosts = async () => {
@@ -140,13 +150,13 @@ watch(
 
 <style scoped>
 h1 {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .postsContainer {
   margin-top: 2rem;
   display: grid;
-  gap: 1.5rem;
+  gap: 2rem;
 }
 
 main {

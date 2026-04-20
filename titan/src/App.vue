@@ -16,12 +16,17 @@ import AppSidebar from '@/components/AppSidebar.vue'
   --bg-3: #d7cfb7; /* used for some backgrounds */
   --bg-error: #ff9999; /* error color */
   --bg-sub: #ffffff; /* used rarely to focus attention on content i.e. posts */
+
   --text-1: #14110b; /* main text color */
   --text-2: #625737; /* secondary text color, used for things like dates and usernames */
   --text-3: #918973; /* lighter text, used for placeholders */
   --text-error: #ff3333; /* error color */
+
   --vote-up: #96b85d; /* upvote color */
   --vote-down: #ff6501; /* downvote color */
+
+  --accent-color: #ff741a; /* used for interactive elements like buttons and links */
+  --accent-text: #ffffff; /* text color for elements with accent-color background */
 }
 
 html,
@@ -39,6 +44,14 @@ body,
   font-family: Helvetica, Arial, sans-serif;
   box-sizing: border-box;
   color: var(--text-1);
+}
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 1px;
 }
 
 #app {

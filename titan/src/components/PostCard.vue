@@ -36,30 +36,76 @@
         <ChatCircleIcon />
         <span>{{ post.comments }}</span>
       </router-link>
+
+      <button
+        class="action delete"
+        v-if="post.user.id == authStore.user.id"
+        :disabled="isDeleting"
+        @click="deletePost"
+      >
+        <span class="deleteIconWrap">
+          <SpinnerLoader
+            v-if="isDeleting"
+            bgColor="var(--bg-main)"
+            fgColor="var(--text-2)"
+            :size="20"
+          />
+          <DeleteIcon v-else />
+        </span>
+      </button>
     </div>
   </article>
 </template>
 <script setup lang="ts">
+import axios from 'axios'
 import { computed, onMounted, ref, useTemplateRef } from 'vue'
+import DeleteIcon from '@/components/icons/DeleteIcon.vue'
 import ChatCircleIcon from '@/components/icons/ChatCircleIcon.vue'
 import ClockIcon from '@/components/icons/ClockIcon.vue'
+import SpinnerLoader from '@/components/SpinnerLoader.vue'
 import VoteButtons from '@/components/VoteButtons.vue'
 import UserCircleIcon from '@/components/icons/UserCircleIcon.vue'
+import { useAuthStore } from '@/stores/auth'
 import type { Post } from '@/types/post'
 
 const props = defineProps<{
   post: Post
 }>()
 
+const emit = defineEmits<{
+  deleted: [postId: number]
+}>()
+
+const authStore = useAuthStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
+const isDeleting = ref(false)
 const imageURL = computed(() => {
   return `${backendUrl}/assets/${props.post.body}`
 })
 
+const deletePost = () => {
+  if (!backendUrl || isDeleting.value) {
+    return
+  }
+
+  isDeleting.value = true
+  const base = backendUrl.replace(/\/$/, '')
+
+  axios
+    .delete(`${base}/post/${props.post.id}`)
+    .then(async () => {
+      isDeleting.value = false
+      emit('deleted', props.post.id)
+    })
+    .catch(() => {
+      isDeleting.value = false
+      alert("Post couldn't be deleted")
+    })
+}
+
 const isOverflowing = ref(false)
 const body = useTemplateRef<HTMLParagraphElement>('body')
 onMounted(() => {
-  console.log(props.post)
   if (body.value) {
     isOverflowing.value = body.value.scrollHeight > body.value.clientHeight
   }
@@ -156,7 +202,6 @@ const postedDate = computed(() => {
 .stats {
   margin-top: 0.65rem;
   display: flex;
-  gap: 0.25rem;
 }
 
 .action {
@@ -180,6 +225,7 @@ const postedDate = computed(() => {
 }
 
 .comments {
+  margin-left: 0.35rem;
   cursor: pointer;
   padding: 0.35rem 0.5rem;
   border-radius: 10px;
@@ -209,5 +255,33 @@ img {
   border-radius: 0.5rem;
   height: 10rem;
   border: 1px solid var(--bg-2);
+}
+
+.delete {
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  border-radius: 10px;
+  text-decoration: none;
+  border: none;
+  background: var(--bg-main);
+  min-width: 34px;
+  min-height: 34px;
+  justify-content: center;
+}
+
+.deleteIconWrap {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete:hover {
+  background: var(--bg-2);
+}
+
+.delete:disabled {
+  cursor: default;
 }
 </style>
