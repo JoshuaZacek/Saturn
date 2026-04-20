@@ -29,7 +29,5 @@ withDefaults(
   display: inline-block;
   flex-shrink: 0;
   color: var(--text-1);
-  fill: currentColor;
-  stroke: currentColor;
 }
 </style>

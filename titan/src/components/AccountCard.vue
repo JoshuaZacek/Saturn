@@ -125,17 +125,28 @@
   cursor: pointer;
   flex-direction: column;
 }
+
+.accountCard:focus {
+  outline: none;
+}
+
+.accountCard:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
 .open {
   background: var(--bg-sub);
   cursor: default;
 }
 .submitButton {
-  background-color: var(--bg-2);
+  background-color: var(--accent-color);
   border: none;
   font-size: 1rem;
   padding: 0.5rem 0.75rem;
   border-radius: 10px;
   cursor: pointer;
+  color: var(--accent-text);
 }
 
 .buttonContainer {
@@ -202,7 +213,7 @@ p {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--text-2);
+  color: var(--accent-color);
   font-size: 0.75rem;
 }
 .toggleButton:hover {

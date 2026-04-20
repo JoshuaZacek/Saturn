@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUIStore } from '@/stores/ui'
 import FeedButton from '@/components/FeedButton.vue'
 import AccountCard from '@/components/AccountCard.vue'
+import CreateActionsSelect from '@/components/CreateActionsSelect.vue'
 import NewIcon from '@/components/icons/NewIcon.vue'
 import HomeIcon from '@/components/icons/HomeIcon.vue'
 import TopIcon from '@/components/icons/TopIcon.vue'
@@ -16,7 +17,21 @@ const getSingleQueryValue = (value: unknown) => (Array.isArray(value) ? value[0]
 
 const sortQuery = computed(() => getSingleQueryValue(route.query.sort))
 const tQuery = computed(() => getSingleQueryValue(route.query.t))
+const currentTitle = computed(() => {
+  if (route.name === 'moon') {
+    return `/${route.params.moon}`
+  } else if (route.name === 'post') {
+    return 'Post'
+  } else if (route.name === 'create-post') {
+    return 'Create post...'
+  } else if (route.name === 'create-moon') {
+    return 'Create moon...'
+  }
 
+  return ''
+})
+
+const isNotFoundPage = computed(() => route.name === 'not-found')
 const isHomePage = computed(() => route.name === 'home')
 const isTopPage = computed(
   () => route.name === 'all' && sortQuery.value === 'top' && isCorrectTimePeriod(tQuery.value),
@@ -81,9 +96,18 @@ onBeforeUnmount(() => {
     :class="{ resizing: isResizing }"
     :style="{ width: `${uiStore.sidebarWidthPx}px` }"
   >
-    <router-link to="/">
-      <img class="logo" width="50" height="50" src="/logo.png" alt="Logo" />
-    </router-link>
+    <div class="topBar">
+      <router-link to="/">
+        <img class="logo" width="50" height="50" src="/logo.png" alt="Logo" />
+      </router-link>
+
+      <CreateActionsSelect />
+    </div>
+
+    <div v-if="!isHomePage && !isTopPage && !isNewPage && !isNotFoundPage" class="feedsGroup">
+      <p class="groupTitle">Currently Viewing</p>
+      <FeedButton :label="currentTitle" :active="true" />
+    </div>
 
     <div class="feedsGroup">
       <p class="groupTitle">Feeds</p>
@@ -125,6 +149,12 @@ onBeforeUnmount(() => {
   user-select: none;
   -webkit-user-drag: none;
   cursor: pointer;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .resize-handle {

@@ -3,7 +3,7 @@ import type { Component } from 'vue'
 
 defineProps<{
   label: string
-  icon: Component
+  icon?: Component
   active?: boolean
   iconSize?: number
 }>()
@@ -14,7 +14,12 @@ defineEmits<{
 </script>
 
 <template>
-  <button class="feedButton" type="button" :class="{ active }" @click="$emit('click')">
+  <button
+    class="feedButton"
+    type="button"
+    :class="{ active, 'no-icon': icon === undefined }"
+    @click="$emit('click')"
+  >
     <component :is="icon" :filled="active" :size="iconSize ?? 30" />
     <span>{{ label }}</span>
   </button>
@@ -34,6 +39,11 @@ defineEmits<{
   height: 2.75rem;
   gap: 0.25rem;
   padding-left: 0.5rem;
+}
+
+.no-icon {
+  padding-left: 1rem;
+  cursor: default;
 }
 
 .feedButton.active {
