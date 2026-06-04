@@ -4,6 +4,9 @@ defmodule Saturn.Post do
 
   alias Saturn.{User, Moon, Vote, Comment, File}
 
+  @title_max_length 100
+  @body_max_length 5_000
+
   @derive {Jason.Encoder, except: [:__meta__, :moon_id, :user_id, :files]}
   schema "posts" do
     has_many(:votes, Vote, on_delete: :delete_all)
@@ -24,6 +27,8 @@ defmodule Saturn.Post do
     post
     |> cast(attrs, [:title, :body, :moon_id, :user_id, :type])
     |> validate_required([:title, :body, :moon_id, :user_id, :type])
+    |> validate_length(:title, max: @title_max_length)
+    |> validate_length(:body, max: @body_max_length)
     |> foreign_key_constraint(:moon_id)
     |> foreign_key_constraint(:user_id)
   end

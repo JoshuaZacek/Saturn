@@ -43,6 +43,9 @@
           autocomplete="off"
           placeholder="Title..."
         />
+        <p class="feedback info" :class="{ danger: isTitleCharacterCountAtLimit }">
+          {{ title.length }} / {{ TITLE_MAX_LENGTH }}
+        </p>
       </section>
 
       <form @submit.prevent="submitPost">
@@ -57,6 +60,10 @@
             placeholder="Text..."
             @input="autoGrowBody"
           />
+
+          <p class="feedback info" :class="{ danger: isBodyCharacterCountAtLimit }">
+            {{ body.length }} / {{ BODY_MAX_LENGTH }}
+          </p>
 
           <p v-if="errors.title" class="feedback error">{{ errors.title }}</p>
           <p v-if="errors.body" class="feedback error">{{ errors.body }}</p>
@@ -88,7 +95,7 @@
               <button type="button" class="browseButton" @click="openFilePicker">
                 choose image
               </button>
-              (.jpg, .jpeg, .png, .gif)
+              (.jpg, .jpeg, .png, .gif) (max 15 MB)
             </p>
           </div>
 
@@ -134,6 +141,11 @@ const MOON_VALIDATION_DELAY_MS = 380
 const MOON_CHECKING_MIN_VISIBLE_MS = 240
 const SUBMIT_SPINNER_MIN_VISIBLE_MS = 250
 const SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif']
+const MAX_IMAGE_FILE_SIZE_BYTES = 15 * 1024 * 1024
+
+// Maximum allowed lengths for inputs (adjustable)
+const TITLE_MAX_LENGTH = 100
+const BODY_MAX_LENGTH = 5000
 
 const router = useRouter()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
@@ -169,6 +181,14 @@ const isMoonNameInSync = computed(() => {
   return selectedMoon.value.name.toLowerCase() === moonInput.value.trim().toLowerCase()
 })
 
+const isTitleCharacterCountAtLimit = computed(() => {
+  return title.value.length >= TITLE_MAX_LENGTH
+})
+
+const isBodyCharacterCountAtLimit = computed(() => {
+  return body.value.length >= BODY_MAX_LENGTH
+})
+
 let moonValidationTimeout: ReturnType<typeof setTimeout> | null = null
 let moonValidationRequestId = 0
 
@@ -198,6 +218,10 @@ const isSupportedImageFile = (file: File) => {
   return hasSupportedType && hasSupportedExtension
 }
 
+const isWithinImageFileSizeLimit = (file: File) => {
+  return file.size <= MAX_IMAGE_FILE_SIZE_BYTES
+}
+
 const setSelectedFile = (file: File | null) => {
   errors.value.file = ''
 
@@ -209,6 +233,12 @@ const setSelectedFile = (file: File | null) => {
   if (!isSupportedImageFile(file)) {
     selectedFile.value = null
     errors.value.file = 'Please upload a .jpg, .jpeg, .png, or .gif image'
+    return
+  }
+
+  if (!isWithinImageFileSizeLimit(file)) {
+    selectedFile.value = null
+    errors.value.file = 'Please upload an image that is 15 MB or smaller'
     return
   }
 
@@ -385,11 +415,17 @@ const validateForm = async () => {
   if (!title.value.trim()) {
     nextErrors.title = 'Title is required'
     isValid = false
+  } else if (title.value.length > TITLE_MAX_LENGTH) {
+    nextErrors.title = `Title must be ${TITLE_MAX_LENGTH} characters or fewer`
+    isValid = false
   }
 
   if (postMode.value === 'text') {
     if (!body.value.trim()) {
       nextErrors.body = 'Text is required'
+      isValid = false
+    } else if (body.value.length > BODY_MAX_LENGTH) {
+      nextErrors.body = `Text must be ${BODY_MAX_LENGTH} characters or fewer`
       isValid = false
     }
   } else if (!selectedFile.value) {
@@ -531,6 +567,7 @@ onBeforeUnmount(() => {
   padding: 2rem 1.5rem;
   width: 100%;
   margin-top: 2rem;
+  position: relative;
 }
 
 main {
@@ -619,6 +656,15 @@ h1 {
 
 .feedback.info {
   color: var(--text-2);
+  position: absolute;
+  font-size: 0.8rem;
+  margin-top: -1rem;
+  margin-left: 39.5rem;
+  text-wrap: nowrap;
+}
+
+.feedback.info.danger {
+  color: var(--text-error);
 }
 
 .feedback.success {

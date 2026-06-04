@@ -12,7 +12,14 @@ defmodule Saturn.Router do
 
   plug(:fetch_cookies)
   plug(:match)
-  plug(Plug.Parsers, parsers: [:json, :urlencoded, :multipart], json_decoder: Jason)
+  plug(Plug.Parsers,
+    parsers: [
+      :json,
+      :urlencoded,
+      {:multipart, length: 15_000_000}
+    ],
+    json_decoder: Jason
+  )
   plug(SessionPlug)
   plug(:dispatch)
 

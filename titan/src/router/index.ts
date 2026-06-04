@@ -7,6 +7,7 @@ import HomePage from '@/views/HomePage.vue'
 import ProfilePage from '@/views/ProfilePage.vue'
 import CreatePostPage from '@/views/CreatePostPage.vue'
 import CreateMoonPage from '@/views/CreateMoonPage.vue'
+import UnauthorizedPage from '@/views/UnauthorizedPage.vue'
 
 export const isCorrectTimePeriod = (value: unknown) => {
   if (typeof value !== 'string') {
@@ -19,6 +20,23 @@ export const isCorrectTimePeriod = (value: unknown) => {
 }
 
 const DEFAULT_DOCUMENT_TITLE = 'Saturn'
+const AUTH_STORAGE_KEY = 'auth-user'
+
+const isLoggedIn = () => {
+  const storedUser = localStorage.getItem(AUTH_STORAGE_KEY)
+
+  if (!storedUser) {
+    return false
+  }
+
+  try {
+    JSON.parse(storedUser)
+    return true
+  } catch {
+    localStorage.removeItem(AUTH_STORAGE_KEY)
+    return false
+  }
+}
 
 type RouteTitleResolver = (to: RouteLocationNormalizedLoaded) => string
 
@@ -83,6 +101,21 @@ const router = createRouter({
       component: CreatePostPage,
       meta: {
         title: 'Create post',
+      },
+      beforeEnter: () => {
+        if (isLoggedIn()) {
+          return true
+        }
+
+        return { name: 'unauthorized' }
+      },
+    },
+    {
+      path: '/unauthorized',
+      name: 'unauthorized',
+      component: UnauthorizedPage,
+      meta: {
+        title: 'Unauthorized',
       },
     },
     {

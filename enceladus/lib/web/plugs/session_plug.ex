@@ -5,7 +5,9 @@ defmodule Saturn.SessionPlug do
   def init(default), do: default
 
   def call(conn, _) do
-    case Session.get_by_id(conn.req_cookies["session_id"]) do
+    conn = Plug.Conn.fetch_cookies(conn)
+
+    case Session.get_by_id(conn.cookies["session_id"]) do
       nil ->
         conn
         |> assign(:session, nil)
