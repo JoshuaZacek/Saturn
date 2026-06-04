@@ -37,6 +37,7 @@ const isTopPage = computed(
   () => route.name === 'all' && sortQuery.value === 'top' && isCorrectTimePeriod(tQuery.value),
 )
 const isNewPage = computed(() => route.name === 'all' && sortQuery.value === 'new')
+const isUnauthorizedPage = computed(() => route.name === 'unauthorized')
 
 const goToHome = () => {
   router.push({ name: 'home' })
@@ -104,7 +105,10 @@ onBeforeUnmount(() => {
       <CreateActionsSelect />
     </div>
 
-    <div v-if="!isHomePage && !isTopPage && !isNewPage && !isNotFoundPage" class="feedsGroup">
+    <div
+      v-if="!isHomePage && !isTopPage && !isNewPage && !isNotFoundPage && !isUnauthorizedPage"
+      class="feedsGroup"
+    >
       <p class="groupTitle">Currently Viewing</p>
       <FeedButton :label="currentTitle" :active="true" />
     </div>

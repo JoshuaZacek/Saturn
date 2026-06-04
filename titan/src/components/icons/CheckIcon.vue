@@ -18,11 +18,15 @@ withDefaults(
     :width="size"
     :height="size"
     class="icon"
-    :style="{ fill: color }"
+    :style="{ stroke: color }"
     aria-hidden="true"
   >
     <path
-      d="M229.66,98.34l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,209.37,218.34,87a8,8,0,0,1,11.32,11.31Z"
+      d="M48 136 L96 184 L208 72"
+      fill="none"
+      stroke-width="24"
+      stroke-linecap="round"
+      stroke-linejoin="round"
     />
   </svg>
 </template>
