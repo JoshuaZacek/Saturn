@@ -1,7 +1,7 @@
 <template>
   <main>
     <h1>Unauthorized</h1>
-    <p>You must be logged in to create a post</p>
+    <p>{{ message }}</p>
 
     <nav>
       <RouterLink to="/">Home</RouterLink>
@@ -9,6 +9,17 @@
     </nav>
   </main>
 </template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
+const message = computed(() => {
+  const queryMessage = route.query.message
+  return typeof queryMessage === 'string' ? queryMessage : 'You must be logged in to do that'
+})
+</script>
 
 <style scoped>
 main {

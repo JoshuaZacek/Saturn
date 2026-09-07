@@ -82,12 +82,21 @@ defmodule Saturn.AuthRouter do
   post "/moon" do
     conn = protected(conn)
 
-    case Moons.create(conn.params, conn.assigns.user) do
-      {:error, error} ->
-        send_resp(conn, 400, Jason.encode!(error))
+    schema = %{
+      name: [type: :string, length: [max: 20]]
+    }
 
-      _ ->
-        send_resp(conn, 200, "Moon created")
+    with {:ok, params} <- Tarams.cast(conn.params, schema) do
+      case Moons.create(params, conn.assigns.user) do
+        {:error, error} ->
+          send_resp(conn, 400, Jason.encode!(error))
+
+        _ ->
+          send_resp(conn, 200, "Moon created")
+      end
+    else
+      {:error, _} ->
+        send_resp(conn, 400, "Bad request")
     end
   end
 

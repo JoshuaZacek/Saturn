@@ -101,13 +101,17 @@ const router = createRouter({
       component: CreatePostPage,
       meta: {
         title: 'Create post',
+        unauthorizedMessage: 'You must be logged in to create a post',
       },
-      beforeEnter: () => {
+      beforeEnter: (to) => {
         if (isLoggedIn()) {
           return true
         }
 
-        return { name: 'unauthorized' }
+        return {
+          name: 'unauthorized',
+          query: { message: to.meta.unauthorizedMessage as string | undefined },
+        }
       },
     },
     {
@@ -124,6 +128,17 @@ const router = createRouter({
       component: CreateMoonPage,
       meta: {
         title: 'Create moon',
+        unauthorizedMessage: 'You must be logged in to create a moon',
+      },
+      beforeEnter: (to) => {
+        if (isLoggedIn()) {
+          return true
+        }
+
+        return {
+          name: 'unauthorized',
+          query: { message: to.meta.unauthorizedMessage as string | undefined },
+        }
       },
     },
     {
