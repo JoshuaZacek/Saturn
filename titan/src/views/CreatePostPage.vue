@@ -127,6 +127,7 @@ import { useRouter } from 'vue-router'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 import SpinnerLoader from '@/components/SpinnerLoader.vue'
 import CheckIcon from '@/components/icons/CheckIcon.vue'
+import { waitForMinimumVisibleTime } from '@/config/loading'
 
 type PostMode = 'text' | 'image'
 type MoonStatus = 'idle' | 'checking' | 'exists' | 'missing' | 'error'
@@ -138,8 +139,6 @@ type MoonResponse = {
 }
 
 const MOON_VALIDATION_DELAY_MS = 380
-const MOON_CHECKING_MIN_VISIBLE_MS = 240
-const SUBMIT_SPINNER_MIN_VISIBLE_MS = 250
 const SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif']
 const MAX_IMAGE_FILE_SIZE_BYTES = 15 * 1024 * 1024
 
@@ -264,17 +263,6 @@ const validateMoonNow = async () => {
   const currentRequestId = ++moonValidationRequestId
   const requestStartedAt = Date.now()
 
-  const waitForMinimumCheckingVisibility = async () => {
-    const elapsed = Date.now() - requestStartedAt
-    const remaining = MOON_CHECKING_MIN_VISIBLE_MS - elapsed
-
-    if (remaining > 0) {
-      await new Promise<void>((resolve) => {
-        setTimeout(resolve, remaining)
-      })
-    }
-  }
-
   try {
     const base = backendUrl.replace(/\/$/, '')
     const response = await axios.get<MoonResponse>(`${base}/moon/${encodeURIComponent(moonName)}`)
@@ -283,7 +271,7 @@ const validateMoonNow = async () => {
       return
     }
 
-    await waitForMinimumCheckingVisibility()
+    await waitForMinimumVisibleTime(requestStartedAt)
 
     if (currentRequestId !== moonValidationRequestId) {
       return
@@ -296,7 +284,7 @@ const validateMoonNow = async () => {
       return
     }
 
-    await waitForMinimumCheckingVisibility()
+    await waitForMinimumVisibleTime(requestStartedAt)
 
     if (currentRequestId !== moonValidationRequestId) {
       return
@@ -355,17 +343,6 @@ const onFileChange = (event: Event) => {
 
 const openFilePicker = () => {
   fileInput.value?.click()
-}
-
-const waitForMinimumVisibleTime = async (startedAt: number, minimumVisibleMs: number) => {
-  const elapsed = Date.now() - startedAt
-  const remaining = minimumVisibleMs - elapsed
-
-  if (remaining > 0) {
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, remaining)
-    })
-  }
 }
 
 const createEmptyErrors = () => ({
@@ -455,7 +432,7 @@ const submitPost = async () => {
     const validationResult = await validateForm()
 
     if (!validationResult.isValid || !selectedMoon.value) {
-      await waitForMinimumVisibleTime(submitStartedAt, SUBMIT_SPINNER_MIN_VISIBLE_MS)
+      await waitForMinimumVisibleTime(submitStartedAt)
       errors.value = validationResult.errors
       return
     }
@@ -475,7 +452,7 @@ const submitPost = async () => {
     const response = await axios.post(`${base}/post`, payload)
     const postId = response.data?.id
 
-    await waitForMinimumVisibleTime(submitStartedAt, SUBMIT_SPINNER_MIN_VISIBLE_MS)
+    await waitForMinimumVisibleTime(submitStartedAt)
 
     if (typeof postId === 'number') {
       await router.push({ name: 'post', params: { post_id: String(postId) } })
@@ -519,7 +496,7 @@ const submitPost = async () => {
 
     alert("Post couldn't be created. Please try again.")
   } finally {
-    await waitForMinimumVisibleTime(submitStartedAt, SUBMIT_SPINNER_MIN_VISIBLE_MS)
+    await waitForMinimumVisibleTime(submitStartedAt)
 
     if (pendingErrors) {
       errors.value = pendingErrors
