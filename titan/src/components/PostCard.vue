@@ -1,5 +1,5 @@
 <template>
-  <article class="postCard">
+  <article :class="['postCard', props.postPageMode ? 'postPageMode' : '']">
     <div class="metadataContainer">
       <router-link class="metadata moon" :to="`/${post.moon.name}`"
         >/{{ post.moon.name }}</router-link
@@ -32,7 +32,7 @@
 
     <div class="stats">
       <VoteButtons :id="post.id" :votes="post.votes" :hasVoted="post.hasVoted" type="post" />
-      <router-link class="action comments" :to="`/post/${post.id}`">
+      <router-link v-if="!props.postPageMode" class="action comments" :to="`/post/${post.id}`">
         <ChatCircleIcon />
         <span>{{ post.comments }}</span>
       </router-link>
@@ -70,6 +70,7 @@ import type { Post } from '@/types/post'
 
 const props = defineProps<{
   post: Post
+  postPageMode?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -162,6 +163,12 @@ const postedDate = computed(() => {
   padding-bottom: 0.65rem;
   max-width: 40rem;
   background-color: var(--bg-sub);
+}
+
+.postPageMode {
+  width: 40rem;
+  max-width: 40rem;
+  padding-bottom: 1rem;
 }
 
 .metadataContainer {

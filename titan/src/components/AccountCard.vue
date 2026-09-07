@@ -73,9 +73,9 @@
             </Transition>
 
             <div class="buttonContainer">
-              <button class="submitButton" type="submit" :disabled="isSubmitting">
+              <SubmitButton type="submit" :disabled="isSubmitting">
                 {{ createOrLogin === 'login' ? 'Log in' : 'Sign up' }}
-              </button>
+              </SubmitButton>
 
               <span class="spinnerSlot" aria-hidden="true">
                 <Transition name="spinner-fade">
@@ -96,9 +96,9 @@
         </template>
 
         <template v-else>
-          <button class="submitButton" style="margin-top: -0.25rem" @click.stop="handleLogout">
+          <SubmitButton style="margin-top: -0.25rem" @click.stop="handleLogout">
             Log out
-          </button>
+          </SubmitButton>
         </template>
       </div>
     </Transition>
@@ -138,15 +138,6 @@
 .open {
   background: var(--bg-sub);
   cursor: default;
-}
-.submitButton {
-  background-color: var(--accent-color);
-  border: none;
-  font-size: 1rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 10px;
-  cursor: pointer;
-  color: var(--accent-text);
 }
 
 .buttonContainer {
@@ -280,6 +271,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AuthInput from './AuthInput.vue'
 import SpinnerLoader from './SpinnerLoader.vue'
+import SubmitButton from './SubmitButton.vue'
 
 const isMenuClosed = ref(true)
 const errors = ref({
