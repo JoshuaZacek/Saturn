@@ -17,7 +17,7 @@ defmodule Saturn.Vote do
 
   def changeset(vote, attrs) do
     vote
-    |> cast(attrs, [:vote, :user_id, :post_id, :comment_id])
+    |> cast(attrs, [:vote, :post_id, :comment_id])
     |> validate_required([:vote, :user_id])
     |> foreign_key_constraint(:post_id)
     |> foreign_key_constraint(:comment_id)

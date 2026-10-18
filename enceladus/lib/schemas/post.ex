@@ -25,7 +25,7 @@ defmodule Saturn.Post do
 
   def changeset(post, attrs) do
     post
-    |> cast(attrs, [:title, :body, :moon_id, :user_id, :type])
+    |> cast(attrs, [:title, :body, :moon_id, :type])
     |> validate_required([:title, :body, :moon_id, :user_id, :type])
     |> validate_length(:title, max: @title_max_length)
     |> validate_length(:body, max: @body_max_length)
