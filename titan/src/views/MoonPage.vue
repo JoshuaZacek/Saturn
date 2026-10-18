@@ -1,6 +1,9 @@
 <template>
   <main>
-    <h1>/{{ route.params.moon }}</h1>
+    <div class="header">
+      <h1>/{{ moonName }}</h1>
+    </div>
+
     <SegmentedControl
       :model-value="sort ?? 'top'"
       :options="sortOptions"
@@ -15,25 +18,22 @@
       @update:model-value="onTimePeriodChange"
     />
 
-    <div v-if="posts.length > 0" class="postsContainer">
-      <PostCard v-for="post in posts" :key="post.id" :post="post" @deleted="removePost" />
+    <PostFeed v-if="moon" class="feed" :params="feedParams" />
+    <div v-else-if="isLoadingMoon" class="moonLoading" aria-live="polite" aria-busy="true">
+      <SpinnerLoader :size="30" fgColor="var(--text-3)" />
     </div>
-
-    <p v-if="!nextCursor && posts.length > 0">You've reached the end.</p>
-
-    <p v-else-if="!nextCursor && posts.length == 0">Hmmm... empty.</p>
   </main>
 </template>
 
 <script setup lang="ts">
 import axios from 'axios'
-import { computed, onBeforeMount, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQueryValue } from 'vue-router'
 import CustomSelect from '@/components/CustomSelect.vue'
 import SegmentedControl from '@/components/SegmentedControl.vue'
-import PostCard from '@/components/PostCard.vue'
+import SpinnerLoader from '@/components/SpinnerLoader.vue'
+import PostFeed from '@/components/PostFeed.vue'
 import { useErrorBannerStore } from '@/stores/errorBanner'
-import type { Post, PostsResponse } from '@/types/post'
 
 type SortType = 'new' | 'top'
 type Moon = {
@@ -66,6 +66,7 @@ const route = useRoute()
 const router = useRouter()
 const errorBanner = useErrorBannerStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
+const moonName = computed(() => String(route.params.moon))
 const sort = computed(() => getSingleQueryValue(route.query.sort) as SortType | undefined)
 const t = computed(() => getSingleQueryValue(route.query.t))
 const timePeriod = computed(() => getTimePeriod(t.value))
@@ -81,14 +82,22 @@ const sortOptions = [
   { label: 'New', value: 'new' },
 ]
 const selectedTimePeriod = computed(() => (typeof t.value === 'string' ? t.value : 'day'))
-const nextCursor = ref<string | null>(null)
-const storedPosts = ref<Post[]>([])
 const moon = ref<Moon | null>(null)
-const posts = computed(() => storedPosts.value)
+const isLoadingMoon = ref(true)
 
-const removePost = (postId: number) => {
-  storedPosts.value = storedPosts.value.filter((post) => post.id !== postId)
-}
+const feedParams = computed(() => {
+  const params: Record<string, string | number> = { sort: sort.value ?? 'top' }
+
+  if (moon.value) {
+    params.moon_id = moon.value.id
+  }
+
+  if (sort.value === 'top') {
+    params.time_period = timePeriod.value
+  }
+
+  return params
+})
 
 const onSortChange = (value: string) => {
   if (value !== 'top' && value !== 'new') {
@@ -122,98 +131,71 @@ const onTimePeriodChange = (value: string) => {
   })
 }
 
-onBeforeMount(() => {
-  axios
-    .get(`${backendUrl}/moon/${route.params.moon}`)
-    .then((res) => {
-      moon.value = res.data
-      fetchPosts()
-    })
-    .catch((err) => {
-      if (err?.response?.status == 404) {
-        router.replace({ name: 'not-found' })
-      } else {
-        errorBanner.show("Moon couldn't be loaded. Please try again.")
-      }
-    })
-})
+let moonRequestId = 0
 
-let requestId = 0
-const fetchPosts = async () => {
-  storedPosts.value = []
-
-  if (!backendUrl || (sort.value !== 'new' && sort.value !== 'top') || !moon.value) {
-    if (!backendUrl) {
-      errorBanner.show()
-    }
-    return
-  }
-
-  const currentRequestId = ++requestId
-  const base = backendUrl.replace(/\/$/, '')
-  const endpoint = `${base}/posts`
-
-  const params: Record<string, string | number> = {
-    sort: sort.value,
-    limit: 10,
-    moon_id: moon.value.id,
-  }
-
-  if (sort.value === 'top') {
-    params.time_period = timePeriod.value
-  }
+const loadMoon = async (name: string) => {
+  const currentRequestId = ++moonRequestId
+  moon.value = null
+  isLoadingMoon.value = true
 
   try {
-    const response = await axios.get<PostsResponse>(endpoint, { params })
+    if (!backendUrl) {
+      throw new Error('VITE_BACKEND_URL is not set')
+    }
 
-    if (currentRequestId !== requestId) {
+    const base = backendUrl.replace(/\/$/, '')
+    const response = await axios.get<Moon>(`${base}/moon/${encodeURIComponent(name)}`)
+
+    if (currentRequestId !== moonRequestId) {
       return
     }
 
-    nextCursor.value = response.data.next_cursor
-    storedPosts.value.push(...response.data.posts)
-  } catch {
-    if (currentRequestId !== requestId) {
+    moon.value = response.data
+  } catch (err) {
+    if (currentRequestId !== moonRequestId) {
       return
     }
 
-    errorBanner.show("Posts couldn't be loaded. Please try again.")
+    if (axios.isAxiosError(err) && err.response?.status === 404) {
+      void router.replace({ name: 'not-found' })
+    } else {
+      errorBanner.show("Moon couldn't be loaded. Please try again.")
+    }
+  } finally {
+    if (currentRequestId === moonRequestId) {
+      isLoadingMoon.value = false
+    }
   }
 }
 
-watch(
-  [sort, t],
-  () => {
-    void fetchPosts()
-  },
-  { immediate: true },
-)
+// The component is reused when navigating between moons, so reload on param change.
+watch(moonName, (name) => void loadMoon(name), { immediate: true })
 </script>
 
 <style scoped>
-h1 {
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 1.5rem;
 }
 
-.postsContainer {
-  margin-top: 2rem;
-  display: grid;
-  gap: 1.5rem;
+h1 {
+  overflow-wrap: anywhere;
 }
 
 main {
   width: 40rem;
 }
 
-p {
-  color: var(--text-2);
+.feed {
   margin-top: 2rem;
-  text-align: center;
 }
 
-main::after {
-  content: '';
-  display: block;
-  height: 5rem;
+.moonLoading {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
 }
 </style>
