@@ -109,6 +109,8 @@ defmodule Saturn.Posts do
         true
       end
 
+    # Row comparisons keep posts at or after the cursor in (sort key, id) order, so ties on the
+    # sort key fall back to id instead of dropping rows
     cursor_query =
       case sort do
         "new" ->
@@ -116,8 +118,13 @@ defmodule Saturn.Posts do
             do:
               dynamic(
                 [p],
-                p.id <= ^cursor["id"] and
-                  p.inserted_at <= ^DateTime.from_unix!(cursor["inserted_at"])
+                fragment(
+                  "(?, ?) <= (?, ?)",
+                  p.inserted_at,
+                  p.id,
+                  ^DateTime.from_unix!(cursor["inserted_at"]),
+                  ^cursor["id"]
+                )
               ),
             else: is_nil(cursor)
 
@@ -126,8 +133,13 @@ defmodule Saturn.Posts do
             do:
               dynamic(
                 [p],
-                fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", p.id) <=
-                  ^cursor["votes"] and p.id <= ^cursor["id"]
+                fragment(
+                  "((SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?), ?) <= (?, ?)",
+                  p.id,
+                  p.id,
+                  ^cursor["votes"],
+                  ^cursor["id"]
+                )
               ),
             else: is_nil(cursor)
       end
