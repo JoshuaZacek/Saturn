@@ -81,15 +81,15 @@ defmodule Saturn.Posts do
         },
         user_id
       ) do
-    cursor = parse_cursor(cursor)
+    cursor = parse_cursor(cursor, sort)
+    now = DateTime.utc_now() |> DateTime.to_unix()
 
+    # A period reaching back before 1970 covers every post
     posts_after_query =
-      if sort == "top" and is_integer(time_period) and time_period > 0 do
+      if sort == "top" and is_integer(time_period) and time_period > 0 and time_period < now do
         dynamic(
           [p],
-          p.inserted_at >
-            ^(((DateTime.utc_now() |> DateTime.to_unix()) - time_period)
-              |> DateTime.from_unix!())
+          p.inserted_at > ^((now - time_period) |> DateTime.from_unix!())
         )
       else
         true
@@ -122,7 +122,7 @@ defmodule Saturn.Posts do
                   "(?, ?) <= (?, ?)",
                   p.inserted_at,
                   p.id,
-                  ^DateTime.from_unix!(cursor["inserted_at"]),
+                  ^cursor["inserted_at"],
                   ^cursor["id"]
                 )
               ),
@@ -276,15 +276,5 @@ defmodule Saturn.Posts do
 
   defp get_next_cursor(comments, _, _) do
     {nil, comments}
-  end
-
-  defp parse_cursor(cursor) do
-    try do
-      cursor
-      |> Base.url_decode64!()
-      |> Jason.decode!()
-    rescue
-      _ -> nil
-    end
   end
 end

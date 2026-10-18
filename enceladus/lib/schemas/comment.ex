@@ -1,6 +1,7 @@
 defmodule Saturn.Comment do
   use Ecto.Schema
   import Ecto.Changeset
+  import Saturn.Functions
 
   alias Saturn.{Vote, User, Post, Comment}
 
@@ -26,6 +27,8 @@ defmodule Saturn.Comment do
     |> validate_required([:content, :post_id, :user_id])
     # Code points, to match the char_length check constraint
     |> validate_length(:content, max: @content_max_length, count: :codepoints)
+    |> validate_id(:post_id)
+    |> validate_id(:comment_id)
     |> foreign_key_constraint(:post_id)
     |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:comment_id)

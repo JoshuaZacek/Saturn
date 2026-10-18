@@ -64,7 +64,7 @@ defmodule Saturn.Comments do
   end
 
   def get(params, user_id) do
-    cursor = parse_cursor(params.cursor)
+    cursor = parse_cursor(params.cursor, params.sort)
 
     replies_query =
       if params.parent_comment_id,
@@ -83,7 +83,7 @@ defmodule Saturn.Comments do
                 "(?, ?) <= (?, ?)",
                 c.inserted_at,
                 c.id,
-                ^DateTime.from_unix!(cursor["inserted_at"]),
+                ^cursor["inserted_at"],
                 ^cursor["id"]
               )
             )
@@ -193,15 +193,5 @@ defmodule Saturn.Comments do
 
   defp get_next_cursor(comments, _, _) do
     {nil, comments}
-  end
-
-  defp parse_cursor(cursor) do
-    try do
-      cursor
-      |> Base.url_decode64!()
-      |> Jason.decode!()
-    rescue
-      _ -> nil
-    end
   end
 end
