@@ -13,6 +13,7 @@ import ProfilePage from '@/views/ProfilePage.vue'
 import CreatePostPage from '@/views/CreatePostPage.vue'
 import CreateMoonPage from '@/views/CreateMoonPage.vue'
 import UnauthorizedPage from '@/views/UnauthorizedPage.vue'
+import SettingsPage from '@/views/SettingsPage.vue'
 
 export const isCorrectTimePeriod = (value: unknown) => {
   if (typeof value !== 'string') {
@@ -49,6 +50,17 @@ const isLoggedIn = () => {
   } catch {
     localStorage.removeItem(AUTH_STORAGE_KEY)
     return false
+  }
+}
+
+const requireLogin = (to: RouteLocationNormalizedLoaded) => {
+  if (isLoggedIn()) {
+    return true
+  }
+
+  return {
+    name: 'unauthorized',
+    query: { message: to.meta.unauthorizedMessage as string | undefined },
   }
 }
 
@@ -117,16 +129,19 @@ const router = createRouter({
         title: 'Create post',
         unauthorizedMessage: 'You must be logged in to create a post',
       },
-      beforeEnter: (to) => {
-        if (isLoggedIn()) {
-          return true
-        }
-
-        return {
-          name: 'unauthorized',
-          query: { message: to.meta.unauthorizedMessage as string | undefined },
-        }
+      beforeEnter: requireLogin,
+    },
+    {
+      // Each step (change email, change password, delete account) replaces the
+      // settings content; leaving out the step shows the main settings page.
+      path: '/settings/:step(email|password|delete)?',
+      name: 'settings',
+      component: SettingsPage,
+      meta: {
+        title: 'Settings',
+        unauthorizedMessage: 'You must be logged in to view your settings',
       },
+      beforeEnter: requireLogin,
     },
     {
       path: '/unauthorized',
@@ -144,16 +159,7 @@ const router = createRouter({
         title: 'Create moon',
         unauthorizedMessage: 'You must be logged in to create a moon',
       },
-      beforeEnter: (to) => {
-        if (isLoggedIn()) {
-          return true
-        }
-
-        return {
-          name: 'unauthorized',
-          query: { message: to.meta.unauthorizedMessage as string | undefined },
-        }
-      },
+      beforeEnter: requireLogin,
     },
     {
       path: '/:moon',
