@@ -2,7 +2,7 @@ defmodule Saturn.Posts do
   import Ecto.Query
   import Saturn.Functions
 
-  alias Saturn.{Repo, Post, User, Moon, Vote, Comment, Files, File}
+  alias Saturn.{Repo, Post, User, Moon, Vote, Comment, Files, File, Subscription}
 
   def create(params, user) do
     file =
@@ -71,13 +71,20 @@ defmodule Saturn.Posts do
   end
 
   def get(
-        %{limit: limit, sort: sort, cursor: cursor, moon_id: moon_id, time_period: time_period},
+        %{
+          limit: limit,
+          sort: sort,
+          cursor: cursor,
+          moon_id: moon_id,
+          time_period: time_period,
+          subscribed: subscribed
+        },
         user_id
       ) do
     cursor = parse_cursor(cursor)
 
     posts_after_query =
-      if sort == "top" and time_period > 0 do
+      if sort == "top" and is_integer(time_period) and time_period > 0 do
         dynamic(
           [p],
           p.inserted_at >
@@ -89,6 +96,18 @@ defmodule Saturn.Posts do
       end
 
     moon_query = if moon_id, do: dynamic([p], p.moon_id == ^moon_id), else: is_nil(moon_id)
+
+    subscribed_query =
+      if subscribed do
+        dynamic(
+          [p],
+          p.moon_id in subquery(
+            from(s in Subscription, where: s.user_id == ^user_id, select: s.moon_id)
+          )
+        )
+      else
+        true
+      end
 
     cursor_query =
       case sort do
@@ -140,6 +159,7 @@ defmodule Saturn.Posts do
       Repo.all(
         from(p in Post,
           where: ^moon_query,
+          where: ^subscribed_query,
           where: ^posts_after_query,
           where: ^cursor_query,
           order_by: ^order_by_query,

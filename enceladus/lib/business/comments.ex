@@ -34,7 +34,7 @@ defmodule Saturn.Comments do
         )
 
       {:error, changeset} ->
-        {:error, format_changeset(changeset)}
+        {:error, %{errors: format_changeset(changeset)}}
     end
   end
 

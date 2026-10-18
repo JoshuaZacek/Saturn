@@ -2,7 +2,7 @@ defmodule Saturn.User do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias Saturn.{Repo, Session, Post, Moon, Vote, Comment, File}
+  alias Saturn.{Repo, Session, Post, Moon, Vote, Comment, File, Subscription}
 
   @derive {Jason.Encoder, except: [:__meta__]}
   schema "users" do
@@ -12,6 +12,7 @@ defmodule Saturn.User do
     has_many(:moons, Moon, on_delete: :delete_all)
     has_many(:votes, Vote, on_delete: :delete_all)
     has_many(:files, File, on_delete: :delete_all)
+    has_many(:subscriptions, Subscription, on_delete: :delete_all)
 
     field(:username, :string)
     field(:password, :string)
@@ -30,6 +31,8 @@ defmodule Saturn.User do
     |> validate_format(:email, ~r/.+@(?=[^@]+$).+\.(?=[^.]+$)/)
     |> validate_length(:password, min: 8)
     |> validate_format(:username, ~r/^\w+$/)
+    # GET /user/me is the session user, so a user called "me" would have no reachable profile
+    |> validate_exclusion(:username, ["me"], message: "is reserved")
     |> hash_password()
   end
 
