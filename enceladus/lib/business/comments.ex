@@ -71,14 +71,21 @@ defmodule Saturn.Comments do
         do: dynamic([c], c.comment_id == ^params.parent_comment_id),
         else: dynamic([c], is_nil(c.comment_id))
 
+    # Row comparisons keep comments at or after the cursor in (sort key, id) order, so ties on the
+    # sort key fall back to id instead of dropping rows
     sort_query =
       case params.sort do
         "new" ->
           if cursor do
             dynamic(
               [c],
-              c.id <= ^cursor["id"] and
-                c.inserted_at <= ^DateTime.from_unix!(cursor["inserted_at"])
+              fragment(
+                "(?, ?) <= (?, ?)",
+                c.inserted_at,
+                c.id,
+                ^DateTime.from_unix!(cursor["inserted_at"]),
+                ^cursor["id"]
+              )
             )
           else
             is_nil(cursor)
@@ -88,9 +95,13 @@ defmodule Saturn.Comments do
           if cursor do
             dynamic(
               [c],
-              fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE comment_id = ?", c.id) <=
-                ^cursor["votes"] and
-                c.id <= ^cursor["id"]
+              fragment(
+                "((SELECT COALESCE(SUM(vote), 0) FROM votes WHERE comment_id = ?), ?) <= (?, ?)",
+                c.id,
+                c.id,
+                ^cursor["votes"],
+                ^cursor["id"]
+              )
             )
           else
             is_nil(cursor)
