@@ -1,10 +1,11 @@
 defmodule Saturn.Profiles do
   import Ecto.Query
+  import Saturn.Functions
 
   alias Saturn.{Repo, Post, Moon, User, Comment}
 
   def get_posts(params, user_id) do
-    cursor = parse_cursor(params.cursor)
+    cursor = parse_cursor(params.cursor, params.sort)
 
     order_by =
       case params.sort do
@@ -41,7 +42,7 @@ defmodule Saturn.Profiles do
                 "(?, ?) <= (?, ?)",
                 p.inserted_at,
                 p.id,
-                ^DateTime.from_unix!(cursor["inserted_at"]),
+                ^cursor["inserted_at"],
                 ^cursor["id"]
               )
             )
@@ -101,7 +102,7 @@ defmodule Saturn.Profiles do
   end
 
   def get_comments(params, user_id) do
-    cursor = parse_cursor(params.cursor)
+    cursor = parse_cursor(params.cursor, params.sort)
 
     order_by =
       case params.sort do
@@ -138,7 +139,7 @@ defmodule Saturn.Profiles do
                 "(?, ?) <= (?, ?)",
                 c.inserted_at,
                 c.id,
-                ^DateTime.from_unix!(cursor["inserted_at"]),
+                ^cursor["inserted_at"],
                 ^cursor["id"]
               )
             )
@@ -197,7 +198,7 @@ defmodule Saturn.Profiles do
   end
 
   def overview(params, user_id) do
-    cursor = parse_cursor(params.cursor)
+    cursor = parse_cursor(params.cursor, "row")
 
     posts_query =
       from(p in Post,
@@ -409,15 +410,5 @@ defmodule Saturn.Profiles do
 
   defp get_next_cursor(comments, _, _, _) do
     {nil, comments}
-  end
-
-  defp parse_cursor(cursor) do
-    try do
-      cursor
-      |> Base.url_decode64!()
-      |> Jason.decode!()
-    rescue
-      _ -> nil
-    end
   end
 end
