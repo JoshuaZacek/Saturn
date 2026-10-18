@@ -71,6 +71,16 @@
         :sort="sort"
       />
 
+      <InfiniteScrollFooter
+        v-if="repliesStatus === 'loaded'"
+        :loading="isLoadingMoreReplies"
+        :has-more="hasMoreReplyPages"
+        :failed="loadMoreRepliesFailed"
+        :spinner-size="20"
+        @load-more="loadMoreReplies"
+        @retry="retryReplies"
+      />
+
       <RouterLink
         v-if="showSeeMoreReplies"
         class="seeMoreReplies"
@@ -86,10 +96,13 @@
 import axios from 'axios'
 import { computed, inject, nextTick, onMounted, ref, watch } from 'vue'
 import ChatCircleIcon from '@/components/icons/ChatCircleIcon.vue'
+import InfiniteScrollFooter from '@/components/InfiniteScrollFooter.vue'
 import SpinnerLoader from '@/components/SpinnerLoader.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
 import VoteButtons from '@/components/VoteButtons.vue'
+import { usePaginatedList } from '@/composables/usePaginatedList'
 import { useAuthStore } from '@/stores/auth'
+import { useErrorBannerStore } from '@/stores/errorBanner'
 import { formatRelativeTime } from '@/utils/relativeTime'
 import { waitForMinimumVisibleTime } from '@/config/loading'
 import type { Comment, CommentsResponse } from '@/types/comment'
@@ -106,9 +119,9 @@ const props = defineProps<{
 const incrementComments = inject<() => void>('incrementComments', () => {})
 
 const authStore = useAuthStore()
+const errorBanner = useErrorBannerStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 
-const replies = ref<Comment[]>([])
 const replyToggled = ref(false)
 const replyContent = ref('')
 const replyError = ref('')
@@ -122,12 +135,21 @@ const showSeeMoreReplies = computed(
   () => props.level >= MAX_AUTO_EXPAND_LEVEL && hasMoreReplies.value,
 )
 
-const fetchReplies = async () => {
-  if (!backendUrl) {
-    return
-  }
+const {
+  items: replies,
+  status: repliesStatus,
+  isLoadingMore: isLoadingMoreReplies,
+  loadMoreFailed: loadMoreRepliesFailed,
+  hasMore: hasMoreReplyPages,
+  reload: fetchReplies,
+  loadMore: loadMoreReplies,
+  retry: retryReplies,
+} = usePaginatedList<Comment>(
+  async (cursor) => {
+    if (!backendUrl) {
+      throw new Error('VITE_BACKEND_URL is not set')
+    }
 
-  try {
     const base = backendUrl.replace(/\/$/, '')
     const response = await axios.get<CommentsResponse>(`${base}/comments`, {
       params: {
@@ -135,15 +157,22 @@ const fetchReplies = async () => {
         parent_comment_id: props.comment.id,
         limit: 10,
         sort: props.sort,
+        ...(cursor ? { cursor } : {}),
       },
     })
 
-    replies.value = response.data.comments
-  } catch {
+    return { items: response.data.comments, nextCursor: response.data.next_cursor }
+  },
+  {
     // The "See more replies" affordance only relies on comment.replies from
-    // the parent fetch, so a failed nested fetch can fail silently here.
-  }
-}
+    // the parent fetch, so a failed first fetch of replies can fail silently.
+    onError: () => {
+      if (repliesStatus.value !== 'error') {
+        errorBanner.show("More replies couldn't be loaded. Please try again.")
+      }
+    },
+  },
+)
 
 onMounted(() => {
   if (props.level < MAX_AUTO_EXPAND_LEVEL) {
