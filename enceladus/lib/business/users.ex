@@ -5,6 +5,8 @@ defmodule Saturn.Users do
 
   alias Saturn.{Repo, User, Session}
 
+  @session_user_fields [:id, :username, :email, :inserted_at]
+
   def check_password_match(changeset, old_password, new_password) do
     if old_password == new_password do
       add_error(changeset, :password, "cannot be the same")
@@ -30,12 +32,17 @@ defmodule Saturn.Users do
   end
 
   def create_session(user) do
+    Session.delete_expired(user.id)
     session_id = Session.generate_session_id()
 
     user
     |> Ecto.build_assoc(:sessions, %{session_id: session_id})
     |> Repo.insert!()
-    |> Repo.preload(user: from(u in User, select: map(u, [:id, :username, :email, :inserted_at])))
+    |> Repo.preload(user: from(u in User, select: map(u, ^@session_user_fields)))
+  end
+
+  def session_user(user) do
+    Map.take(user, @session_user_fields)
   end
 
   def login(email, password) do

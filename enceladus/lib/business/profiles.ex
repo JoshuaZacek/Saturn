@@ -240,6 +240,7 @@ defmodule Saturn.Profiles do
 
     union_query = union_all(comments_query, ^posts_query)
 
+    # contentType and id break ties, so equal rows keep the same order (and row numbers) across pages
     order_by_row_number =
       case params.sort do
         "new" ->
@@ -248,7 +249,9 @@ defmodule Saturn.Profiles do
               dynamic(
                 [q],
                 q.inserted_at
-              )
+              ),
+            asc: dynamic([q], q.contentType),
+            desc: dynamic([q], q.id)
           ]
 
         "top" ->
@@ -257,7 +260,9 @@ defmodule Saturn.Profiles do
               dynamic(
                 [q],
                 q.votes
-              )
+              ),
+            asc: dynamic([q], q.contentType),
+            desc: dynamic([q], q.id)
           ]
       end
 

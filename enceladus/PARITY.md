@@ -11,6 +11,43 @@ checks**. Paths are relative to `enceladus/`. Keep the existing conventions: plu
 
 Priority: 1 and 2 block frontend features; 3–4 are bugs; 5–6 are hardening.
 
+## Status (2026-10-18)
+
+Items 1–5 are implemented and item 6 is implemented except the cookie `secure` flag. All were
+verified end to end over HTTP against a scratch database (160 checks, including every acceptance
+check below). Migrations: `20261018172844_create_subscriptions_table`,
+`20261018172845_add_comment_content_length_constraint`.
+
+Where the implementation differs from or adds to the contracts below:
+
+- §1 `GET /subscriptions` orders by name case-insensitively (`alpha`, `Beta`, `Zeta`).
+  `subscribed` accepts `true`/`false`/`1`/`0`; anything else is `400 "Bad request"`. With
+  `subscribed=true` plus `moon_id`, the `400` takes precedence over the logged-out `403`.
+- §2 `GET /user/me` lives in `AuthRouter`; `Router` skips `/user/:username` for `me` with a route
+  guard. The username `me` is reserved: sign-up returns
+  `{"errors": {"username": ["Username is reserved"]}}`.
+- §3 `AuthRouter` runs `AuthRequiredPlug` as a plug before dispatch. Side effect: an unknown path
+  returns `403` (not `404`) when logged out.
+- §5 The 5000 limit counts Unicode code points (what Postgres `char_length` counts), so a
+  frontend counter should use `[...text].length`, not `text.length` (UTF-16 units).
+- §6 Sessions expire server-side one year after creation (the cookie's `max_age`); a user's expired
+  rows are deleted at their next login. `DELETE /vote` always answers `200 "Downvote removed"`.
+  Not done: cookie `secure: true`, because it breaks login if production is ever served over plain
+  HTTP. Set it once production is confirmed HTTPS.
+- Also fixed: `GET /posts?sort=top` without `time_period` no longer returns 500, and
+  `DELETE /user/logout` and `DELETE /user` now really clear the `session_id` cookie (the
+  `delete_resp_cookie` result was being discarded).
+
+Found while testing, not fixed (outside this list):
+
+- **Security:** `Comment`, `Post` and `Vote` changesets `cast` `:user_id` from request params, so
+  a logged-in user can post, comment and vote as anyone by sending `user_id`. Fix: drop `:user_id`
+  from those `cast` lists (the business layer already sets it on the struct; the frontend never
+  sends it).
+- The `sort=top` cursors (posts, comments, profile) use `votes <= v AND id <= i`, which skips
+  lower-voted rows with a higher id. It should be `votes < v OR (votes = v AND id <= i)`.
+- Non-integer ids in paths (`/post/abc`, `/comments/abc`, `DELETE /post/abc`) raise and return 500.
+
 > Note: `priv/repo/migrations/20260907025428_add_moon_name_length_constraint.exs` is currently
 > untracked in the working tree. It belongs to the moon-name-length change already on the
 > `frontend` branch (`lib/schemas/moon.ex` references the `name_length` constraint). Make sure it
