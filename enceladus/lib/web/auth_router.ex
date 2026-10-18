@@ -1,38 +1,34 @@
 defmodule Saturn.AuthRouter do
   use Plug.Router
-  alias Saturn.{Repo, Posts, Votes, Moons, Comments, Users}
+  import Saturn.Responses
+  alias Saturn.{Repo, Posts, Votes, Moons, Comments, Users, Subscriptions}
 
   plug(:match)
+  # Every route here needs a session. As a plug (not a call inside the route), its halt stops
+  # the request before the route body runs.
+  plug(Saturn.AuthRequiredPlug)
   plug(:dispatch)
 
-  defp protected(conn) do
-    Saturn.AuthRequiredPlug.call(conn, [])
-  end
-
   post "/post" do
-    conn = protected(conn)
-
     case Posts.create(conn.params, conn.assigns.user) do
       {:error, :file_not_supported} ->
-        send_resp(conn, 400, "File type not supported")
+        send_json(conn, 400, %{errors: %{file: ["File type not supported"]}})
 
       {:error, :missing_s3_config} ->
-        send_resp(conn, 503, "Image storage is not configured")
+        send_json(conn, 503, %{errors: %{file: ["Image storage is not configured"]}})
 
       {:error, :upload_failed} ->
-        send_resp(conn, 502, "Image upload failed")
+        send_json(conn, 502, %{errors: %{file: ["Image upload failed"]}})
 
       {:error, error} ->
-        send_resp(conn, 400, Jason.encode!(error))
+        send_json(conn, 400, error)
 
       post ->
-        send_resp(conn, 200, Jason.encode!(post))
+        send_json(conn, 200, post)
     end
   end
 
   delete "/post/:post_id" do
-    conn = protected(conn)
-
     case Posts.delete(post_id, conn.assigns.user_id) do
       :ok ->
         send_resp(conn, 204, "")
@@ -46,8 +42,6 @@ defmodule Saturn.AuthRouter do
   end
 
   post "/vote" do
-    conn = protected(conn)
-
     case Votes.create(conn.params, conn.assigns.user_id) do
       :error ->
         send_resp(conn, 400, "Bad request")
@@ -58,21 +52,14 @@ defmodule Saturn.AuthRouter do
   end
 
   delete "/vote" do
-    conn = protected(conn)
-
     schema = %{
       post_id: [type: :integer, required: if(conn.params["comment_id"], do: false, else: true)],
       comment_id: [type: :integer, required: if(conn.params["post_id"], do: false, else: true)]
     }
 
     with {:ok, params} <- Tarams.cast(conn.params, schema) do
-      case Votes.delete(params, conn.assigns.user.id) do
-        {1, _} ->
-          send_resp(conn, 200, "Downvote removed")
-
-        {0, _} ->
-          send_resp(conn, 400, "Bad request")
-      end
+      Votes.delete(params, conn.assigns.user_id)
+      send_resp(conn, 200, "Downvote removed")
     else
       {:error, _} ->
         send_resp(conn, 400, "Bad request")
@@ -80,8 +67,6 @@ defmodule Saturn.AuthRouter do
   end
 
   post "/moon" do
-    conn = protected(conn)
-
     schema = %{
       name: [type: :string, length: [max: 20]]
     }
@@ -89,7 +74,7 @@ defmodule Saturn.AuthRouter do
     with {:ok, params} <- Tarams.cast(conn.params, schema) do
       case Moons.create(params, conn.assigns.user) do
         {:error, error} ->
-          send_resp(conn, 400, Jason.encode!(error))
+          send_json(conn, 400, error)
 
         _ ->
           send_resp(conn, 200, "Moon created")
@@ -101,20 +86,57 @@ defmodule Saturn.AuthRouter do
   end
 
   post "/comment" do
-    conn = protected(conn)
-
     case Comments.create(conn.params, conn.assigns.user) do
       {:error, error} ->
-        send_resp(conn, 400, Jason.encode!(error))
+        send_json(conn, 400, error)
 
       comment ->
-        send_resp(conn, 200, Jason.encode!(comment))
+        send_json(conn, 200, comment)
     end
   end
 
-  post "/user/password" do
-    conn = protected(conn)
+  post "/subscription" do
+    schema = %{
+      moon_id: [type: :integer, required: true]
+    }
 
+    with {:ok, params} <- Tarams.cast(conn.params, schema) do
+      case Subscriptions.create(params, conn.assigns.user_id) do
+        :ok ->
+          send_json(conn, 200, %{moon_id: params.moon_id, subscribed: true})
+
+        {:error, error} ->
+          send_json(conn, 400, error)
+      end
+    else
+      {:error, _} ->
+        send_resp(conn, 400, "Bad request")
+    end
+  end
+
+  delete "/subscription" do
+    schema = %{
+      moon_id: [type: :integer, required: true]
+    }
+
+    with {:ok, params} <- Tarams.cast(conn.params, schema) do
+      Subscriptions.delete(params, conn.assigns.user_id)
+      send_json(conn, 200, %{moon_id: params.moon_id, subscribed: false})
+    else
+      {:error, _} ->
+        send_resp(conn, 400, "Bad request")
+    end
+  end
+
+  get "/subscriptions" do
+    send_json(conn, 200, Subscriptions.get(conn.assigns.user_id))
+  end
+
+  get "/user/me" do
+    send_json(conn, 200, Users.session_user(conn.assigns.user))
+  end
+
+  post "/user/password" do
     case conn.params do
       %{"oldpassword" => old_password, "newpassword" => new_password} ->
         case Users.change_password(old_password, new_password, conn.assigns.user) do
@@ -122,9 +144,7 @@ defmodule Saturn.AuthRouter do
             send_resp(conn, 204, "")
 
           {:error, errors} ->
-            conn
-            |> put_resp_content_type("application/json")
-            |> send_resp(400, Jason.encode!(errors))
+            send_json(conn, 400, errors)
         end
 
       _ ->
@@ -133,8 +153,6 @@ defmodule Saturn.AuthRouter do
   end
 
   post "/user/email" do
-    conn = protected(conn)
-
     case conn.params do
       %{"newemail" => new_email} ->
         case Users.change_email(new_email, conn.assigns.user) do
@@ -142,9 +160,7 @@ defmodule Saturn.AuthRouter do
             send_resp(conn, 204, "")
 
           {:error, errors} ->
-            conn
-            |> put_resp_content_type("application/json")
-            |> send_resp(400, Jason.encode!(errors))
+            send_json(conn, 400, errors)
         end
 
       _ ->
@@ -153,17 +169,19 @@ defmodule Saturn.AuthRouter do
   end
 
   delete "/user/logout" do
-    conn = protected(conn)
     Repo.delete(conn.assigns.session)
-    delete_resp_cookie(conn, "session_id")
-    send_resp(conn, 204, "")
+
+    conn
+    |> delete_resp_cookie("session_id")
+    |> send_resp(204, "")
   end
 
   delete "/user" do
-    conn = protected(conn)
     Repo.delete!(conn.assigns.user)
-    delete_resp_cookie(conn, "session_id")
-    send_resp(conn, 204, "")
+
+    conn
+    |> delete_resp_cookie("session_id")
+    |> send_resp(204, "")
   end
 
   match _ do

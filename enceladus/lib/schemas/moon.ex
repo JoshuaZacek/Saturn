@@ -4,6 +4,7 @@ defmodule Saturn.Moon do
 
   alias Saturn.Post
   alias Saturn.User
+  alias Saturn.Subscription
 
   @name_max_length 20
 
@@ -11,6 +12,7 @@ defmodule Saturn.Moon do
   schema "moons" do
     belongs_to(:user, User)
     has_many(:posts, Post, on_delete: :delete_all)
+    has_many(:subscriptions, Subscription, on_delete: :delete_all)
 
     field(:name, :string)
 

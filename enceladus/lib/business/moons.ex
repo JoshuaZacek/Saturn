@@ -14,7 +14,7 @@ defmodule Saturn.Moons do
       {:ok, moon} ->
         moon
         |> Repo.preload(user: from(u in User, select: map(u, [:id, :username, :inserted_at])))
-        |> Map.drop([:__meta__, :user_id, :posts, :__struct__])
+        |> Map.drop([:__meta__, :user_id, :posts, :subscriptions, :__struct__])
 
       {:error, changeset} ->
         {:error, %{errors: format_changeset(changeset)}}
@@ -34,7 +34,24 @@ defmodule Saturn.Moons do
     %{results: results}
   end
 
-  def get(moon) do
-    Repo.get_by(Moon, name: moon)
+  def get(name, user_id) do
+    Repo.one(
+      from(m in Moon,
+        where: m.name == ^name,
+        select: %{
+          id: m.id,
+          name: m.name,
+          inserted_at: m.inserted_at,
+          updated_at: m.updated_at,
+          subscribers: fragment("SELECT COUNT(*) FROM subscriptions WHERE moon_id = ?", m.id),
+          subscribed:
+            fragment(
+              "SELECT EXISTS (SELECT 1 FROM subscriptions WHERE moon_id = ? AND user_id = ?)",
+              m.id,
+              ^user_id
+            )
+        }
+      )
+    )
   end
 end
