@@ -5,8 +5,11 @@ import { useRoute, useRouter } from 'vue-router'
 import SpinnerLoader from '@/components/SpinnerLoader.vue'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 import CommentThread from '@/components/CommentThread.vue'
+import InfiniteScrollFooter from '@/components/InfiniteScrollFooter.vue'
 import { waitForMinimumVisibleTime } from '@/config/loading'
+import { usePaginatedList } from '@/composables/usePaginatedList'
 import { useAuthStore } from '@/stores/auth'
+import { useErrorBannerStore } from '@/stores/errorBanner'
 import type { Post } from '@/types/post'
 import type { Comment, CommentsResponse } from '@/types/comment'
 import PostCard from '@/components/PostCard.vue'
@@ -17,6 +20,7 @@ type CommentSort = 'new' | 'top'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const errorBanner = useErrorBannerStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 
 const postId = computed(() => String(route.params.post_id))
@@ -48,12 +52,7 @@ const randomPlaceholder = computed(() => {
   return placeholders[index]!
 })
 
-const comments = ref<Comment[]>([])
 const commentSort = ref<CommentSort>('new')
-const fetchingComments = ref(true)
-const isLoadingMoreComments = ref(false)
-const commentsError = ref('')
-const nextCommentsCursor = ref<string | null>(null)
 
 const newCommentContent = ref('')
 const isPostingComment = ref(false)
@@ -140,78 +139,53 @@ const loadPost = async () => {
   }
 }
 
-const fetchCommentsPage = async (cursor: string | null) => {
-  if (!backendUrl) {
-    return null
-  }
+const commentsError = ref('')
 
-  const base = backendUrl.replace(/\/$/, '')
-  const response = await axios.get<CommentsResponse>(`${base}/comments`, {
-    params: {
-      post_id: postId.value,
-      limit: 10,
-      sort: commentSort.value,
-      ...(cursor ? { cursor } : {}),
-    },
-  })
+const {
+  items: comments,
+  status: commentsStatus,
+  isLoadingMore: isLoadingMoreComments,
+  loadMoreFailed: loadMoreCommentsFailed,
+  hasMore: hasMoreComments,
+  reload: loadComments,
+  loadMore: loadMoreComments,
+  retry: retryComments,
+} = usePaginatedList<Comment>(
+  async (cursor) => {
+    if (!backendUrl) {
+      throw new Error('VITE_BACKEND_URL is not set')
+    }
 
-  return response.data
-}
+    const base = backendUrl.replace(/\/$/, '')
 
-const loadComments = async () => {
-  if (!backendUrl) {
-    return
-  }
-
-  fetchingComments.value = true
-  commentsError.value = ''
-  comments.value = []
-  nextCommentsCursor.value = null
-
-  try {
     if (commentId.value) {
-      const base = backendUrl.replace(/\/$/, '')
       const response = await axios.get<Comment>(`${base}/comments/${commentId.value}`)
-      comments.value = [response.data]
-    } else {
-      const data = await fetchCommentsPage(null)
+      return { items: [response.data], nextCursor: null }
+    }
 
-      if (data) {
-        comments.value = data.comments
-        nextCommentsCursor.value = data.next_cursor
+    const response = await axios.get<CommentsResponse>(`${base}/comments`, {
+      params: {
+        post_id: postId.value,
+        limit: 10,
+        sort: commentSort.value,
+        ...(cursor ? { cursor } : {}),
+      },
+    })
+
+    return { items: response.data.comments, nextCursor: response.data.next_cursor }
+  },
+  {
+    onError: (err) => {
+      if (commentsStatus.value !== 'error') {
+        errorBanner.show("More comments couldn't be loaded. Please try again.")
+      } else if (axios.isAxiosError(err) && err.response?.status === 404 && commentId.value) {
+        commentsError.value = "Comment couldn't be found"
+      } else {
+        commentsError.value = "Comments couldn't be loaded"
       }
-    }
-  } catch (err) {
-    if (axios.isAxiosError(err) && err.response?.status === 404 && commentId.value) {
-      commentsError.value = "Comment couldn't be found"
-    } else {
-      commentsError.value = "Comments couldn't be loaded"
-    }
-  } finally {
-    fetchingComments.value = false
-  }
-}
-
-const loadMoreComments = async () => {
-  if (!backendUrl || isLoadingMoreComments.value || !nextCommentsCursor.value) {
-    return
-  }
-
-  isLoadingMoreComments.value = true
-
-  try {
-    const data = await fetchCommentsPage(nextCommentsCursor.value)
-
-    if (data) {
-      comments.value = comments.value.concat(data.comments)
-      nextCommentsCursor.value = data.next_cursor
-    }
-  } catch {
-    commentsError.value = "More comments couldn't be loaded"
-  } finally {
-    isLoadingMoreComments.value = false
-  }
-}
+    },
+  },
+)
 
 const onCommentSortChange = (value: string) => {
   if (value !== 'new' && value !== 'top') {
@@ -261,6 +235,13 @@ const submitComment = async () => {
   }
 }
 
+// The post no longer exists, so leave for its moon (replace, so Back doesn't return here).
+const onPostDeleted = () => {
+  if (post.value) {
+    void router.replace({ name: 'moon', params: { moon: post.value.moon.name } })
+  }
+}
+
 const incrementComments = () => {
   numberOfComments.value += 1
 }
@@ -291,7 +272,7 @@ onBeforeUnmount(() => {
     </template>
     <template v-else>
       <section v-if="post" class="postHeader">
-        <PostCard :post="post" :post-page-mode="true" />
+        <PostCard :post="post" :post-page-mode="true" @deleted="onPostDeleted" />
 
         <RouterLink
           v-if="isSingleCommentView"
@@ -341,8 +322,10 @@ onBeforeUnmount(() => {
         </template>
 
         <div class="commentsSection">
-          <p v-if="fetchingComments" class="loadingText">Loading comments...</p>
-          <p v-else-if="commentsError" class="feedback error">{{ commentsError }}</p>
+          <p v-if="commentsStatus === 'idle' || commentsStatus === 'loading'" class="loadingText">
+            Loading comments...
+          </p>
+          <p v-else-if="commentsStatus === 'error'" class="feedback error">{{ commentsError }}</p>
           <template v-else>
             <p v-if="comments.length === 0" class="emptyText">No comments yet.</p>
 
@@ -355,18 +338,16 @@ onBeforeUnmount(() => {
               :sort="commentSort"
             />
 
-            <button
-              v-if="!isSingleCommentView && nextCommentsCursor"
-              class="loadMoreButton"
-              type="button"
-              :disabled="isLoadingMoreComments"
-              @click="loadMoreComments"
-            >
-              <span v-if="isLoadingMoreComments" class="loadMoreSpinner">
-                <SpinnerLoader :size="16" bgColor="var(--bg-sub)" fgColor="var(--text-3)" />
-              </span>
-              <span v-else>Load more comments</span>
-            </button>
+            <InfiniteScrollFooter
+              v-if="!isSingleCommentView"
+              class="commentsFooter"
+              :loading="isLoadingMoreComments"
+              :has-more="hasMoreComments"
+              :failed="loadMoreCommentsFailed"
+              :spinner-size="24"
+              @load-more="loadMoreComments"
+              @retry="retryComments"
+            />
           </template>
         </div>
       </section>
@@ -551,28 +532,7 @@ textarea {
   background: var(--bg-3);
 }
 
-.loadMoreButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  width: 100%;
-  margin-top: 1rem;
-  padding: 0.6rem;
-  border: 1px solid var(--bg-2);
-  border-radius: 10px;
-  background: transparent;
-  color: var(--text-2);
-  font-size: 0.95rem;
-  cursor: pointer;
-}
-
-.loadMoreButton:hover {
-  background: var(--bg-2);
-}
-
-.loadMoreButton:disabled {
-  cursor: default;
-  opacity: 0.7;
+.commentsFooter {
+  margin-top: 1.5rem;
 }
 </style>
