@@ -84,7 +84,7 @@ const router = createRouter({
           return true
         }
 
-        return { name: 'not-found' }
+        return { name: 'all', query: { ...to.query, sort: 'top', t: 'day' } }
       },
     },
     {
@@ -176,7 +176,7 @@ const router = createRouter({
       name: 'post',
       component: PostPage,
       meta: {
-        title: (to: RouteLocationNormalizedLoaded) => `Saturn`,
+        title: 'Saturn',
       },
     },
     {
