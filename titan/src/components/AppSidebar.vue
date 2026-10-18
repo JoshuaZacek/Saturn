@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { useSubscriptionsStore } from '@/stores/subscriptions'
 import { useUIStore } from '@/stores/ui'
 import FeedButton from '@/components/FeedButton.vue'
 import AccountCard from '@/components/AccountCard.vue'
@@ -8,11 +10,14 @@ import CreateActionsSelect from '@/components/CreateActionsSelect.vue'
 import NewIcon from '@/components/icons/NewIcon.vue'
 import HomeIcon from '@/components/icons/HomeIcon.vue'
 import TopIcon from '@/components/icons/TopIcon.vue'
+import PlanetIcon from '@/components/icons/PlanetIcon.vue'
 import { isCorrectTimePeriod } from '@/router/index.ts'
 
 const router = useRouter()
 const route = useRoute()
 const uiStore = useUIStore()
+const authStore = useAuthStore()
+const subscriptionsStore = useSubscriptionsStore()
 const getSingleQueryValue = (value: unknown) => (Array.isArray(value) ? value[0] : value)
 
 const sortQuery = computed(() => getSingleQueryValue(route.query.sort))
@@ -42,6 +47,20 @@ const isTopPage = computed(
 )
 const isNewPage = computed(() => route.name === 'all' && sortQuery.value === 'new')
 const isUnauthorizedPage = computed(() => route.name === 'unauthorized')
+
+const isMoonPage = (name: string) => route.name === 'moon' && route.params.moon === name
+
+watch(
+  () => authStore.isLoggedIn,
+  (loggedIn) => {
+    if (loggedIn) {
+      void subscriptionsStore.load()
+    } else {
+      subscriptionsStore.clear()
+    }
+  },
+  { immediate: true },
+)
 
 const goToHome = () => {
   router.push({ name: 'home' })
@@ -122,6 +141,18 @@ onBeforeUnmount(() => {
       <FeedButton label="Home" :icon="HomeIcon" :active="isHomePage" @click="goToHome" />
       <FeedButton label="Top" :icon="TopIcon" :active="isTopPage" @click="goToTop" />
       <FeedButton label="New" :icon="NewIcon" :active="isNewPage" @click="goToNew" />
+    </div>
+
+    <div v-if="subscriptionsStore.moons.length > 0" class="feedsGroup">
+      <p class="groupTitle">Subscriptions</p>
+      <FeedButton
+        v-for="moon in subscriptionsStore.moons"
+        :key="moon.id"
+        :label="`/${moon.name}`"
+        :icon="PlanetIcon"
+        :active="isMoonPage(moon.name)"
+        @click="router.push({ name: 'moon', params: { moon: moon.name } })"
+      />
     </div>
 
     <AccountCard />
