@@ -96,7 +96,19 @@
         </template>
 
         <template v-else>
-          <SubmitButton style="margin-top: -0.25rem" @click.stop="handleLogout">
+          <!-- .stop keeps these from bubbling to the card, which would reopen the menu -->
+          <div class="accountLinks" @click.stop @keyup.enter.stop @keyup.space.stop>
+            <FeedButton
+              v-if="authStore.user.username"
+              label="Profile"
+              :icon="ProfileIcon"
+              :icon-size="24"
+              :active="isOwnProfilePage"
+              @click="goTo({ name: 'profile', params: { username: authStore.user.username } })"
+            />
+          </div>
+
+          <SubmitButton style="margin-top: 0.75rem" @click.stop="handleLogout">
             Log out
           </SubmitButton>
         </template>
@@ -200,6 +212,12 @@ p {
   width: 100%;
 }
 
+.accountLinks {
+  display: grid;
+  gap: 0.15rem;
+  margin-top: -0.5rem;
+}
+
 .toggleButton {
   background: none;
   border: none;
@@ -267,12 +285,14 @@ p {
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import CaretIcon from './icons/CaretIcon.vue'
 import axios from 'axios'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 import AuthInput from './AuthInput.vue'
 import SpinnerLoader from './SpinnerLoader.vue'
 import SubmitButton from './SubmitButton.vue'
+import FeedButton from './FeedButton.vue'
+import ProfileIcon from './icons/ProfileIcon.vue'
 
 const isMenuClosed = ref(true)
 const errors = ref({
@@ -290,6 +310,7 @@ const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 const LOCAL_VALIDATION_DELAY_MS = 450
 const MENU_TRANSITION_MS = 220
 let menuHeightAnimation: Animation | null = null
+const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const errorBanner = useErrorBannerStore()
@@ -492,6 +513,15 @@ const leaveMenu = (el: Element) => {
     menu.style.marginTop = '0'
     menu.style.opacity = '0'
   })
+}
+
+const isOwnProfilePage = computed(
+  () => route.name === 'profile' && route.params.username === authStore.user.username,
+)
+
+const goTo = (to: RouteLocationRaw) => {
+  isMenuClosed.value = true
+  void router.push(to)
 }
 
 const handleLogout = () => {

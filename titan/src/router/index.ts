@@ -1,4 +1,9 @@
-import { createRouter, createWebHistory, type RouteLocationNormalizedLoaded } from 'vue-router'
+import {
+  createRouter,
+  createWebHistory,
+  type RouteLocationNormalizedLoaded,
+  type RouteLocationRaw,
+} from 'vue-router'
 import AllPage from '@/views/AllPage.vue'
 import MoonPage from '@/views/MoonPage.vue'
 import NotFoundPage from '@/views/NotFoundPage.vue'
@@ -18,6 +23,15 @@ export const isCorrectTimePeriod = (value: unknown) => {
 
   return validTimePeriods.includes(value)
 }
+
+// Shows the Not Found page without changing the address bar, for pages that
+// only find out their content is missing after a request (e.g. a 404 moon).
+export const notFoundLocation = (route: RouteLocationNormalizedLoaded): RouteLocationRaw => ({
+  name: 'not-found',
+  params: { pathMatch: route.path.slice(1).split('/') },
+  query: route.query,
+  hash: route.hash,
+})
 
 const DEFAULT_DOCUMENT_TITLE = 'Saturn'
 const AUTH_STORAGE_KEY = 'auth-user'

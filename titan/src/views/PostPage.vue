@@ -8,6 +8,7 @@ import CommentThread from '@/components/CommentThread.vue'
 import InfiniteScrollFooter from '@/components/InfiniteScrollFooter.vue'
 import { waitForMinimumVisibleTime } from '@/config/loading'
 import { usePaginatedList } from '@/composables/usePaginatedList'
+import { notFoundLocation } from '@/router'
 import { useAuthStore } from '@/stores/auth'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 import type { Post } from '@/types/post'
@@ -135,7 +136,7 @@ const loadPost = async () => {
   stopLoadingDotsAnimation()
 
   if (shouldRedirectToNotFound) {
-    await router.replace({ name: 'not-found' })
+    await router.replace(notFoundLocation(route))
   }
 }
 
