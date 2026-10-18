@@ -1,8 +1,6 @@
 <template>
-  <main>
-    <h1 :style="sort === 'new' ? 'margin-bottom: 0rem !important;' : ''">
-      {{ capitalizeFirstLetter(sort) }} posts on Saturn{{ sort === 'top' ? '...' : '' }}
-    </h1>
+  <main :class="sort">
+    <h1>{{ capitalizeFirstLetter(sort) }} posts on Saturn{{ sort === 'top' ? '...' : '' }}</h1>
     <CustomSelect
       v-if="sort === 'top'"
       label="Top time period"
@@ -11,28 +9,15 @@
       @update:model-value="onTimePeriodChange"
     />
 
-    <div
-      v-if="posts.length > 0"
-      class="postsContainer"
-      :style="sort === 'new' ? 'margin-top: 1.5rem !important;' : ''"
-    >
-      <PostCard v-for="post in posts" :key="post.id" :post="post" @deleted="removePost" />
-    </div>
-
-    <p v-if="!nextCursor && posts.length > 0">You've reached the end.</p>
-
-    <p v-else-if="!nextCursor && posts.length == 0">Hmmm... empty.</p>
+    <PostFeed class="feed" :params="feedParams" />
   </main>
 </template>
 
 <script setup lang="ts">
-import axios from 'axios'
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter, type LocationQueryValue } from 'vue-router'
 import CustomSelect from '@/components/CustomSelect.vue'
-import PostCard from '@/components/PostCard.vue'
-import { useErrorBannerStore } from '@/stores/errorBanner'
-import type { Post, PostsResponse } from '@/types/post'
+import PostFeed from '@/components/PostFeed.vue'
 
 type SortType = 'new' | 'top'
 
@@ -61,8 +46,6 @@ const getSingleQueryValue = (value: LocationQueryValue | LocationQueryValue[] | 
 
 const route = useRoute()
 const router = useRouter()
-const errorBanner = useErrorBannerStore()
-const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 
 const sort = computed(() => getSingleQueryValue(route.query.sort) as SortType | undefined)
 
@@ -79,6 +62,16 @@ const timePeriodOptions = [
 
 const selectedTimePeriod = computed(() => (typeof t.value === 'string' ? t.value : 'day'))
 
+const feedParams = computed(() => {
+  const params: Record<string, string | number> = { sort: sort.value ?? 'new' }
+
+  if (sort.value === 'top') {
+    params.time_period = timePeriod.value
+  }
+
+  return params
+})
+
 const onTimePeriodChange = (value: string) => {
   void router.push({
     name: 'all',
@@ -89,65 +82,6 @@ const onTimePeriodChange = (value: string) => {
     },
   })
 }
-
-const nextCursor = ref<string | null>(null)
-const storedPosts = ref<Post[]>([])
-const posts = computed(() => storedPosts.value)
-
-const removePost = (postId: number) => {
-  storedPosts.value = storedPosts.value.filter((post) => post.id !== postId)
-}
-
-let requestId = 0
-
-const fetchPosts = async () => {
-  storedPosts.value = []
-
-  if (!backendUrl || (sort.value !== 'new' && sort.value !== 'top')) {
-    if (!backendUrl) {
-      errorBanner.show()
-    }
-    return
-  }
-
-  const currentRequestId = ++requestId
-  const base = backendUrl.replace(/\/$/, '')
-  const endpoint = `${base}/posts`
-
-  const params: Record<string, string | number> = {
-    sort: sort.value,
-    limit: 10,
-  }
-
-  if (sort.value === 'top') {
-    params.time_period = timePeriod.value
-  }
-
-  try {
-    const response = await axios.get<PostsResponse>(endpoint, { params })
-
-    if (currentRequestId !== requestId) {
-      return
-    }
-
-    nextCursor.value = response.data.next_cursor
-    storedPosts.value.push(...response.data.posts)
-  } catch {
-    if (currentRequestId !== requestId) {
-      return
-    }
-
-    errorBanner.show("Posts couldn't be loaded. Please try again.")
-  }
-}
-
-watch(
-  [sort, t],
-  () => {
-    void fetchPosts()
-  },
-  { immediate: true },
-)
 </script>
 
 <style scoped>
@@ -155,25 +89,20 @@ h1 {
   margin-bottom: 1.5rem;
 }
 
-.postsContainer {
-  margin-top: 2rem;
-  display: grid;
-  gap: 2rem;
+.new h1 {
+  margin-bottom: 0;
 }
 
 main {
   width: 40rem;
+  --post-feed-gap: 2rem;
 }
 
-p {
-  color: var(--text-2);
+.feed {
   margin-top: 2rem;
-  text-align: center;
 }
 
-main::after {
-  content: '';
-  display: block;
-  height: 5rem;
+.new .feed {
+  margin-top: 1.5rem;
 }
 </style>
