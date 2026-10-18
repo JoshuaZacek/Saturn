@@ -19,3 +19,11 @@ export interface CommentsResponse {
   comments: Comment[]
   next_cursor: string | null
 }
+
+// Comments listed on a profile also carry the post they were made on.
+export interface ProfileComment extends Comment {
+  post: {
+    id: number
+    title: string
+  }
+}

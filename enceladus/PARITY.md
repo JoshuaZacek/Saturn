@@ -173,6 +173,11 @@ frontend will add a character counter to the comment/reply boxes once this exist
   `Session.get_by_id/1`, plus cleanup. Item 2 makes expiry visible to the frontend.
 - **Cookie flags.** `put_resp_cookie` relies on Plug defaults (`http_only: true`); consider setting
   `secure: true` in production explicitly.
+- **`GET /profile/overview` pagination has no tie-breaker.** `Profiles.overview/2` numbers rows
+  with `row_number() OVER (ORDER BY votes DESC)` (or `inserted_at DESC`) only, so rows with equal
+  votes can come back in a different order on the next request, and an entry can repeat or be
+  skipped across pages. Add a deterministic tie-breaker (e.g. `contentType`, then `id`) to the
+  window ordering. The frontend de-duplicates entries for now.
 - **`DELETE /vote` returns `400` when there was no vote to delete.** The frontend never does this
   on purpose, but a double click can cause it. Returning `200` (idempotent) would be friendlier.
 - **Out of scope for parity** (neither frontend has it): deleting comments, editing posts/comments.

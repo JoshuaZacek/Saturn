@@ -10,9 +10,10 @@ type Status = 'idle' | 'loading' | 'loaded' | 'error'
 // Cursor-paginated list state shared by the feeds, profile and comments.
 // `reload` starts over from the first page; responses from a superseded
 // `reload` are dropped, so switching sort/filter mid-request can't mix results.
+// With `getKey`, items already in the list are skipped when appending a page.
 export const usePaginatedList = <T>(
   fetchPage: (cursor: string | null) => Promise<Page<T>>,
-  options: { onError?: (error: unknown) => void } = {},
+  options: { onError?: (error: unknown) => void; getKey?: (item: T) => string | number } = {},
 ) => {
   const items = ref([]) as Ref<T[]>
   const nextCursor = ref<string | null>(null)
@@ -48,6 +49,11 @@ export const usePaginatedList = <T>(
     }
   }
 
+  const withoutExisting = (pageItems: T[], getKey: (item: T) => string | number) => {
+    const existingKeys = new Set(items.value.map(getKey))
+    return pageItems.filter((item) => !existingKeys.has(getKey(item)))
+  }
+
   const loadMore = async () => {
     if (status.value !== 'loaded' || isLoadingMore.value || !nextCursor.value) {
       return
@@ -63,7 +69,9 @@ export const usePaginatedList = <T>(
         return
       }
 
-      items.value.push(...page.items)
+      const newItems = options.getKey ? withoutExisting(page.items, options.getKey) : page.items
+
+      items.value.push(...newItems)
       nextCursor.value = page.nextCursor
     } catch (error) {
       if (currentRequestId !== requestId) {
