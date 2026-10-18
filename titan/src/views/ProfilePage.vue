@@ -117,7 +117,8 @@ const {
     }
   },
   {
-    // Overview pages are cut by row number, which can repeat an entry across pages.
+    // Overview pages are cut by row number, so an entry can repeat across pages
+    // when new posts or comments arrive between page loads.
     getKey: getItemKey,
     onError: () => errorBanner.show("This profile couldn't be loaded. Please try again."),
   },

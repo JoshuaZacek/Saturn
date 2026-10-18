@@ -15,6 +15,8 @@ import type { Post } from '@/types/post'
 import type { Comment, CommentsResponse } from '@/types/comment'
 import PostCard from '@/components/PostCard.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
+import CharacterCounter from '@/components/CharacterCounter.vue'
+import { COMMENT_MAX_LENGTH, countCharacters } from '@/utils/characterCount'
 
 type CommentSort = 'new' | 'top'
 
@@ -207,6 +209,11 @@ const submitComment = async () => {
     return
   }
 
+  if (countCharacters(content) > COMMENT_MAX_LENGTH) {
+    postCommentError.value = `Comment must be ${COMMENT_MAX_LENGTH} characters or fewer`
+    return
+  }
+
   isPostingComment.value = true
   postCommentError.value = ''
   const submitStartedAt = Date.now()
@@ -228,8 +235,10 @@ const submitComment = async () => {
     if (commentInput.value) {
       commentInput.value.style.height = 'auto'
     }
-  } catch {
-    postCommentError.value = "Comment couldn't be posted. Please try again."
+  } catch (err) {
+    postCommentError.value =
+      (axios.isAxiosError(err) && err.response?.data?.errors?.content?.[0]) ||
+      "Comment couldn't be posted. Please try again."
   } finally {
     await waitForMinimumVisibleTime(submitStartedAt)
     isPostingComment.value = false
@@ -296,16 +305,23 @@ onBeforeUnmount(() => {
               @input="autoGrowCommentInput"
             ></textarea>
             <div class="divider"></div>
-            <SubmitButton :disabled="isPostingComment" @click="submitComment">
-              <span class="submitSpinner" :class="{ visible: isPostingComment }" aria-hidden="true">
-                <SpinnerLoader
-                  :size="20"
-                  bgColor="var(--accent-color)"
-                  fgColor="var(--accent-text)"
-                />
-              </span>
-              <span class="submitLabel" :class="{ hidden: isPostingComment }">Post</span>
-            </SubmitButton>
+            <div class="commentActions">
+              <CharacterCounter :text="newCommentContent" :max="COMMENT_MAX_LENGTH" />
+              <SubmitButton :disabled="isPostingComment" @click="submitComment">
+                <span
+                  class="submitSpinner"
+                  :class="{ visible: isPostingComment }"
+                  aria-hidden="true"
+                >
+                  <SpinnerLoader
+                    :size="20"
+                    bgColor="var(--accent-color)"
+                    fgColor="var(--accent-text)"
+                  />
+                </span>
+                <span class="submitLabel" :class="{ hidden: isPostingComment }">Post</span>
+              </SubmitButton>
+            </div>
           </div>
           <p v-else class="loginPrompt">Log in to your account to post a comment.</p>
 
@@ -454,6 +470,13 @@ textarea {
   height: 1px;
   background-color: var(--bg-2);
   align-self: center;
+}
+
+.commentActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
 }
 
 .commentWritingSection button {
