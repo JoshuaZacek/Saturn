@@ -45,7 +45,9 @@ button {
   background: none;
   border: none;
   cursor: pointer;
-  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 svg {

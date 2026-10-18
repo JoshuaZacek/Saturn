@@ -1,18 +1,33 @@
 <script setup lang="ts">
 import axios from 'axios'
-import { computed, nextTick, onBeforeMount, onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import SpinnerLoader from '@/components/SpinnerLoader.vue'
+import SegmentedControl from '@/components/SegmentedControl.vue'
+import CommentThread from '@/components/CommentThread.vue'
 import { waitForMinimumVisibleTime } from '@/config/loading'
+import { useAuthStore } from '@/stores/auth'
 import type { Post } from '@/types/post'
+import type { Comment, CommentsResponse } from '@/types/comment'
 import PostCard from '@/components/PostCard.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
 
+type CommentSort = 'new' | 'top'
+
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 
 const postId = computed(() => String(route.params.post_id))
+const commentId = computed(() => (route.params.comment_id ? String(route.params.comment_id) : null))
+const isSingleCommentView = computed(() => commentId.value !== null)
+
+const commentSortOptions: Array<{ label: string; value: CommentSort }> = [
+  { label: 'New', value: 'new' },
+  { label: 'Top', value: 'top' },
+]
+
 const post = ref<Post | null>(null)
 const numberOfComments = ref(0)
 const commentInput = ref<HTMLTextAreaElement | null>(null)
@@ -32,6 +47,17 @@ const randomPlaceholder = computed(() => {
   const index = Math.floor(Math.random() * placeholders.length)
   return placeholders[index]!
 })
+
+const comments = ref<Comment[]>([])
+const commentSort = ref<CommentSort>('new')
+const fetchingComments = ref(true)
+const isLoadingMoreComments = ref(false)
+const commentsError = ref('')
+const nextCommentsCursor = ref<string | null>(null)
+
+const newCommentContent = ref('')
+const isPostingComment = ref(false)
+const postCommentError = ref('')
 
 const loadingDotSequence = ['', '.', '..', '...'] as const
 let loadingDotsInterval: ReturnType<typeof setInterval> | null = null
@@ -76,10 +102,13 @@ const autoGrowCommentInput = async () => {
   textArea.style.height = `${nextHeight}px`
 }
 
-onBeforeMount(async () => {
+const loadPost = async () => {
   const postLoadStartedAt = Date.now()
   let shouldRedirectToNotFound = false
 
+  fetchingPost.value = true
+  error.value = ''
+  post.value = null
   startLoadingDotsAnimation()
 
   if (!backendUrl) {
@@ -109,7 +138,137 @@ onBeforeMount(async () => {
   if (shouldRedirectToNotFound) {
     await router.replace({ name: 'not-found' })
   }
-})
+}
+
+const fetchCommentsPage = async (cursor: string | null) => {
+  if (!backendUrl) {
+    return null
+  }
+
+  const base = backendUrl.replace(/\/$/, '')
+  const response = await axios.get<CommentsResponse>(`${base}/comments`, {
+    params: {
+      post_id: postId.value,
+      limit: 10,
+      sort: commentSort.value,
+      ...(cursor ? { cursor } : {}),
+    },
+  })
+
+  return response.data
+}
+
+const loadComments = async () => {
+  if (!backendUrl) {
+    return
+  }
+
+  fetchingComments.value = true
+  commentsError.value = ''
+  comments.value = []
+  nextCommentsCursor.value = null
+
+  try {
+    if (commentId.value) {
+      const base = backendUrl.replace(/\/$/, '')
+      const response = await axios.get<Comment>(`${base}/comments/${commentId.value}`)
+      comments.value = [response.data]
+    } else {
+      const data = await fetchCommentsPage(null)
+
+      if (data) {
+        comments.value = data.comments
+        nextCommentsCursor.value = data.next_cursor
+      }
+    }
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 404 && commentId.value) {
+      commentsError.value = "Comment couldn't be found"
+    } else {
+      commentsError.value = "Comments couldn't be loaded"
+    }
+  } finally {
+    fetchingComments.value = false
+  }
+}
+
+const loadMoreComments = async () => {
+  if (!backendUrl || isLoadingMoreComments.value || !nextCommentsCursor.value) {
+    return
+  }
+
+  isLoadingMoreComments.value = true
+
+  try {
+    const data = await fetchCommentsPage(nextCommentsCursor.value)
+
+    if (data) {
+      comments.value = comments.value.concat(data.comments)
+      nextCommentsCursor.value = data.next_cursor
+    }
+  } catch {
+    commentsError.value = "More comments couldn't be loaded"
+  } finally {
+    isLoadingMoreComments.value = false
+  }
+}
+
+const onCommentSortChange = (value: string) => {
+  if (value !== 'new' && value !== 'top') {
+    return
+  }
+
+  commentSort.value = value
+}
+
+const submitComment = async () => {
+  if (!backendUrl || isPostingComment.value || !post.value) {
+    return
+  }
+
+  const content = newCommentContent.value.trim()
+  if (!content) {
+    postCommentError.value = 'Comment cannot be empty'
+    return
+  }
+
+  isPostingComment.value = true
+  postCommentError.value = ''
+  const submitStartedAt = Date.now()
+
+  try {
+    const base = backendUrl.replace(/\/$/, '')
+    const response = await axios.post<Comment>(`${base}/comment`, {
+      post_id: post.value.id,
+      content,
+    })
+
+    // The create endpoint doesn't compute an aggregate vote total for a
+    // brand-new comment (it comes back as `[]`), so seed it ourselves.
+    comments.value.unshift({ ...response.data, votes: 0, hasVoted: null })
+    numberOfComments.value += 1
+    newCommentContent.value = ''
+
+    await nextTick()
+    if (commentInput.value) {
+      commentInput.value.style.height = 'auto'
+    }
+  } catch {
+    postCommentError.value = "Comment couldn't be posted. Please try again."
+  } finally {
+    await waitForMinimumVisibleTime(submitStartedAt)
+    isPostingComment.value = false
+  }
+}
+
+const incrementComments = () => {
+  numberOfComments.value += 1
+}
+
+provide('incrementComments', incrementComments)
+
+watch(postId, () => void loadPost(), { immediate: true })
+watch([postId, commentId, commentSort], () => void loadComments(), { immediate: true })
 
 onBeforeUnmount(() => {
   stopLoadingDotsAnimation()
@@ -133,22 +292,82 @@ onBeforeUnmount(() => {
     <template v-else>
       <section v-if="post" class="postHeader">
         <PostCard :post="post" :post-page-mode="true" />
-        <h1>{{ numberOfComments }} {{ numberOfComments === 1 ? 'Comment' : 'Comments' }}</h1>
 
-        <div class="commentWritingSection">
-          <textarea
-            ref="commentInput"
-            class="commentInput"
-            :placeholder="randomPlaceholder"
-            rows="1"
-            @input="autoGrowCommentInput"
-          ></textarea>
-          <div class="divider"></div>
-          <SubmitButton>Post</SubmitButton>
-        </div>
+        <RouterLink
+          v-if="isSingleCommentView"
+          class="seeAllCommentsButton"
+          :to="{ name: 'post', params: { post_id: postId } }"
+        >
+          See all comments on this post
+        </RouterLink>
+
+        <template v-else>
+          <h1>{{ numberOfComments }} {{ numberOfComments === 1 ? 'Comment' : 'Comments' }}</h1>
+
+          <div v-if="authStore.isLoggedIn" class="commentWritingSection">
+            <textarea
+              ref="commentInput"
+              v-model="newCommentContent"
+              class="commentInput"
+              :placeholder="randomPlaceholder"
+              rows="1"
+              @input="autoGrowCommentInput"
+            ></textarea>
+            <div class="divider"></div>
+            <SubmitButton :disabled="isPostingComment" @click="submitComment">
+              <span class="submitSpinner" :class="{ visible: isPostingComment }" aria-hidden="true">
+                <SpinnerLoader
+                  :size="20"
+                  bgColor="var(--accent-color)"
+                  fgColor="var(--accent-text)"
+                />
+              </span>
+              <span class="submitLabel" :class="{ hidden: isPostingComment }">Post</span>
+            </SubmitButton>
+          </div>
+          <p v-else class="loginPrompt">Log in to your account to post a comment.</p>
+
+          <p v-if="postCommentError" class="feedback error">{{ postCommentError }}</p>
+
+          <div v-if="comments.length > 0" class="commentSortRow">
+            <span class="commentSortLabel">Sort by</span>
+            <SegmentedControl
+              class="commentSort"
+              :model-value="commentSort"
+              :options="commentSortOptions"
+              @update:model-value="onCommentSortChange"
+            />
+          </div>
+        </template>
 
         <div class="commentsSection">
-          <p>comments will be displayed here</p>
+          <p v-if="fetchingComments" class="loadingText">Loading comments...</p>
+          <p v-else-if="commentsError" class="feedback error">{{ commentsError }}</p>
+          <template v-else>
+            <p v-if="comments.length === 0" class="emptyText">No comments yet.</p>
+
+            <CommentThread
+              v-for="comment in comments"
+              :key="comment.id"
+              :comment="comment"
+              :post-id="postId"
+              :level="0"
+              :sort="commentSort"
+            />
+
+            <button
+              v-if="!isSingleCommentView && nextCommentsCursor"
+              class="loadMoreButton"
+              type="button"
+              :disabled="isLoadingMoreComments"
+              @click="loadMoreComments"
+            >
+              <span v-if="isLoadingMoreComments" class="loadMoreSpinner">
+                <SpinnerLoader :size="16" bgColor="var(--bg-sub)" fgColor="var(--text-3)" />
+              </span>
+              <span v-else>Load more comments</span>
+            </button>
+          </template>
         </div>
       </section>
 
@@ -217,6 +436,10 @@ main {
   margin-top: 1.5rem;
 }
 
+.emptyText {
+  color: var(--text-3);
+}
+
 h1 {
   margin-top: 2.5rem;
   margin-left: 0.5rem;
@@ -251,8 +474,105 @@ textarea {
   align-self: center;
 }
 
-button {
+.commentWritingSection button {
+  display: inline-grid;
+  place-items: center;
   align-self: flex-end;
   margin: 0.5rem 1rem;
+}
+
+.submitSpinner,
+.submitLabel {
+  grid-area: 1 / 1;
+}
+
+.submitSpinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+}
+
+.submitSpinner.visible {
+  opacity: 1;
+}
+
+.submitLabel {
+  color: var(--accent-text);
+  opacity: 1;
+}
+
+.submitLabel.hidden {
+  opacity: 0;
+}
+
+.loginPrompt {
+  color: var(--text-2);
+  margin-top: 0.5rem;
+}
+
+.feedback.error {
+  color: var(--text-error);
+  margin-top: 0.5rem;
+}
+
+.commentSortRow {
+  margin-top: 1.75rem;
+  margin-left: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.commentSortLabel {
+  color: var(--text-2);
+  font-size: 0.9rem;
+}
+
+.commentSort {
+  width: auto;
+  max-width: 10rem;
+  margin-bottom: 0;
+}
+
+.seeAllCommentsButton {
+  display: inline-block;
+  margin-top: 1.5rem;
+  margin-left: 0.5rem;
+  color: var(--text-2);
+  background: var(--bg-2);
+  padding: 0.5rem 0.9rem;
+  border-radius: 10px;
+  text-decoration: none;
+  align-self: flex-start;
+}
+
+.seeAllCommentsButton:hover {
+  background: var(--bg-3);
+}
+
+.loadMoreButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.6rem;
+  border: 1px solid var(--bg-2);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.loadMoreButton:hover {
+  background: var(--bg-2);
+}
+
+.loadMoreButton:disabled {
+  cursor: default;
+  opacity: 0.7;
 }
 </style>

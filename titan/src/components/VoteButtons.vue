@@ -1,7 +1,8 @@
 <template>
-  <div class="voteButtons">
+  <div class="voteButtons" :class="size">
     <ArrowIcon
       direction="up"
+      :size="arrowSize"
       :class="currentVote === 'up' ? 'up' : ''"
       :filled="currentVote === 'up'"
       @vote="submitVote('up')"
@@ -9,6 +10,7 @@
     <span :class="currentVote">{{ voteCount }}</span>
     <ArrowIcon
       direction="down"
+      :size="arrowSize"
       :class="currentVote === 'down' ? 'down' : ''"
       :filled="currentVote === 'down'"
       @vote="submitVote('down')"
@@ -19,14 +21,22 @@
 <script setup lang="ts">
 import ArrowIcon from '@/components/icons/ArrowIcon.vue'
 import axios, { AxiosError } from 'axios'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
-const props = defineProps<{
-  type: string
-  votes: number
-  hasVoted: number | null
-  id: number
-}>()
+const props = withDefaults(
+  defineProps<{
+    type: string
+    votes: number
+    hasVoted: number | null
+    id: number
+    size?: 'default' | 'small'
+  }>(),
+  {
+    size: 'default',
+  },
+)
+
+const arrowSize = computed(() => (props.size === 'small' ? 19 : 22))
 
 const voteCount = ref(props.votes)
 const currentVote = ref<'up' | 'down' | null>(null)
@@ -108,6 +118,11 @@ const submitVote = (vote: string): void => {
   align-items: center;
   gap: 0.25rem;
   font-size: 1rem;
+}
+
+.voteButtons.small {
+  gap: 0.2rem;
+  font-size: 0.9rem;
 }
 
 .up {

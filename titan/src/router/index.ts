@@ -172,7 +172,7 @@ const router = createRouter({
       },
     },
     {
-      path: '/post/:post_id',
+      path: '/post/:post_id/:comment_id?',
       name: 'post',
       component: PostPage,
       meta: {

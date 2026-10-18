@@ -17,8 +17,15 @@ defineProps<{
   border: none;
   font-size: 1rem;
   padding: 0.5rem 0.75rem;
+  height: 2.25rem;
   border-radius: 10px;
   cursor: pointer;
   color: var(--accent-text);
+  transition: opacity 0.15s ease;
+}
+
+.submitButton:disabled {
+  cursor: default;
+  opacity: 0.75;
 }
 </style>
