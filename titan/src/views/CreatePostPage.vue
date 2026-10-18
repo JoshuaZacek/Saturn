@@ -7,18 +7,52 @@
     <div class="postSection">
       <section class="moonSection">
         <div class="moonInputRow">
-          <input
-            id="moon"
-            v-model="moonInput"
-            class="textInput moonInput"
-            type="text"
-            name="moon"
-            autocomplete="off"
-            autocapitalize="off"
-            spellcheck="false"
-            placeholder="Moon..."
-            @blur="validateMoonNow"
-          />
+          <div class="moonCombobox">
+            <input
+              id="moon"
+              v-model="moonInput"
+              class="textInput moonInput"
+              type="text"
+              name="moon"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls="moonSuggestions"
+              :aria-expanded="showMoonSuggestions"
+              :aria-activedescendant="
+                showMoonSuggestions && highlightedSuggestion >= 0
+                  ? `moonSuggestion-${moonSuggestions[highlightedSuggestion]?.id}`
+                  : undefined
+              "
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              placeholder="Moon..."
+              @focus="isMoonInputFocused = true"
+              @blur="onMoonInputBlur"
+              @keydown="onMoonInputKeydown"
+            />
+
+            <ul
+              v-show="showMoonSuggestions"
+              id="moonSuggestions"
+              class="moonSuggestions"
+              role="listbox"
+              aria-label="Moon suggestions"
+            >
+              <li
+                v-for="(suggestion, index) in moonSuggestions"
+                :id="`moonSuggestion-${suggestion.id}`"
+                :key="suggestion.id"
+                role="option"
+                :aria-selected="index === highlightedSuggestion"
+                :class="{ highlighted: index === highlightedSuggestion }"
+                @mousedown.prevent="selectMoonSuggestion(suggestion)"
+                @mousemove="highlightedSuggestion = index"
+              >
+                /{{ suggestion.name }}
+              </li>
+            </ul>
+          </div>
 
           <span v-if="moonStatus === 'checking'" class="moonInputSpinner" aria-live="polite">
             <SpinnerLoader :size="20" bgColor="var(--bg-sub)" fgColor="var(--text-3)" />
@@ -132,6 +166,10 @@ import { useErrorBannerStore } from '@/stores/errorBanner'
 
 type PostMode = 'text' | 'image'
 type MoonStatus = 'idle' | 'checking' | 'exists' | 'missing' | 'error'
+type MoonSuggestion = {
+  id: number
+  name: string
+}
 type MoonResponse = {
   id: number
   name: string
@@ -140,6 +178,8 @@ type MoonResponse = {
 }
 
 const MOON_VALIDATION_DELAY_MS = 380
+const MOON_SEARCH_DELAY_MS = 150
+const MOON_NAME_PATTERN = /^\w+$/
 const SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif']
 const MAX_IMAGE_FILE_SIZE_BYTES = 15 * 1024 * 1024
 
@@ -168,6 +208,9 @@ const isSubmitting = ref(false)
 const moonStatus = ref<MoonStatus>('idle')
 const selectedMoon = ref<MoonResponse | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
+const moonSuggestions = ref<MoonSuggestion[]>([])
+const highlightedSuggestion = ref(-1)
+const isMoonInputFocused = ref(false)
 
 const errors = ref({
   moon: '',
@@ -321,6 +364,110 @@ const scheduleMoonValidation = () => {
   }, MOON_VALIDATION_DELAY_MS)
 }
 
+// Suggestions are a convenience on top of the exact-name check above,
+// so search failures just leave the list empty.
+let moonSearchTimeout: ReturnType<typeof setTimeout> | null = null
+let moonSearchRequestId = 0
+let skipNextMoonSearch = false
+
+const showMoonSuggestions = computed(() => {
+  if (!isMoonInputFocused.value || moonSuggestions.value.length === 0) {
+    return false
+  }
+
+  // Nothing to suggest once the only match is what's already typed.
+  const [onlySuggestion] = moonSuggestions.value
+  return !(
+    moonSuggestions.value.length === 1 &&
+    onlySuggestion?.name.toLowerCase() === moonInput.value.trim().toLowerCase()
+  )
+})
+
+const clearMoonSuggestions = () => {
+  if (moonSearchTimeout) {
+    clearTimeout(moonSearchTimeout)
+    moonSearchTimeout = null
+  }
+
+  moonSearchRequestId += 1
+  moonSuggestions.value = []
+  highlightedSuggestion.value = -1
+}
+
+const searchMoons = async (term: string) => {
+  if (!backendUrl) {
+    return
+  }
+
+  const currentRequestId = ++moonSearchRequestId
+
+  try {
+    const base = backendUrl.replace(/\/$/, '')
+    const response = await axios.get<{ results: MoonSuggestion[] }>(
+      `${base}/moon/search/${encodeURIComponent(term)}`,
+    )
+
+    if (currentRequestId === moonSearchRequestId) {
+      moonSuggestions.value = response.data.results
+      highlightedSuggestion.value = -1
+    }
+  } catch {
+    if (currentRequestId === moonSearchRequestId) {
+      moonSuggestions.value = []
+    }
+  }
+}
+
+const scheduleMoonSearch = () => {
+  const term = moonInput.value.trim()
+  clearMoonSuggestions()
+
+  if (!term || !MOON_NAME_PATTERN.test(term)) {
+    return
+  }
+
+  moonSearchTimeout = setTimeout(() => {
+    void searchMoons(term)
+  }, MOON_SEARCH_DELAY_MS)
+}
+
+const selectMoonSuggestion = (suggestion: MoonSuggestion) => {
+  clearMoonSuggestions()
+  skipNextMoonSearch = true
+  moonInput.value = suggestion.name
+}
+
+const onMoonInputBlur = () => {
+  isMoonInputFocused.value = false
+  void validateMoonNow()
+}
+
+const onMoonInputKeydown = (event: KeyboardEvent) => {
+  if (!showMoonSuggestions.value) {
+    return
+  }
+
+  const count = moonSuggestions.value.length
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    highlightedSuggestion.value = (highlightedSuggestion.value + 1) % count
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    highlightedSuggestion.value =
+      highlightedSuggestion.value <= 0 ? count - 1 : highlightedSuggestion.value - 1
+  } else if (event.key === 'Enter') {
+    const suggestion = moonSuggestions.value[highlightedSuggestion.value]
+    if (suggestion) {
+      event.preventDefault()
+      selectMoonSuggestion(suggestion)
+    }
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    clearMoonSuggestions()
+  }
+}
+
 const onDragEnter = () => {
   isDragActive.value = true
 }
@@ -464,9 +611,20 @@ const submitPost = async () => {
       await router.push({ name: 'all', query: { sort: 'new' } })
     }
   } catch (error) {
+    // Some failures (unsupported file, image storage problems) come back as
+    // plain text rather than `{ errors }`; see enceladus/PARITY.md.
+    const plainTextMessage =
+      axios.isAxiosError(error) && typeof error.response?.data === 'string'
+        ? error.response.data
+        : ''
+
     if (axios.isAxiosError(error) && error.response?.status === 400) {
       const responseErrors = error.response.data?.errors
       const nextErrors = createEmptyErrors()
+
+      if (!responseErrors && plainTextMessage && postMode.value === 'image') {
+        nextErrors.file = plainTextMessage
+      }
 
       if (responseErrors?.moon_id?.[0]) {
         nextErrors.moon = responseErrors.moon_id[0]
@@ -489,12 +647,24 @@ const submitPost = async () => {
         return
       }
 
-      pendingErrors = nextErrors
+      if (Object.values(nextErrors).some(Boolean)) {
+        pendingErrors = nextErrors
+      } else {
+        errorBanner.show(plainTextMessage || "Post couldn't be created. Please try again.")
+      }
       return
     }
 
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
+    // The API answers 403 (not 401) when there's no session.
+    if (axios.isAxiosError(error) && error.response?.status === 403) {
       errorBanner.show('Please log in to create a post.')
+      return
+    }
+
+    // 502 / 503: the image upload or image storage failed.
+    const status = axios.isAxiosError(error) ? error.response?.status : undefined
+    if ((status === 502 || status === 503) && plainTextMessage && postMode.value === 'image') {
+      pendingErrors = { ...createEmptyErrors(), file: plainTextMessage }
       return
     }
 
@@ -513,6 +683,12 @@ const submitPost = async () => {
 watch(moonInput, () => {
   errors.value.moon = ''
   scheduleMoonValidation()
+
+  if (skipNextMoonSearch) {
+    skipNextMoonSearch = false
+  } else {
+    scheduleMoonSearch()
+  }
 })
 
 watch(title, () => {
@@ -541,6 +717,7 @@ if (moonInput.value) {
 
 onBeforeUnmount(() => {
   clearMoonValidationTimer()
+  clearMoonSuggestions()
 })
 </script>
 
@@ -568,6 +745,36 @@ h1 {
   margin-top: 0;
   border-radius: 10px;
   flex-shrink: 0;
+}
+
+.moonCombobox {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.moonSuggestions {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  list-style: none;
+  padding: 0.25rem;
+  border: 1px solid var(--bg-2);
+  border-radius: 10px;
+  background: var(--bg-sub);
+  box-shadow: 0 5px 20px rgb(0 0 0 / 10%);
+}
+
+.moonSuggestions li {
+  padding: 0.45rem 0.6rem;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.moonSuggestions li.highlighted {
+  background: var(--bg-2);
 }
 
 .moonInputRow {
