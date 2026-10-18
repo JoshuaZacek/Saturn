@@ -106,6 +106,13 @@
               :active="isOwnProfilePage"
               @click="goTo({ name: 'profile', params: { username: authStore.user.username } })"
             />
+            <FeedButton
+              label="Settings"
+              :icon="GearIcon"
+              :icon-size="24"
+              :active="route.name === 'settings'"
+              @click="goTo('/settings')"
+            />
           </div>
 
           <SubmitButton style="margin-top: 0.75rem" @click.stop="handleLogout">
@@ -292,6 +299,7 @@ import AuthInput from './AuthInput.vue'
 import SpinnerLoader from './SpinnerLoader.vue'
 import SubmitButton from './SubmitButton.vue'
 import FeedButton from './FeedButton.vue'
+import GearIcon from './icons/GearIcon.vue'
 import ProfileIcon from './icons/ProfileIcon.vue'
 
 const isMenuClosed = ref(true)

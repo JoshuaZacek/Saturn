@@ -2,11 +2,17 @@
 defineProps<{
   type?: 'button' | 'submit' | 'reset'
   disabled?: boolean
+  variant?: 'default' | 'danger'
 }>()
 </script>
 
 <template>
-  <button class="submitButton" :type="type ?? 'button'" :disabled="disabled">
+  <button
+    class="submitButton"
+    :class="{ danger: variant === 'danger' }"
+    :type="type ?? 'button'"
+    :disabled="disabled"
+  >
     <slot />
   </button>
 </template>
@@ -22,6 +28,10 @@ defineProps<{
   cursor: pointer;
   color: var(--accent-text);
   transition: opacity 0.15s ease;
+}
+
+.submitButton.danger {
+  background-color: var(--text-error);
 }
 
 .submitButton:disabled {
