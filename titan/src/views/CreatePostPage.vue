@@ -123,7 +123,7 @@
 <script setup lang="ts">
 import axios from 'axios'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 import SpinnerLoader from '@/components/SpinnerLoader.vue'
 import CheckIcon from '@/components/icons/CheckIcon.vue'
@@ -147,6 +147,7 @@ const MAX_IMAGE_FILE_SIZE_BYTES = 15 * 1024 * 1024
 const TITLE_MAX_LENGTH = 100
 const BODY_MAX_LENGTH = 5000
 
+const route = useRoute()
 const router = useRouter()
 const errorBanner = useErrorBannerStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
@@ -156,7 +157,8 @@ const postModeOptions = [
 ]
 
 const postMode = ref<PostMode>('text')
-const moonInput = ref('')
+// Moon pages link here with `?moon=<name>` to pre-fill the moon.
+const moonInput = ref(typeof route.query.moon === 'string' ? route.query.moon : '')
 const title = ref('')
 const body = ref('')
 const selectedFile = ref<File | null>(null)
@@ -532,6 +534,10 @@ watch(postMode, (mode) => {
     body.value = ''
   }
 })
+
+if (moonInput.value) {
+  void validateMoonNow()
+}
 
 onBeforeUnmount(() => {
   clearMoonValidationTimer()
