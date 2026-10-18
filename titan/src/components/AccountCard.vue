@@ -269,6 +269,7 @@ import CaretIcon from './icons/CaretIcon.vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useErrorBannerStore } from '@/stores/errorBanner'
 import AuthInput from './AuthInput.vue'
 import SpinnerLoader from './SpinnerLoader.vue'
 import SubmitButton from './SubmitButton.vue'
@@ -291,6 +292,7 @@ const MENU_TRANSITION_MS = 220
 let menuHeightAnimation: Animation | null = null
 const router = useRouter()
 const authStore = useAuthStore()
+const errorBanner = useErrorBannerStore()
 const headerText = computed(() => {
   return authStore.loggedIn && authStore.user.username
     ? '@' + authStore.user.username
@@ -574,7 +576,11 @@ const handleSubmit = async () => {
       errors.value.username = err.response.data.errors?.username?.[0]
       errors.value.password = err.response.data.errors?.password?.[0]
     } else {
-      alert(createOrLogin.value === 'signup' ? "Couldn't sign up" : "Couldn't log in")
+      errorBanner.show(
+        createOrLogin.value === 'signup'
+          ? "Couldn't sign up. Please try again."
+          : "Couldn't log in. Please try again.",
+      )
     }
   } finally {
     isSubmitting.value = false

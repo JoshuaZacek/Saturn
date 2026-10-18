@@ -22,6 +22,7 @@
 import ArrowIcon from '@/components/icons/ArrowIcon.vue'
 import axios, { AxiosError } from 'axios'
 import { computed, ref } from 'vue'
+import { useErrorBannerStore } from '@/stores/errorBanner'
 
 const props = withDefaults(
   defineProps<{
@@ -38,6 +39,7 @@ const props = withDefaults(
 
 const arrowSize = computed(() => (props.size === 'small' ? 19 : 22))
 
+const errorBanner = useErrorBannerStore()
 const voteCount = ref(props.votes)
 const currentVote = ref<'up' | 'down' | null>(null)
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
@@ -70,7 +72,7 @@ const deleteVote = (): void => {
       currentVote.value = null
     })
     .catch(() => {
-      alert('Sorry, something went wrong.')
+      errorBanner.show("Your vote couldn't be removed. Please try again.")
     })
 }
 
@@ -103,11 +105,11 @@ const submitVote = (vote: string): void => {
     })
     .catch((err: AxiosError) => {
       if (err.status === 403) {
-        alert('You must be logged in to vote.')
+        errorBanner.show('You must be logged in to vote.')
         return
       }
 
-      alert('Sorry, something went wrong.')
+      errorBanner.show("Your vote couldn't be submitted. Please try again.")
     })
 }
 </script>
