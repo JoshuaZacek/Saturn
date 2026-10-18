@@ -22,7 +22,7 @@ defmodule Saturn.Comment do
 
   def changeset(comment, attrs) do
     comment
-    |> cast(attrs, [:content, :post_id, :user_id, :comment_id])
+    |> cast(attrs, [:content, :post_id, :comment_id])
     |> validate_required([:content, :post_id, :user_id])
     # Code points, to match the char_length check constraint
     |> validate_length(:content, max: @content_max_length, count: :codepoints)
