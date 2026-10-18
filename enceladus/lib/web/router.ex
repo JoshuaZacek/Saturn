@@ -1,6 +1,7 @@
 defmodule Saturn.Router do
   use Plug.Router
   import Saturn.Responses
+  import Saturn.Functions
   alias Saturn.{AuthRouter, SessionPlug, Session, Users, Posts, Moons, Comments, Profiles}
 
   plug(Plug.Logger)
@@ -84,7 +85,7 @@ defmodule Saturn.Router do
       limit: [type: :integer, required: true, number: [min: 1, max: 10]],
       sort: [type: :string, required: true, in: ["top", "new"]],
       cursor: [type: :string],
-      moon_id: [type: :integer],
+      moon_id: id_param(),
       time_period: [type: :integer],
       subscribed: [type: :boolean]
     }
@@ -107,12 +108,12 @@ defmodule Saturn.Router do
   end
 
   get "/post/:id" do
-    case Posts.get_by_id(id, conn.assigns.user_id) do
-      nil ->
+    with {:ok, params} <- Tarams.cast(conn.path_params, %{id: id_param(required: true)}),
+         %{} = post <- Posts.get_by_id(params.id, conn.assigns.user_id) do
+      send_json(conn, 200, post)
+    else
+      _ ->
         send_resp(conn, 404, "Not found")
-
-      post ->
-        send_json(conn, 200, post)
     end
   end
 
@@ -137,8 +138,8 @@ defmodule Saturn.Router do
       limit: [type: :integer, required: true, number: [min: 1, max: 10]],
       sort: [type: :string, required: true, in: ["top", "new"]],
       cursor: [type: :string],
-      parent_comment_id: [type: :integer],
-      post_id: [type: :integer]
+      parent_comment_id: id_param(),
+      post_id: id_param(required: true)
     }
 
     with {:ok, params} <- Tarams.cast(conn.params, schema) do
@@ -150,12 +151,12 @@ defmodule Saturn.Router do
   end
 
   get "/comments/:id" do
-    case Comments.get_by_id(id, conn.assigns.user_id) do
-      nil ->
+    with {:ok, params} <- Tarams.cast(conn.path_params, %{id: id_param(required: true)}),
+         %{} = comment <- Comments.get_by_id(params.id, conn.assigns.user_id) do
+      send_json(conn, 200, comment)
+    else
+      _ ->
         send_resp(conn, 404, "Not found")
-
-      comment ->
-        send_json(conn, 200, comment)
     end
   end
 
@@ -166,7 +167,7 @@ defmodule Saturn.Router do
       sort: [type: :string, required: true, in: ["top", "new"]],
       cursor: [type: :string],
       parent_comment_id: [type: :integer],
-      user_id: [type: :integer]
+      user_id: id_param(required: true)
     }
 
     with {:ok, params} <- Tarams.cast(conn.params, schema) do
@@ -183,7 +184,7 @@ defmodule Saturn.Router do
       sort: [type: :string, required: true, in: ["top", "new"]],
       cursor: [type: :string],
       parent_comment_id: [type: :integer],
-      user_id: [type: :integer]
+      user_id: id_param(required: true)
     }
 
     with {:ok, params} <- Tarams.cast(conn.params, schema) do
@@ -215,7 +216,7 @@ defmodule Saturn.Router do
       sort: [type: :string, required: true, in: ["top", "new"]],
       cursor: [type: :string],
       parent_comment_id: [type: :integer],
-      user_id: [type: :integer]
+      user_id: id_param(required: true)
     }
 
     with {:ok, params} <- Tarams.cast(conn.params, schema) do

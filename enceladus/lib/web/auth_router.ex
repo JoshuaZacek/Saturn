@@ -1,6 +1,7 @@
 defmodule Saturn.AuthRouter do
   use Plug.Router
   import Saturn.Responses
+  import Saturn.Functions
   alias Saturn.{Repo, Posts, Votes, Moons, Comments, Users, Subscriptions}
 
   plug(:match)
@@ -29,10 +30,10 @@ defmodule Saturn.AuthRouter do
   end
 
   delete "/post/:post_id" do
-    case Posts.delete(post_id, conn.assigns.user_id) do
-      :ok ->
-        send_resp(conn, 204, "")
-
+    with {:ok, params} <- Tarams.cast(conn.path_params, %{post_id: id_param(required: true)}),
+         :ok <- Posts.delete(params.post_id, conn.assigns.user_id) do
+      send_resp(conn, 204, "")
+    else
       {:error, :forbidden} ->
         send_resp(conn, 403, "Only the author can delete this post")
 
@@ -53,8 +54,8 @@ defmodule Saturn.AuthRouter do
 
   delete "/vote" do
     schema = %{
-      post_id: [type: :integer, required: if(conn.params["comment_id"], do: false, else: true)],
-      comment_id: [type: :integer, required: if(conn.params["post_id"], do: false, else: true)]
+      post_id: id_param(required: if(conn.params["comment_id"], do: false, else: true)),
+      comment_id: id_param(required: if(conn.params["post_id"], do: false, else: true))
     }
 
     with {:ok, params} <- Tarams.cast(conn.params, schema) do
@@ -97,7 +98,7 @@ defmodule Saturn.AuthRouter do
 
   post "/subscription" do
     schema = %{
-      moon_id: [type: :integer, required: true]
+      moon_id: id_param(required: true)
     }
 
     with {:ok, params} <- Tarams.cast(conn.params, schema) do
@@ -116,7 +117,7 @@ defmodule Saturn.AuthRouter do
 
   delete "/subscription" do
     schema = %{
-      moon_id: [type: :integer, required: true]
+      moon_id: id_param(required: true)
     }
 
     with {:ok, params} <- Tarams.cast(conn.params, schema) do

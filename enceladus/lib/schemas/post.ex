@@ -1,6 +1,7 @@
 defmodule Saturn.Post do
   use Ecto.Schema
   import Ecto.Changeset
+  import Saturn.Functions
 
   alias Saturn.{User, Moon, Vote, Comment, File}
 
@@ -29,6 +30,7 @@ defmodule Saturn.Post do
     |> validate_required([:title, :body, :moon_id, :user_id, :type])
     |> validate_length(:title, max: @title_max_length)
     |> validate_length(:body, max: @body_max_length)
+    |> validate_id(:moon_id)
     |> foreign_key_constraint(:moon_id)
     |> foreign_key_constraint(:user_id)
   end
