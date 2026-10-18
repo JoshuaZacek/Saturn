@@ -38,15 +38,18 @@ Where the implementation differs from or adds to the contracts below:
   `DELETE /user/logout` and `DELETE /user` now really clear the `session_id` cookie (the
   `delete_resp_cookie` result was being discarded).
 
-Found while testing, not fixed (outside this list):
+Found while testing and fixed afterwards (outside this list):
 
-- **Security:** `Comment`, `Post` and `Vote` changesets `cast` `:user_id` from request params, so
-  a logged-in user can post, comment and vote as anyone by sending `user_id`. Fix: drop `:user_id`
-  from those `cast` lists (the business layer already sets it on the struct; the frontend never
-  sends it).
-- The `sort=top` cursors (posts, comments, profile) use `votes <= v AND id <= i`, which skips
-  lower-voted rows with a higher id. It should be `votes < v OR (votes = v AND id <= i)`.
-- Non-integer ids in paths (`/post/abc`, `/comments/abc`, `DELETE /post/abc`) raise and return 500.
+- **Security** (`dd6d7fa`): the `Comment`, `Post` and `Vote` changesets cast `:user_id` from
+  request params, so a logged-in user could post, comment and vote as anyone. They no longer cast it.
+- Cursors (`69ccf5b`): the posts, comments and profile cursors skipped rows whose id was higher
+  than the cursor's but which sorted after it (in "top", a newer post with fewer votes). They now
+  compare `(sort key, id)` as a row.
+- Malformed input (`30da22d`): non-integer or out-of-range ids, tampered cursors and missing
+  `post_id`/`user_id` raised and returned 500. They now return `404` (`GET /post/:id`,
+  `/comments/:id`), `400 "Bad request"` (other ids in paths and query params), or
+  `{"errors": {"<field>": ["<Field> does not exist"]}}` (ids in request bodies). A bad cursor
+  returns the first page, and a `time_period` reaching back before 1970 means all time.
 
 > Note: `priv/repo/migrations/20260907025428_add_moon_name_length_constraint.exs` is currently
 > untracked in the working tree. It belongs to the moon-name-length change already on the
