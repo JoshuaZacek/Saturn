@@ -28,6 +28,10 @@
     >
       <div class="menuContent" v-if="!isMenuClosed" ref="menuContent">
         <template v-if="!authStore.loggedIn">
+          <p v-if="authStore.sessionExpired" class="sessionNotice" role="status">
+            Your session has expired. Please log in again.
+          </p>
+
           <form ref="form" @submit.prevent="handleSubmit">
             <div class="inputContainer">
               <AuthInput
@@ -217,6 +221,12 @@ p {
 .menuContent {
   margin-top: 1rem;
   width: 100%;
+}
+
+.sessionNotice {
+  font-size: 0.85rem;
+  margin: -0.25rem 0 0.75rem;
+  color: var(--text-2) !important;
 }
 
 .accountLinks {
@@ -463,8 +473,19 @@ watch(isMenuClosed, (closed) => {
   if (closed) {
     resetForm()
     isSubmitting.value = false
+    authStore.clearSessionExpired()
   }
 })
+
+// Open the login form when the session turns out to be gone, with a notice.
+watch(
+  () => authStore.sessionExpired,
+  (expired) => {
+    if (expired) {
+      isMenuClosed.value = false
+    }
+  },
+)
 
 const hasOutstandingErrors = () => Object.values(errors.value).some((error) => !!error)
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -532,11 +553,16 @@ const goTo = (to: RouteLocationRaw) => {
   void router.push(to)
 }
 
-const handleLogout = () => {
-  axios.delete(`${backendUrl}/user/logout`).then(() => {
+const handleLogout = async () => {
+  try {
+    await axios.delete(`${backendUrl}/user/logout`)
+  } catch {
+    // Log out locally anyway (e.g. the session already expired), so a failed
+    // request can't leave the user stuck logged in.
+  } finally {
     authStore.logout()
     router.go(0)
-  })
+  }
 }
 
 const handleSubmit = async () => {
