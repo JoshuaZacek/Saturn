@@ -59,8 +59,8 @@ if (props.hasVoted === 1) {
   currentVote.value = 'down'
 }
 
-const deleteVote = (): void => {
-  axios
+const deleteVote = (): Promise<void> => {
+  return axios
     .delete(createDeleteURL())
     .then(() => {
       if (currentVote.value == 'up') {
@@ -76,13 +76,8 @@ const deleteVote = (): void => {
     })
 }
 
-const submitVote = (vote: string): void => {
-  if (vote == currentVote.value) {
-    deleteVote()
-    return
-  }
-
-  axios
+const postVote = (vote: string): Promise<void> => {
+  return axios
     .post(createSubmitURL(vote), {})
     .then(() => {
       if (vote == 'up') {
@@ -111,6 +106,23 @@ const submitVote = (vote: string): void => {
 
       errorBanner.show("Your vote couldn't be submitted. Please try again.")
     })
+}
+
+// Each response adjusts the count relative to the vote it started from, so
+// overlapping requests (e.g. a double click) would count twice. Ignore clicks
+// until the pending vote settles.
+let isVoting = false
+
+const submitVote = (vote: string): void => {
+  if (isVoting) {
+    return
+  }
+
+  isVoting = true
+  const request = vote == currentVote.value ? deleteVote() : postVote(vote)
+  void request.finally(() => {
+    isVoting = false
+  })
 }
 </script>
 
