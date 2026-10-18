@@ -66,6 +66,7 @@ import SpinnerLoader from '@/components/SpinnerLoader.vue'
 import VoteButtons from '@/components/VoteButtons.vue'
 import UserCircleIcon from '@/components/icons/UserCircleIcon.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useErrorBannerStore } from '@/stores/errorBanner'
 import { formatRelativeTime } from '@/utils/relativeTime'
 import type { Post } from '@/types/post'
 
@@ -79,6 +80,7 @@ const emit = defineEmits<{
 }>()
 
 const authStore = useAuthStore()
+const errorBanner = useErrorBannerStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 const isDeleting = ref(false)
 const imageURL = computed(() => {
@@ -101,7 +103,7 @@ const deletePost = () => {
     })
     .catch(() => {
       isDeleting.value = false
-      alert("Post couldn't be deleted")
+      errorBanner.show("Post couldn't be deleted. Please try again.")
     })
 }
 

@@ -128,6 +128,7 @@ import SegmentedControl from '@/components/SegmentedControl.vue'
 import SpinnerLoader from '@/components/SpinnerLoader.vue'
 import CheckIcon from '@/components/icons/CheckIcon.vue'
 import { waitForMinimumVisibleTime } from '@/config/loading'
+import { useErrorBannerStore } from '@/stores/errorBanner'
 
 type PostMode = 'text' | 'image'
 type MoonStatus = 'idle' | 'checking' | 'exists' | 'missing' | 'error'
@@ -147,6 +148,7 @@ const TITLE_MAX_LENGTH = 100
 const BODY_MAX_LENGTH = 5000
 
 const router = useRouter()
+const errorBanner = useErrorBannerStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 const postModeOptions = [
   { label: 'Text', value: 'text' },
@@ -419,7 +421,7 @@ const validateForm = async () => {
 const submitPost = async () => {
   if (!backendUrl || isSubmitting.value) {
     if (!backendUrl) {
-      alert('Sorry, something went wrong.')
+      errorBanner.show()
     }
     return
   }
@@ -481,7 +483,7 @@ const submitPost = async () => {
       }
 
       if (responseErrors?.type?.[0]) {
-        alert(responseErrors.type[0])
+        errorBanner.show(responseErrors.type[0])
         return
       }
 
@@ -490,11 +492,11 @@ const submitPost = async () => {
     }
 
     if (axios.isAxiosError(error) && error.response?.status === 401) {
-      alert('Please log in to create a post')
+      errorBanner.show('Please log in to create a post.')
       return
     }
 
-    alert("Post couldn't be created. Please try again.")
+    errorBanner.show("Post couldn't be created. Please try again.")
   } finally {
     await waitForMinimumVisibleTime(submitStartedAt)
 
