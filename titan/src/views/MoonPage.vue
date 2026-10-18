@@ -2,6 +2,12 @@
   <main>
     <div class="header">
       <h1>/{{ moonName }}</h1>
+      <SubmitButton
+        v-if="moon"
+        @click="router.push({ name: 'create-post', query: { moon: moon.name } })"
+      >
+        Create post
+      </SubmitButton>
     </div>
 
     <SegmentedControl
@@ -32,6 +38,7 @@ import { useRoute, useRouter, type LocationQueryValue } from 'vue-router'
 import CustomSelect from '@/components/CustomSelect.vue'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 import SpinnerLoader from '@/components/SpinnerLoader.vue'
+import SubmitButton from '@/components/SubmitButton.vue'
 import PostFeed from '@/components/PostFeed.vue'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 
