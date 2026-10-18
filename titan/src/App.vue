@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AppSidebar from '@/components/AppSidebar.vue'
 import ErrorBanner from '@/components/ErrorBanner.vue'
+import { useAuthStore } from '@/stores/auth'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 import { useUIStore } from '@/stores/ui'
 
 const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
 const errorBanner = useErrorBannerStore()
 const uiStore = useUIStore()
 
@@ -14,6 +17,18 @@ const uiStore = useUIStore()
 watch(
   () => route.fullPath,
   () => errorBanner.dismiss(),
+)
+
+// Leave pages that need a login (settings, create) once the session turns out
+// to be gone; the account card explains what happened.
+watch(
+  () => authStore.sessionExpired,
+  (expired) => {
+    const message = route.meta.unauthorizedMessage
+    if (expired && typeof message === 'string') {
+      void router.replace({ name: 'unauthorized', query: { message } })
+    }
+  },
 )
 </script>
 
