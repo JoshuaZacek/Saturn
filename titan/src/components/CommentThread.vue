@@ -45,6 +45,7 @@
           <p v-if="replyError" class="feedback error">{{ replyError }}</p>
 
           <div class="replyButtons">
+            <CharacterCounter class="replyCounter" :text="replyContent" :max="COMMENT_MAX_LENGTH" />
             <button type="button" class="cancelButton" @click="cancelReply">Cancel</button>
             <SubmitButton :disabled="isSendingReply" @click="submitReply">
               <span v-if="isSendingReply" key="spinner" class="replySpinner">
@@ -99,6 +100,8 @@ import ChatCircleIcon from '@/components/icons/ChatCircleIcon.vue'
 import InfiniteScrollFooter from '@/components/InfiniteScrollFooter.vue'
 import SpinnerLoader from '@/components/SpinnerLoader.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
+import CharacterCounter from '@/components/CharacterCounter.vue'
+import { COMMENT_MAX_LENGTH, countCharacters } from '@/utils/characterCount'
 import VoteButtons from '@/components/VoteButtons.vue'
 import { usePaginatedList } from '@/composables/usePaginatedList'
 import { useAuthStore } from '@/stores/auth'
@@ -209,6 +212,11 @@ const submitReply = async () => {
     return
   }
 
+  if (countCharacters(content) > COMMENT_MAX_LENGTH) {
+    replyError.value = `Reply must be ${COMMENT_MAX_LENGTH} characters or fewer`
+    return
+  }
+
   isSendingReply.value = true
   replyError.value = ''
   const submitStartedAt = Date.now()
@@ -227,8 +235,10 @@ const submitReply = async () => {
     replies.value.unshift({ ...response.data, votes: 0, hasVoted: null })
     incrementComments()
     succeeded = true
-  } catch {
-    replyError.value = "Reply couldn't be sent. Please try again."
+  } catch (err) {
+    replyError.value =
+      (axios.isAxiosError(err) && err.response?.data?.errors?.content?.[0]) ||
+      "Reply couldn't be sent. Please try again."
   } finally {
     // Wait before closing the composer too, so the spinner (and the
     // composer it lives in) stays visible for the full minimum duration.
@@ -354,8 +364,13 @@ watch(replyToggled, async (open) => {
 .replyButtons {
   margin-top: 0.5rem;
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+.replyCounter {
+  margin-right: auto;
 }
 
 .cancelButton {

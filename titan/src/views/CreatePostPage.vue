@@ -611,60 +611,40 @@ const submitPost = async () => {
       await router.push({ name: 'all', query: { sort: 'new' } })
     }
   } catch (error) {
-    // Some failures (unsupported file, image storage problems) come back as
-    // plain text rather than `{ errors }`; see enceladus/PARITY.md.
-    const plainTextMessage =
-      axios.isAxiosError(error) && typeof error.response?.data === 'string'
-        ? error.response.data
-        : ''
+    const status = axios.isAxiosError(error) ? error.response?.status : undefined
+    const responseErrors = axios.isAxiosError(error) ? error.response?.data?.errors : undefined
 
-    if (axios.isAxiosError(error) && error.response?.status === 400) {
-      const responseErrors = error.response.data?.errors
-      const nextErrors = createEmptyErrors()
-
-      if (!responseErrors && plainTextMessage && postMode.value === 'image') {
-        nextErrors.file = plainTextMessage
-      }
-
-      if (responseErrors?.moon_id?.[0]) {
-        nextErrors.moon = responseErrors.moon_id[0]
-      }
-
-      if (responseErrors?.title?.[0]) {
-        nextErrors.title = responseErrors.title[0]
-      }
-
-      if (responseErrors?.body?.[0]) {
-        if (postMode.value === 'text') {
-          nextErrors.body = responseErrors.body[0]
-        } else {
-          nextErrors.file = responseErrors.body[0]
-        }
-      }
-
-      if (responseErrors?.type?.[0]) {
+    // Validation (400) and image upload/storage failures (502/503) come back as
+    // `{ errors: { field: [message] } }`.
+    if (responseErrors && (status === 400 || status === 502 || status === 503)) {
+      if (responseErrors.type?.[0]) {
         errorBanner.show(responseErrors.type[0])
         return
+      }
+
+      const nextErrors = createEmptyErrors()
+      const bodyError = responseErrors.body?.[0] ?? ''
+      nextErrors.moon = responseErrors.moon_id?.[0] ?? ''
+      nextErrors.title = responseErrors.title?.[0] ?? ''
+      nextErrors.file = responseErrors.file?.[0] ?? ''
+
+      if (postMode.value === 'text') {
+        nextErrors.body = bodyError
+      } else if (!nextErrors.file) {
+        nextErrors.file = bodyError
       }
 
       if (Object.values(nextErrors).some(Boolean)) {
         pendingErrors = nextErrors
       } else {
-        errorBanner.show(plainTextMessage || "Post couldn't be created. Please try again.")
+        errorBanner.show("Post couldn't be created. Please try again.")
       }
       return
     }
 
     // The API answers 403 (not 401) when there's no session.
-    if (axios.isAxiosError(error) && error.response?.status === 403) {
+    if (status === 403) {
       errorBanner.show('Please log in to create a post.')
-      return
-    }
-
-    // 502 / 503: the image upload or image storage failed.
-    const status = axios.isAxiosError(error) ? error.response?.status : undefined
-    if ((status === 502 || status === 503) && plainTextMessage && postMode.value === 'image') {
-      pendingErrors = { ...createEmptyErrors(), file: plainTextMessage }
       return
     }
 
