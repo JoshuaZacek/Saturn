@@ -105,6 +105,7 @@ onBeforeUnmount(() => {
   background: transparent;
   border-radius: 9px;
   height: 2.2rem;
+  padding: 0 0.5rem;
   font-size: 0.95rem;
   font-weight: 400;
   color: var(--text-2);
