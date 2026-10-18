@@ -40,6 +40,7 @@ import SegmentedControl from '@/components/SegmentedControl.vue'
 import SpinnerLoader from '@/components/SpinnerLoader.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
 import PostFeed from '@/components/PostFeed.vue'
+import { notFoundLocation } from '@/router'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 
 type SortType = 'new' | 'top'
@@ -164,7 +165,7 @@ const loadMoon = async (name: string) => {
     }
 
     if (axios.isAxiosError(err) && err.response?.status === 404) {
-      void router.replace({ name: 'not-found' })
+      void router.replace(notFoundLocation(route))
     } else {
       errorBanner.show("Moon couldn't be loaded. Please try again.")
     }

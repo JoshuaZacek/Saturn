@@ -26,6 +26,10 @@ const currentTitle = computed(() => {
     return 'Create post...'
   } else if (route.name === 'create-moon') {
     return 'Create moon...'
+  } else if (route.name === 'profile') {
+    return `@${route.params.username}`
+  } else if (route.name === 'settings') {
+    return 'Settings'
   }
 
   return ''

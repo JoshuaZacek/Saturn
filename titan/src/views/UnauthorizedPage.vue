@@ -2,11 +2,11 @@
   <main>
     <h1>Unauthorized</h1>
     <p>{{ message }}</p>
+    <p>You can log in or sign up from the account card at the bottom of the sidebar.</p>
 
-    <nav>
-      <RouterLink to="/">Home</RouterLink>
-      <RouterLink :to="{ name: 'all' }">All</RouterLink>
-    </nav>
+    <RouterLink class="linkButton" :to="{ name: 'all', query: { sort: 'top', t: 'day' } }">
+      Browse top posts
+    </RouterLink>
   </main>
 </template>
 
@@ -28,11 +28,20 @@ main {
 
 p {
   color: var(--text-2);
-  margin: 0.75rem 0 1rem;
+  margin-top: 0.75rem;
 }
 
-nav {
-  display: flex;
-  gap: 0.8rem;
+.linkButton {
+  display: inline-block;
+  margin-top: 1.5rem;
+  color: var(--text-2);
+  background: var(--bg-2);
+  padding: 0.5rem 0.9rem;
+  border-radius: 10px;
+  text-decoration: none;
+}
+
+.linkButton:hover {
+  background: var(--bg-3);
 }
 </style>
