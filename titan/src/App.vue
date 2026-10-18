@@ -1,10 +1,32 @@
 <script setup lang="ts">
+import { watch } from 'vue'
+import { useRoute } from 'vue-router'
 import AppSidebar from '@/components/AppSidebar.vue'
+import ErrorBanner from '@/components/ErrorBanner.vue'
+import { useErrorBannerStore } from '@/stores/errorBanner'
+import { useUIStore } from '@/stores/ui'
+
+const route = useRoute()
+const errorBanner = useErrorBannerStore()
+const uiStore = useUIStore()
+
+// Errors belong to the page they happened on.
+watch(
+  () => route.fullPath,
+  () => errorBanner.dismiss(),
+)
 </script>
 
 <template>
   <AppSidebar />
   <main class="page-content">
+    <div
+      v-if="errorBanner.message"
+      class="errorBannerHost"
+      :style="{ left: `${uiStore.sidebarWidthPx}px` }"
+    >
+      <ErrorBanner :message="errorBanner.message" @dismiss="errorBanner.dismiss" />
+    </div>
     <RouterView />
   </main>
 </template>
@@ -64,5 +86,21 @@ body,
   justify-content: center;
   padding-top: 5rem;
   overflow-y: scroll;
+}
+
+.errorBannerHost {
+  position: fixed;
+  top: 1rem;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  padding: 0 1rem;
+  pointer-events: none;
+}
+
+.errorBannerHost > * {
+  max-width: 40rem;
+  pointer-events: auto;
 }
 </style>

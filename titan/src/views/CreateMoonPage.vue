@@ -68,6 +68,7 @@ import { useRouter } from 'vue-router'
 import SpinnerLoader from '@/components/SpinnerLoader.vue'
 import CheckIcon from '@/components/icons/CheckIcon.vue'
 import { waitForMinimumVisibleTime } from '@/config/loading'
+import { useErrorBannerStore } from '@/stores/errorBanner'
 
 type NameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'error'
 
@@ -77,6 +78,7 @@ const NAME_FORMAT_ERROR = 'Moon names can only contain letters, numbers, and und
 const NAME_MAX_LENGTH = 20
 
 const router = useRouter()
+const errorBanner = useErrorBannerStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 
 const name = ref('')
@@ -245,7 +247,7 @@ const validateForm = async () => {
 const submitMoon = async () => {
   if (!backendUrl || isSubmitting.value) {
     if (!backendUrl) {
-      alert('Sorry, something went wrong.')
+      errorBanner.show()
     }
     return
   }
@@ -289,11 +291,11 @@ const submitMoon = async () => {
     }
 
     if (axios.isAxiosError(error) && error.response?.status === 403) {
-      alert('Please log in to create a moon')
+      errorBanner.show('Please log in to create a moon.')
       return
     }
 
-    alert("Moon couldn't be created. Please try again.")
+    errorBanner.show("Moon couldn't be created. Please try again.")
   } finally {
     await waitForMinimumVisibleTime(submitStartedAt)
 

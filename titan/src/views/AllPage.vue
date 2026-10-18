@@ -31,6 +31,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQueryValue } from 'vue-router'
 import CustomSelect from '@/components/CustomSelect.vue'
 import PostCard from '@/components/PostCard.vue'
+import { useErrorBannerStore } from '@/stores/errorBanner'
 import type { Post, PostsResponse } from '@/types/post'
 
 type SortType = 'new' | 'top'
@@ -60,6 +61,7 @@ const getSingleQueryValue = (value: LocationQueryValue | LocationQueryValue[] | 
 
 const route = useRoute()
 const router = useRouter()
+const errorBanner = useErrorBannerStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 
 const sort = computed(() => getSingleQueryValue(route.query.sort) as SortType | undefined)
@@ -103,7 +105,7 @@ const fetchPosts = async () => {
 
   if (!backendUrl || (sort.value !== 'new' && sort.value !== 'top')) {
     if (!backendUrl) {
-      alert('Sorry, something went wrong.')
+      errorBanner.show()
     }
     return
   }
@@ -135,7 +137,7 @@ const fetchPosts = async () => {
       return
     }
 
-    alert('Sorry, something went wrong.')
+    errorBanner.show("Posts couldn't be loaded. Please try again.")
   }
 }
 
