@@ -1,10 +1,10 @@
 # Frontend parity: old `titan/` (main) → redesign (`frontend`)
 
 Inventory of everything the old frontend does, and where the redesign stands.
-First drafted 2026-10-18, then updated after the parity work landed on `frontend` the same day.
+First drafted 2026-10-18, then updated after the parity work landed on `frontend` the same day,
+and again once the backend work in `enceladus/PARITY.md` landed (commit 71d7efe).
 
-Legend: ✅ done · 🟡 partial · ❌ missing · ⏸ deferred until the backend work in
-`enceladus/PARITY.md` lands · (Dn) refers to [Decisions](#decisions)
+Legend: ✅ done · 🟡 partial · ❌ missing · (Dn) refers to [Decisions](#decisions)
 
 ---
 
@@ -12,7 +12,7 @@ Legend: ✅ done · 🟡 partial · ❌ missing · ⏸ deferred until the backen
 
 | Old route             | New route                                              | Status | Notes                                                              |
 | --------------------- | ------------------------------------------------------ | ------ | ------------------------------------------------------------------ |
-| `/` (all-posts feed)  | `/all?sort=new`, `/all?sort=top&t=day` (sidebar Feeds) | ✅     | `/` itself will be the subscriber feed ⏸ (D1); still a placeholder |
+| `/` (all-posts feed)  | `/all?sort=new`, `/all?sort=top&t=day` (sidebar Feeds) | ✅     | `/` is now the subscriber home feed (D1)                           |
 | `/:moon`              | `/:moon?sort=…&t=…`                                    | ✅     | see §4                                                             |
 | `/post/:id/:comment?` | `/post/:post_id/:comment_id?`                          | ✅     | see §5                                                             |
 | `/@:username`         | `/@:username?tab=…&sort=…`                             | ✅     | see §6                                                             |
@@ -36,8 +36,8 @@ Legend: ✅ done · 🟡 partial · ❌ missing · ⏸ deferred until the backen
 | Logged-in menu → **Settings**                                             | ✅     | `AccountCard`                                                                                                                                          |
 | Logged-in menu → **Profile**                                              | ✅     | `AccountCard`                                                                                                                                          |
 | Logged-in menu → Create post / Create moon                                | ✅     | sidebar "Create" menu (`CreateActionsSelect`)                                                                                                          |
-| Log out (`DELETE /user/logout`)                                           | ⏸      | If the request fails (e.g. session already expired → 403), nothing happens and the user stays "logged in" locally. Old had the same bug. Fix with D7.   |
-| Stale session (cookie expired but `localStorage` says logged in)          | ⏸      | UI shows logged in, every action 403s. Needs `GET /user/me` (`enceladus/PARITY.md` §2). D7                                                             |
+| Log out (`DELETE /user/logout`)                                           | ✅     | clears the local login even if the request fails (old left the user stuck logged in)                                                                   |
+| Stale session (cookie expired but `localStorage` says logged in)          | ✅     | `GET /user/me` on load and after any 403 while logged in; on expiry: local logout, leave guarded pages, account card notice (D7)                      |
 | Full page reload after log in / sign up / log out / delete account        | ✅     | Kept `router.go(0)` (D6). Future: re-fetch on auth change instead                                                                                      |
 | Sidebar "Currently viewing" label                                         | ✅     | includes `@username` and Settings                                                                                                                      |
 | Action feedback                                                           | ✅     | `ErrorBanner` (minimal styling, mockups to follow) replaces every `alert()` (D3); inline spinners and field errors as before                           |
@@ -68,7 +68,7 @@ Legend: ✅ done · 🟡 partial · ❌ missing · ⏸ deferred until the backen
 | Sort New / Top + time period                  | ✅     | Default is Top/Today (old default was New): a deliberate redesign choice, kept  |
 | Pagination, empty, end                        | ✅     | shared `PostFeed`                                                               |
 | Navigating from one moon page to another      | ✅     | moon reloads when the route param changes (was stuck on the first moon)         |
-| Subscribe / unsubscribe                       | ⏸      | new feature, needs `enceladus/PARITY.md` §1                                     |
+| Subscribe / unsubscribe + subscriber count    | ✅     | new feature; subscriptions are also listed in the sidebar                       |
 
 ## 5. Post page (`/post/:post_id/:comment_id?`)
 
@@ -90,7 +90,7 @@ Legend: ✅ done · 🟡 partial · ❌ missing · ⏸ deferred until the backen
 | Reply: composer, logged-out prompt, cancel, empty check, error, count + 1       | ✅     | (old had no error handling for replies)                            |
 | Vote on comments; author link                                                   | ✅     |                                                                    |
 | Replies beyond the first 10 of any comment                                      | ✅     | infinite scroll per thread (D8); the old frontend couldn't load them |
-| Comment/reply length limit + counter                                            | ⏸      | needs `enceladus/PARITY.md` §5                                     |
+| Comment/reply length limit + counter                                            | ✅     | 5000 code points; counter appears within 500 of the limit          |
 
 ## 6. Profile page (`/@:username`)
 
@@ -126,7 +126,7 @@ Legend: ✅ done · 🟡 partial · ❌ missing · ⏸ deferred until the backen
 | Submit → redirect to new post; server field errors                         | ✅     |                                                                                                      |
 | Moon picker suggestions                                                    | ✅     | `GET /moon/search/:name` list under the input; mouse, arrow keys, Enter, Escape (D5)                 |
 | `?moon=` pre-fill                                                          | ✅     | used by the moon page button                                                                         |
-| Unsupported file / image storage failure from the server                   | ✅     | plain-text 400/502/503 now shows on the image field (it used to show nothing)                        |
+| Unsupported file / image storage failure from the server                   | ✅     | `errors.file` from 400/502/503 shows on the image field (it used to show nothing)                    |
 | Not logged in on submit                                                    | ✅     | detects the API's 403 (code checked 401)                                                             |
 
 ## 9. Create moon (`/create/moon`): ✅
@@ -149,7 +149,7 @@ Name rules (`^\w+$`), ≤ 20, live availability check, server errors, redirect t
 | -------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------- |
 | Not Found message + way back                             | ✅     | "Content does not exist…" + "Browse top posts" (the old "front page" link; `/` isn't built yet) |
 | Not Found redirect keeps the URL                         | ✅     | `notFoundLocation()` in `router/index.ts`                                                        |
-| Home `/`                                                 | ⏸      | Subscriber feed (D1). Still the placeholder with dev links                                       |
+| Home `/`                                                 | ✅     | Subscriber feed (D1): New/Top, log-in prompt when logged out, hint when there are no subscriptions |
 | Unauthorized page                                        | ✅     | dev links replaced with a hint and a link to top posts                                          |
 
 ---
@@ -186,12 +186,17 @@ profile overview pagination tie-breaker).
 10. **`/all` with a bad or missing query:** redirect to the defaults.
 11. **Uncommitted WIP:** commit it first as its own commit. Leave the enceladus migration and root `CLAUDE.md` untouched.
 
-## Deferred until the backend work in `enceladus/PARITY.md` lands
+## Done once the backend work landed
 
-- `/` subscriber feed, subscribe/unsubscribe on moon pages, sidebar subscription list
-- Validate the stored login with `GET /user/me`; clear local auth on 403; always clear local auth on log out
-- Simplify error parsing once error shapes are consistent (e.g. the plain-text handling in `CreatePostPage`)
-- Comment/reply character limit + counter
+The items previously deferred on the backend are done (frontend commits 93e33d7, 019589b, ab9bf02):
+
+- `/` subscriber feed, subscribe/unsubscribe on moon pages, sidebar subscription list (§1)
+- Stored login checked with `GET /user/me`; local logout on an expired session; log out always
+  clears the local login (§2, D7)
+- Create post reads `errors.file` for upload/storage failures (§4)
+- Comment/reply character limit + counter (§5)
+
+Still open: replacing the full reload after log in / log out (D6).
 
 ## How it was verified
 
@@ -201,5 +206,8 @@ scroll (with page size forced to 2), the `/all` redirects, moon-to-moon navigati
 pre-fill, Not Found keeping the URL, the error banner, post page body and comment/reply infinite
 scroll, all profile tabs (counts match the API), the account card links, and the whole settings
 flow (sign up → change email → change password → log in with the new credentials → delete).
-Moon suggestions, plain-text upload errors and the vote double-click guard were tested with
-mocked responses, so no posts or votes were written.
+Moon suggestions, upload errors and the vote double-click guard were tested with mocked
+responses, so no posts or votes were written. After the backend work landed, a second run covered
+subscriptions and the home feed, session expiry (mid-use, at startup on a guarded page, a failed
+log out request, and a non-session 403 that must keep the login), the comment limit, and the JSON
+upload errors. It used a throwaway account that was deleted afterwards.
