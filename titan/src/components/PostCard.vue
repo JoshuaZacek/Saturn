@@ -110,7 +110,8 @@ const deletePost = () => {
 const isOverflowing = ref(false)
 const body = useTemplateRef<HTMLParagraphElement>('body')
 onMounted(() => {
-  if (body.value) {
+  // The post page shows the whole body, so there's nothing to clip.
+  if (body.value && !props.postPageMode) {
     isOverflowing.value = body.value.scrollHeight > body.value.clientHeight
   }
 })
@@ -229,6 +230,16 @@ img {
   border-radius: 0.5rem;
   height: 10rem;
   border: 1px solid var(--bg-2);
+}
+
+.postPageMode .body {
+  max-height: none;
+}
+
+.postPageMode img {
+  display: block;
+  height: auto;
+  max-width: 100%;
 }
 
 .delete {
