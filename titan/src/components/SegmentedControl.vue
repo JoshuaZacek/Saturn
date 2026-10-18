@@ -6,10 +6,16 @@ type SegmentedOption = {
   value: string
 }
 
-const props = defineProps<{
-  modelValue: string
-  options: SegmentedOption[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: string
+    options: SegmentedOption[]
+    label?: string
+  }>(),
+  {
+    label: 'Sort posts',
+  },
+)
 
 defineEmits<{
   'update:modelValue': [value: string]
@@ -48,7 +54,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="segmentedControl" :style="controlStyle" role="tablist" aria-label="Sort posts">
+  <div class="segmentedControl" :style="controlStyle" role="tablist" :aria-label="label">
     <span class="activePill" :class="{ fading: isFading }" aria-hidden="true" />
 
     <button
