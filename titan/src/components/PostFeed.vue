@@ -10,10 +10,16 @@ import type { Post, PostsResponse } from '@/types/post'
 const PAGE_SIZE = 10
 
 // Query params for `GET /posts` other than `limit` and `cursor`
-// (`sort`, plus optional `time_period` and `moon_id`).
-const props = defineProps<{
-  params: Record<string, string | number>
-}>()
+// (`sort`, plus optional `time_period`, `moon_id` or `subscribed`).
+const props = withDefaults(
+  defineProps<{
+    params: Record<string, string | number>
+    emptyText?: string
+  }>(),
+  {
+    emptyText: 'Hmmm... empty.',
+  },
+)
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 const errorBanner = useErrorBannerStore()
@@ -62,7 +68,7 @@ watch(
       :has-more="hasMore"
       :failed="hasFailed"
       :empty="isEmpty"
-      empty-text="Hmmm... empty."
+      :empty-text="emptyText"
       end-text="You've reached the end."
       @load-more="loadMore"
       @retry="retry"
