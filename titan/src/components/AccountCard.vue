@@ -102,6 +102,7 @@
         <template v-else>
           <!-- .stop keeps these from bubbling to the card, which would reopen the menu -->
           <div class="accountLinks" @click.stop @keyup.enter.stop @keyup.space.stop>
+            <div class="accountLinksDivider" role="separator" />
             <AccountMenuButton
               v-if="authStore.user.username"
               label="Your profile"
