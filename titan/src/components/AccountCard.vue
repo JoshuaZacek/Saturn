@@ -102,26 +102,21 @@
         <template v-else>
           <!-- .stop keeps these from bubbling to the card, which would reopen the menu -->
           <div class="accountLinks" @click.stop @keyup.enter.stop @keyup.space.stop>
-            <FeedButton
+            <AccountMenuButton
               v-if="authStore.user.username"
-              label="Profile"
+              label="Your profile"
               :icon="ProfileIcon"
-              :icon-size="24"
               :active="isOwnProfilePage"
               @click="goTo({ name: 'profile', params: { username: authStore.user.username } })"
             />
-            <FeedButton
+            <AccountMenuButton
               label="Settings"
               :icon="GearIcon"
-              :icon-size="24"
               :active="route.name === 'settings'"
               @click="goTo('/settings')"
             />
+            <AccountMenuButton label="Log out" :icon="SignOutIcon" danger @click="handleLogout" />
           </div>
-
-          <SubmitButton style="margin-top: 0.75rem" @click.stop="handleLogout">
-            Log out
-          </SubmitButton>
         </template>
       </div>
     </Transition>
@@ -231,7 +226,7 @@ p {
 
 .accountLinks {
   display: grid;
-  gap: 0.15rem;
+  gap: 2px;
   margin-top: -0.5rem;
 }
 
@@ -308,9 +303,10 @@ import { useErrorBannerStore } from '@/stores/errorBanner'
 import AuthInput from './AuthInput.vue'
 import SpinnerLoader from './SpinnerLoader.vue'
 import SubmitButton from './SubmitButton.vue'
-import FeedButton from './FeedButton.vue'
+import AccountMenuButton from './AccountMenuButton.vue'
 import GearIcon from './icons/GearIcon.vue'
 import ProfileIcon from './icons/ProfileIcon.vue'
+import SignOutIcon from './icons/SignOutIcon.vue'
 
 const isMenuClosed = ref(true)
 const errors = ref({
