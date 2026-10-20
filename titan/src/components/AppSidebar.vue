@@ -10,7 +10,6 @@ import CreateActionsSelect from '@/components/CreateActionsSelect.vue'
 import NewIcon from '@/components/icons/NewIcon.vue'
 import HomeIcon from '@/components/icons/HomeIcon.vue'
 import TopIcon from '@/components/icons/TopIcon.vue'
-import PlanetIcon from '@/components/icons/PlanetIcon.vue'
 import { isCorrectTimePeriod } from '@/router/index.ts'
 
 const router = useRouter()
@@ -159,8 +158,8 @@ onBeforeUnmount(() => {
       <FeedButton
         v-for="moon in subscriptionsStore.moons"
         :key="moon.id"
+        class="subscriptionButton"
         :label="`/${moon.name}`"
-        :icon="PlanetIcon"
         :active="isMoonPage(moon.name)"
         @click="router.push({ name: 'moon', params: { moon: moon.name } })"
       />
@@ -226,6 +225,11 @@ ul {
 
 .feedsGroup {
   margin-top: 2rem;
+}
+
+.subscriptionButton {
+  /* Icon-less FeedButtons are static labels by default; these navigate. */
+  cursor: pointer;
 }
 
 .groupTitle {
