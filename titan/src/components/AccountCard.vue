@@ -110,7 +110,7 @@
               @click="goTo({ name: 'profile', params: { username: authStore.user.username } })"
             />
             <AccountMenuButton label="Settings" :icon="GearIcon" @click="goTo('/settings')" />
-            <div class="accountLinksDivider" role="separator" />
+            <div class="accountLinksDivider logoutDivider" role="separator" />
             <AccountMenuButton label="Log out" :icon="SignOutIcon" danger @click="handleLogout" />
           </div>
         </template>
@@ -230,6 +230,11 @@ p {
   height: 1px;
   margin: 0.25rem 0;
   background-color: var(--bg-2);
+}
+
+/* Matches the space between Log out and the bottom of the card. */
+.logoutDivider {
+  margin-bottom: 0.8125rem;
 }
 
 .toggleButton {
