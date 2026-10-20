@@ -26,7 +26,12 @@
       @before-leave="beforeMenuLeave"
       @leave="leaveMenu"
     >
-      <div class="menuContent" v-if="!isMenuClosed" ref="menuContent">
+      <div
+        class="menuContent"
+        :class="{ accountMenu: authStore.loggedIn }"
+        v-if="!isMenuClosed"
+        ref="menuContent"
+      >
         <template v-if="!authStore.loggedIn">
           <p v-if="authStore.sessionExpired" class="sessionNotice" role="status">
             Your session has expired. Please log in again.
@@ -212,30 +217,41 @@ p {
 }
 
 .menuContent {
-  /* With the content's own offsets, this leaves the same ~12px under the
-     username as on either side of the menu dividers. */
-  margin-top: 0.75rem;
+  /* A block formatting context, so nothing inside collapses margins through
+     its edges. Without it the open animation measures a different layout
+     (overflow: hidden makes one) than the one it settles into, and snaps. */
+  display: flow-root;
+  /* ~12px under the username, as on either side of the menu dividers. */
+  margin-top: 0.5rem;
   width: 100%;
+}
+
+/* Brings the space under Log out down to match the space above the username.
+   It sits on .menuContent, a flex item, so it never changes the measured
+   height; the open/close hooks animate it with margin-top. */
+.menuContent.accountMenu {
+  margin-bottom: -0.25rem;
 }
 
 .sessionNotice {
   font-size: 0.85rem;
-  margin: -0.25rem 0 0.75rem;
+  margin: 0 0 0.75rem;
   color: var(--text-2) !important;
 }
 
 .accountLinks {
   display: grid;
   gap: 2px;
-  margin-top: -0.5rem;
-  /* Pulls Log out down so the space under it matches the space above the username. */
-  margin-bottom: -0.25rem;
 }
 
 .accountLinksDivider {
   height: 1px;
   margin: 0.25rem 0;
   background-color: var(--bg-2);
+}
+
+.accountLinksDivider:first-child {
+  margin-top: 0;
 }
 
 .toggleButton {
@@ -254,7 +270,6 @@ p {
 .inputContainer {
   display: flex;
   flex-direction: column;
-  margin-top: -0.25rem;
 }
 
 .errorText {
@@ -333,6 +348,9 @@ const createOrLogin = ref<'login' | 'signup'>('login')
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 const LOCAL_VALIDATION_DELAY_MS = 450
 const MENU_TRANSITION_MS = 220
+const MENU_TRANSITION = ['height', 'opacity', 'margin-top', 'margin-bottom']
+  .map((property) => `${property} ${MENU_TRANSITION_MS}ms ease`)
+  .join(', ')
 let menuHeightAnimation: Animation | null = null
 const router = useRouter()
 const authStore = useAuthStore()
@@ -497,9 +515,12 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const beforeMenuEnter = (el: Element) => {
   const menu = el as HTMLElement
-  menu.dataset.targetMarginTop = getComputedStyle(menu).marginTop
+  const { marginTop, marginBottom } = getComputedStyle(menu)
+  menu.dataset.targetMarginTop = marginTop
+  menu.dataset.targetMarginBottom = marginBottom
   menu.style.height = '0'
   menu.style.marginTop = '0'
+  menu.style.marginBottom = '0'
   menu.style.opacity = '0'
   menu.style.overflow = 'hidden'
 }
@@ -507,11 +528,13 @@ const beforeMenuEnter = (el: Element) => {
 const enterMenu = (el: Element) => {
   const menu = el as HTMLElement
   const targetMarginTop = menu.dataset.targetMarginTop ?? '0px'
-  menu.style.transition = `height ${MENU_TRANSITION_MS}ms ease, opacity ${MENU_TRANSITION_MS}ms ease, margin-top ${MENU_TRANSITION_MS}ms ease`
+  const targetMarginBottom = menu.dataset.targetMarginBottom ?? '0px'
+  menu.style.transition = MENU_TRANSITION
 
   requestAnimationFrame(() => {
     menu.style.height = `${menu.scrollHeight}px`
     menu.style.marginTop = targetMarginTop
+    menu.style.marginBottom = targetMarginBottom
     menu.style.opacity = '1'
   })
 
@@ -522,6 +545,7 @@ const enterMenu = (el: Element) => {
 
     menu.style.height = 'auto'
     menu.style.marginTop = ''
+    menu.style.marginBottom = ''
     menu.style.overflow = ''
     menu.style.transition = ''
     menu.removeEventListener('transitionend', onTransitionEnd)
@@ -532,19 +556,22 @@ const enterMenu = (el: Element) => {
 
 const beforeMenuLeave = (el: Element) => {
   const menu = el as HTMLElement
+  const { marginTop, marginBottom } = getComputedStyle(menu)
   menu.style.height = `${menu.scrollHeight}px`
-  menu.style.marginTop = getComputedStyle(menu).marginTop
+  menu.style.marginTop = marginTop
+  menu.style.marginBottom = marginBottom
   menu.style.opacity = '1'
   menu.style.overflow = 'hidden'
 }
 
 const leaveMenu = (el: Element) => {
   const menu = el as HTMLElement
-  menu.style.transition = `height ${MENU_TRANSITION_MS}ms ease, opacity ${MENU_TRANSITION_MS}ms ease, margin-top ${MENU_TRANSITION_MS}ms ease`
+  menu.style.transition = MENU_TRANSITION
 
   requestAnimationFrame(() => {
     menu.style.height = '0'
     menu.style.marginTop = '0'
+    menu.style.marginBottom = '0'
     menu.style.opacity = '0'
   })
 }
