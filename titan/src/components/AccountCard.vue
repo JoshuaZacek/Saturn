@@ -109,6 +109,7 @@
               @click="goTo({ name: 'profile', params: { username: authStore.user.username } })"
             />
             <AccountMenuButton label="Settings" :icon="GearIcon" @click="goTo('/settings')" />
+            <div class="accountLinksDivider" role="separator" />
             <AccountMenuButton label="Log out" :icon="SignOutIcon" danger @click="handleLogout" />
           </div>
         </template>
@@ -222,6 +223,12 @@ p {
   display: grid;
   gap: 2px;
   margin-top: -0.5rem;
+}
+
+.accountLinksDivider {
+  height: 1px;
+  margin: 0.25rem 0;
+  background-color: var(--bg-2);
 }
 
 .toggleButton {
