@@ -188,7 +188,9 @@ p {
 
 .caret {
   margin-left: auto;
-  margin-right: -0.25rem;
+  /* The glyph sits ~3px inside its 20px box; line its right edge up with the
+     dividers and inputs rather than the box's. */
+  margin-right: calc(-0.25rem - 3px);
   padding: 0.25rem;
   box-sizing: content-box;
   background-color: var(--bg-1);
@@ -210,7 +212,9 @@ p {
 }
 
 .menuContent {
-  margin-top: 1rem;
+  /* With the content's own offsets, this leaves the same ~12px under the
+     username as on either side of the menu dividers. */
+  margin-top: 0.75rem;
   width: 100%;
 }
 
@@ -240,6 +244,8 @@ p {
   cursor: pointer;
   color: var(--accent-color);
   font-size: 0.75rem;
+  /* Same space below as above the card's title. */
+  margin-bottom: 0.25rem;
 }
 .toggleButton:hover {
   text-decoration: underline;
