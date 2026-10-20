@@ -4,7 +4,6 @@ import type { Component } from 'vue'
 defineProps<{
   label: string
   icon: Component
-  active?: boolean
   danger?: boolean
 }>()
 
@@ -14,13 +13,8 @@ defineEmits<{
 </script>
 
 <template>
-  <button
-    class="accountMenuButton"
-    type="button"
-    :class="{ active, danger }"
-    @click="$emit('click')"
-  >
-    <component :is="icon" :filled="active" :size="20" />
+  <button class="accountMenuButton" type="button" :class="{ danger }" @click="$emit('click')">
+    <component :is="icon" :size="24" />
     <span>{{ label }}</span>
   </button>
 </template>
@@ -43,21 +37,21 @@ defineEmits<{
 }
 
 .accountMenuButton svg {
-  /* Phosphor glyphs sit ~2px inside their box; pull them back to the text edge. */
-  margin-left: -2px;
+  /* Phosphor glyphs sit ~2.5px inside their box; pull them back to the text edge. */
+  margin-left: -2.5px;
 }
 
-.accountMenuButton:hover,
-.accountMenuButton.active {
+.accountMenuButton:hover {
   background-color: var(--bg-2);
 }
 
-.accountMenuButton.active span {
-  font-weight: bold;
+.danger span {
+  color: var(--text-error);
 }
 
-.danger span,
-.danger svg {
-  color: var(--text-error);
+/* The global `* { color }` rule reaches the icon's <path>, so `currentColor`
+   there wouldn't be red; set the fill on the path itself. */
+.danger :deep(path) {
+  fill: var(--text-error);
 }
 </style>
