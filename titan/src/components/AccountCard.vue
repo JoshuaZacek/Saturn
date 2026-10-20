@@ -106,15 +106,9 @@
               v-if="authStore.user.username"
               label="Your profile"
               :icon="ProfileIcon"
-              :active="isOwnProfilePage"
               @click="goTo({ name: 'profile', params: { username: authStore.user.username } })"
             />
-            <AccountMenuButton
-              label="Settings"
-              :icon="GearIcon"
-              :active="route.name === 'settings'"
-              @click="goTo('/settings')"
-            />
+            <AccountMenuButton label="Settings" :icon="GearIcon" @click="goTo('/settings')" />
             <AccountMenuButton label="Log out" :icon="SignOutIcon" danger @click="handleLogout" />
           </div>
         </template>
@@ -297,7 +291,7 @@ p {
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import CaretIcon from './icons/CaretIcon.vue'
 import axios from 'axios'
-import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
+import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 import AuthInput from './AuthInput.vue'
@@ -324,7 +318,6 @@ const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 const LOCAL_VALIDATION_DELAY_MS = 450
 const MENU_TRANSITION_MS = 220
 let menuHeightAnimation: Animation | null = null
-const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const errorBanner = useErrorBannerStore()
@@ -539,10 +532,6 @@ const leaveMenu = (el: Element) => {
     menu.style.opacity = '0'
   })
 }
-
-const isOwnProfilePage = computed(
-  () => route.name === 'profile' && route.params.username === authStore.user.username,
-)
 
 const goTo = (to: RouteLocationRaw) => {
   isMenuClosed.value = true
