@@ -49,6 +49,10 @@ const isNewPage = computed(() => route.name === 'all' && sortQuery.value === 'ne
 const isUnauthorizedPage = computed(() => route.name === 'unauthorized')
 
 const isMoonPage = (name: string) => route.name === 'moon' && route.params.moon === name
+// A subscribed moon is already highlighted in the Subscriptions list.
+const isSubscribedMoonPage = computed(() =>
+  subscriptionsStore.moons.some((moon) => isMoonPage(moon.name)),
+)
 
 watch(
   () => authStore.isLoggedIn,
@@ -129,7 +133,14 @@ onBeforeUnmount(() => {
     </div>
 
     <div
-      v-if="!isHomePage && !isTopPage && !isNewPage && !isNotFoundPage && !isUnauthorizedPage"
+      v-if="
+        !isHomePage &&
+        !isTopPage &&
+        !isNewPage &&
+        !isNotFoundPage &&
+        !isUnauthorizedPage &&
+        !isSubscribedMoonPage
+      "
       class="feedsGroup"
     >
       <p class="groupTitle">Currently Viewing</p>
