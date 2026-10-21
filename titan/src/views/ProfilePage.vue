@@ -2,6 +2,7 @@
 import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQueryValue } from 'vue-router'
+import AnimatedList from '@/components/AnimatedList.vue'
 import CustomSelect from '@/components/CustomSelect.vue'
 import InfiniteScrollFooter from '@/components/InfiniteScrollFooter.vue'
 import PostCard from '@/components/PostCard.vue'
@@ -205,12 +206,12 @@ watch([() => user.value?.id, contentType, sort], () => {
         @update:model-value="onSortChange"
       />
 
-      <div v-if="items.length > 0" class="profileContent">
-        <template v-for="item in items" :key="getItemKey(item)">
+      <AnimatedList v-if="items.length > 0" class="profileContent">
+        <div v-for="item in items" :key="getItemKey(item)">
           <PostCard v-if="item.kind === 'post'" :post="item.post" @deleted="removePost" />
           <ProfileCommentCard v-else :comment="item.comment" />
-        </template>
-      </div>
+        </div>
+      </AnimatedList>
 
       <InfiniteScrollFooter
         class="footer"
