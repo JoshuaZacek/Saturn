@@ -28,7 +28,14 @@
       >
     </div>
 
-    <img loading="lazy" v-if="post.type == 'image'" :src="imageURL" :alt="post.title" />
+    <PostImage
+      v-if="post.type == 'image'"
+      :src="imageURL"
+      :alt="post.title"
+      :width="post.image_width"
+      :height="post.image_height"
+      :mode="props.postPageMode ? 'full' : 'preview'"
+    />
 
     <div class="stats">
       <VoteButtons :id="post.id" :votes="post.votes" :hasVoted="post.hasVoted" type="post" />
@@ -64,6 +71,7 @@ import ChatCircleIcon from '@/components/icons/ChatCircleIcon.vue'
 import ClockIcon from '@/components/icons/ClockIcon.vue'
 import SpinnerLoader from '@/components/SpinnerLoader.vue'
 import VoteButtons from '@/components/VoteButtons.vue'
+import PostImage from '@/components/PostImage.vue'
 import UserCircleIcon from '@/components/icons/UserCircleIcon.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useErrorBannerStore } from '@/stores/errorBanner'
@@ -225,21 +233,8 @@ const postedDate = computed(() => formatRelativeTime(props.post.inserted_at))
   align-items: flex-start;
 }
 
-img {
-  margin-top: 0.5rem;
-  border-radius: 0.5rem;
-  height: 10rem;
-  border: 1px solid var(--bg-2);
-}
-
 .postPageMode .body {
   max-height: none;
-}
-
-.postPageMode img {
-  display: block;
-  height: auto;
-  max-width: 100%;
 }
 
 .delete {
