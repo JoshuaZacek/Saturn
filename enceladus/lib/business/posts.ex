@@ -5,23 +5,30 @@ defmodule Saturn.Posts do
   alias Saturn.{Repo, Post, User, Moon, Vote, Comment, Files, File, Subscription}
 
   def create(params, user) do
-    file =
-      if !!params["file"] and params["type"] == "image",
-        do: Files.upload(params["file"]),
-        else: {:ok, nil}
+    upload =
+      case params do
+        %{"type" => "image", "file" => %Plug.Upload{} = file} -> Files.upload(file)
+        %{"type" => "image", "file" => _} -> {:error, :file_not_supported}
+        %{"type" => "image"} -> {:error, :missing_file}
+        _ -> {:ok, nil}
+      end
 
-    case file do
-      {:ok, filename} ->
-        params = if filename, do: Map.put(params, "body", filename), else: params
+    case upload do
+      {:ok, upload} ->
+        params = if upload, do: Map.put(params, "body", upload.filename), else: params
 
         inserted_post =
-          %Post{user_id: user.id}
+          %Post{
+            user_id: user.id,
+            image_width: upload && upload.width,
+            image_height: upload && upload.height
+          }
           |> Post.changeset(params)
           |> Repo.insert()
 
         case inserted_post do
           {:ok, post} ->
-            if filename, do: Files.insert_db(filename, user, post)
+            if upload, do: Files.insert_db(upload.filename, user, post)
 
             Repo.preload(post,
               moon: from(m in Moon, select: %{id: m.id, name: m.name}),
@@ -59,14 +66,8 @@ defmodule Saturn.Posts do
             {:error, %{errors: format_changeset(changeset)}}
         end
 
-      {:error, :file_not_supported} ->
-        {:error, :file_not_supported}
-
-      {:error, :missing_s3_config} ->
-        {:error, :missing_s3_config}
-
-      {:error, :upload_failed} ->
-        {:error, :upload_failed}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
