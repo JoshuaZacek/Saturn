@@ -241,7 +241,7 @@ p {
 
 .accountLinks {
   display: grid;
-  gap: 2px;
+  /* gap: 2px; */
 }
 
 .accountLinksDivider {
