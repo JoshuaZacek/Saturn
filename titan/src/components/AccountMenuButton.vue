@@ -23,7 +23,7 @@ defineEmits<{
 .accountMenuButton {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.25rem;
   /* Bleed into the card's padding so the icons line up with the username above. */
   width: calc(100% + 1rem);
   margin: 0 -0.5rem;
@@ -31,7 +31,7 @@ defineEmits<{
   border: none;
   border-radius: 8px;
   background: none;
-  font-size: 1.05rem;
+  font-size: 1rem;
   text-align: left;
   cursor: pointer;
 }
