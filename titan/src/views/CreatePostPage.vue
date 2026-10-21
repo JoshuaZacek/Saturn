@@ -54,13 +54,7 @@
             </ul>
           </div>
 
-          <span v-if="moonStatus === 'checking'" class="moonInputSpinner" aria-live="polite">
-            <SpinnerLoader :size="20" bgColor="var(--bg-sub)" fgColor="var(--text-3)" />
-          </span>
-
-          <span v-else-if="moonStatus === 'exists'" class="moonInputSpinner" aria-live="polite">
-            <CheckIcon :size="20" color="var(--vote-up)" />
-          </span>
+          <InputStatusIndicator :status="moonIndicatorStatus" />
         </div>
 
         <p v-if="errors.moon" class="feedback error">{{ errors.moon }}</p>
@@ -160,7 +154,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 import SpinnerLoader from '@/components/SpinnerLoader.vue'
-import CheckIcon from '@/components/icons/CheckIcon.vue'
+import InputStatusIndicator from '@/components/InputStatusIndicator.vue'
 import { waitForMinimumVisibleTime } from '@/config/loading'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 
@@ -219,6 +213,14 @@ const errors = ref({
   file: '',
 })
 
+const moonIndicatorStatus = computed(() => {
+  if (moonStatus.value === 'checking') {
+    return 'checking'
+  }
+
+  return moonStatus.value === 'exists' ? 'valid' : null
+})
+
 const isMoonNameInSync = computed(() => {
   if (!selectedMoon.value) {
     return false
@@ -237,6 +239,9 @@ const isBodyCharacterCountAtLimit = computed(() => {
 
 let moonValidationTimeout: ReturnType<typeof setTimeout> | null = null
 let moonValidationRequestId = 0
+// The name the latest check was for, and whether it's still waiting on the API.
+let checkedMoonName: string | null = null
+let isMoonCheckInFlight = false
 
 const clearMoonValidationTimer = () => {
   if (moonValidationTimeout) {
@@ -247,6 +252,8 @@ const clearMoonValidationTimer = () => {
 
 const resetMoonSelection = () => {
   moonValidationRequestId += 1
+  checkedMoonName = null
+  isMoonCheckInFlight = false
   selectedMoon.value = null
   moonStatus.value = 'idle'
 }
@@ -306,6 +313,17 @@ const validateMoonNow = async () => {
     return
   }
 
+  // Don't re-check (and flash the spinner) for a name that's already been
+  // checked or is being checked, e.g. when the input is blurred right after.
+  if (
+    checkedMoonName === moonName &&
+    (isMoonCheckInFlight || moonStatus.value === 'exists' || moonStatus.value === 'missing')
+  ) {
+    return
+  }
+
+  checkedMoonName = moonName
+  isMoonCheckInFlight = true
   moonStatus.value = 'checking'
   const currentRequestId = ++moonValidationRequestId
   const requestStartedAt = Date.now()
@@ -345,6 +363,10 @@ const validateMoonNow = async () => {
     }
 
     moonStatus.value = 'error'
+  } finally {
+    if (currentRequestId === moonValidationRequestId) {
+      isMoonCheckInFlight = false
+    }
   }
 }
 
@@ -761,16 +783,6 @@ h1 {
   width: calc(100% / 2);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-}
-
-.moonInputSpinner {
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
 }
 
 .titleInput {
