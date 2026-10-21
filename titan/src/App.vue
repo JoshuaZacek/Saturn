@@ -34,7 +34,7 @@ watch(
 
 <template>
   <AppSidebar />
-  <main class="page-content">
+  <main class="page-content" :class="{ fullWidth: route.meta.fullWidth }">
     <div
       v-if="errorBanner.message"
       class="errorBannerHost"
@@ -101,6 +101,10 @@ body,
   justify-content: center;
   padding-top: 5rem;
   overflow-y: scroll;
+}
+
+.page-content.fullWidth {
+  padding-top: 0;
 }
 
 .errorBannerHost {
