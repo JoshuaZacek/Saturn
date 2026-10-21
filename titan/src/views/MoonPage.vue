@@ -22,7 +22,8 @@
         <div v-if="moon" class="headerActions">
           <SubmitButton
             :variant="moon.subscribed ? 'secondary' : 'default'"
-            :icon="subscribeIcon"
+            :icon="moon.subscribed ? undefined : PlusIcon"
+            class="subscribeButton"
             :class="{ offerUnsubscribe: showUnsubscribe }"
             :aria-pressed="moon.subscribed"
             :disabled="isUpdatingSubscription"
@@ -33,10 +34,15 @@
             @blur="isSubscribeKeyboardFocused = false"
           >
             <template v-if="!moon.subscribed">Subscribe</template>
-            <!-- Both labels share one grid cell, so swapping them doesn't resize the button. -->
+            <!-- Both icon + label pairs share one grid cell, so swapping them doesn't
+                 resize the button; each is centred, so the spare width splits evenly. -->
             <span v-else class="toggleLabels">
-              <span :class="{ hidden: showUnsubscribe }">Subscribed</span>
-              <span :class="{ hidden: !showUnsubscribe }">Unsubscribe</span>
+              <span class="toggleOption" :class="{ hidden: showUnsubscribe }">
+                <TickIcon class="optionIcon" :size="18" />Subscribed
+              </span>
+              <span class="toggleOption" :class="{ hidden: !showUnsubscribe }">
+                <CloseIcon class="optionIcon close" :size="18" />Unsubscribe
+              </span>
             </span>
           </SubmitButton>
           <SubmitButton
@@ -152,14 +158,6 @@ const showUnsubscribe = computed(
     isUnsubscribeOfferArmed.value &&
     (isPointerOverSubscribe.value || isSubscribeKeyboardFocused.value),
 )
-const subscribeIcon = computed(() => {
-  if (!moon.value?.subscribed) {
-    return PlusIcon
-  }
-
-  return showUnsubscribe.value ? CloseIcon : TickIcon
-})
-
 const onSubscribePointerLeave = () => {
   isPointerOverSubscribe.value = false
   isUnsubscribeOfferArmed.value = true
@@ -305,7 +303,7 @@ watch(moonName, (name) => void loadMoon(name), { immediate: true })
   max-width: 40rem;
   margin: 0 auto;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
 }
@@ -351,8 +349,11 @@ h1 {
 
 .headerActions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
   flex-shrink: 0;
+  /* The age line's box ends ~1.4px below its lowest letters; lift the buttons by
+     that much so their bottom edge lines up with the bottom of the age text. */
+  margin-bottom: 0.0875rem;
 }
 
 /* The default secondary button is the banner's own colour. */
@@ -369,22 +370,44 @@ h1 {
   color: var(--text-error);
 }
 
+.subscribeButton.secondary {
+  /* Matches SubmitButton's own icon layout for the subscribed state's icons. */
+  padding-left: 0.65rem;
+}
+
 .toggleLabels {
   display: inline-grid;
 }
 
-/* Spans would otherwise take the global text colour instead of the button's. */
+.toggleOption {
+  grid-area: 1 / 1;
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  /* Same as SubmitButton's icon gap. */
+  gap: 0.4rem;
+}
+
+.toggleOption.hidden {
+  visibility: hidden;
+}
+
+/* Spans and icon paths would otherwise take the global text colour (and the
+   icons' own .icon colour) instead of the button's. */
 .toggleLabels,
-.toggleLabels > span {
+.toggleOption,
+.toggleLabels .optionIcon,
+.toggleLabels .optionIcon :deep(path) {
   color: inherit;
 }
 
-.toggleLabels > span {
-  grid-area: 1 / 1;
+.toggleLabels .optionIcon :deep(path) {
+  fill: currentColor;
 }
 
-.toggleLabels > .hidden {
-  visibility: hidden;
+/* The ✕ glyph sits further inside its box than the other icons. */
+.toggleLabels .optionIcon.close {
+  margin: 0 -0.12rem;
 }
 
 main {
