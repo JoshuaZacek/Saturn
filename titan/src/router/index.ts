@@ -167,6 +167,8 @@ const router = createRouter({
       component: MoonPage,
       meta: {
         title: (to: RouteLocationNormalizedLoaded) => `/${String(to.params.moon)}`,
+        // The page draws its own full-width banner from the very top.
+        fullWidth: true,
       },
       beforeEnter: (to) => {
         const sort = to.query.sort
