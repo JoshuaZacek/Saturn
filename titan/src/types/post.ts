@@ -22,6 +22,10 @@ export interface Post {
   hasVoted: number | null
   moon: PostMoon
   updated_at: string
+  // Pixel size of an image post (as displayed); null for text posts and for
+  // older image posts whose size isn't known.
+  image_width?: number | null
+  image_height?: number | null
 }
 
 export interface PostsResponse {
