@@ -1,13 +1,23 @@
 <script setup lang="ts">
+import type { Component } from 'vue'
+
 defineProps<{
   type?: 'button' | 'submit' | 'reset'
   disabled?: boolean
   variant?: 'default' | 'secondary' | 'danger'
+  // An icon component (taking `size`) shown before the label, in the label's colour.
+  icon?: Component
 }>()
 </script>
 
 <template>
-  <button class="submitButton" :class="variant" :type="type ?? 'button'" :disabled="disabled">
+  <button
+    class="submitButton"
+    :class="[variant, { withIcon: icon }]"
+    :type="type ?? 'button'"
+    :disabled="disabled"
+  >
+    <component :is="icon" v-if="icon" class="buttonIcon" :size="18" />
     <slot />
   </button>
 </template>
@@ -23,6 +33,22 @@ defineProps<{
   cursor: pointer;
   color: var(--accent-text);
   transition: opacity 0.15s ease;
+}
+
+.submitButton.withIcon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-left: 0.65rem;
+}
+
+/* The global `* { color }` rule and the icons' own `.icon { color }` reach the
+   icon and its <path>, so hand the button's colour down explicitly (with enough
+   specificity to beat `.icon`). */
+.submitButton .buttonIcon,
+.submitButton .buttonIcon :deep(path) {
+  color: inherit;
+  fill: currentColor;
 }
 
 .submitButton.secondary {

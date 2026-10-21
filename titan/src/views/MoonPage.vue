@@ -12,7 +12,7 @@
               <UsersIcon :size="20" />
               <span>{{ subscriberText }}</span>
             </span>
-            <span class="stat">
+            <span class="stat age" :title="createdAtText">
               <ClockIcon :size="20" />
               <span>{{ ageText }}</span>
             </span>
@@ -22,12 +22,28 @@
         <div v-if="moon" class="headerActions">
           <SubmitButton
             :variant="moon.subscribed ? 'secondary' : 'default'"
+            :icon="subscribeIcon"
+            :class="{ offerUnsubscribe: showUnsubscribe }"
+            :aria-pressed="moon.subscribed"
             :disabled="isUpdatingSubscription"
             @click="toggleSubscription"
+            @pointerenter="isPointerOverSubscribe = true"
+            @pointerleave="onSubscribePointerLeave"
+            @focus="onSubscribeFocus"
+            @blur="isSubscribeKeyboardFocused = false"
           >
-            {{ moon.subscribed ? 'Unsubscribe' : 'Subscribe' }}
+            <template v-if="!moon.subscribed">Subscribe</template>
+            <!-- Both labels share one grid cell, so swapping them doesn't resize the button. -->
+            <span v-else class="toggleLabels">
+              <span :class="{ hidden: showUnsubscribe }">Subscribed</span>
+              <span :class="{ hidden: !showUnsubscribe }">Unsubscribe</span>
+            </span>
           </SubmitButton>
-          <SubmitButton @click="router.push({ name: 'create-post', query: { moon: moon.name } })">
+          <SubmitButton
+            variant="secondary"
+            :icon="CreatePostIcon"
+            @click="router.push({ name: 'create-post', query: { moon: moon.name } })"
+          >
             Create post
           </SubmitButton>
         </div>
@@ -67,6 +83,10 @@ import SpinnerLoader from '@/components/SpinnerLoader.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
 import PostFeed from '@/components/PostFeed.vue'
 import ClockIcon from '@/components/icons/ClockIcon.vue'
+import CloseIcon from '@/components/icons/CloseIcon.vue'
+import CreatePostIcon from '@/components/icons/CreatePostIcon.vue'
+import PlusIcon from '@/components/icons/PlusIcon.vue'
+import TickIcon from '@/components/icons/TickIcon.vue'
 import UsersIcon from '@/components/icons/UsersIcon.vue'
 import { notFoundLocation } from '@/router'
 import { useAuthStore } from '@/stores/auth'
@@ -116,6 +136,38 @@ const subscriberText = computed(() => {
   return `${formatCompactCount(count)} ${count === 1 ? 'subscriber' : 'subscribers'}`
 })
 const ageText = computed(() => (moon.value ? formatAge(moon.value.inserted_at) : 'Loading age'))
+const createdAtText = computed(() =>
+  moon.value ? `Created at ${new Date(moon.value.inserted_at).toLocaleString()}` : undefined,
+)
+
+// A subscribed moon's button reads "Subscribed" and offers "Unsubscribe" on hover
+// or keyboard focus. Right after subscribing the pointer is still on the button,
+// so the offer waits until it has left once.
+const isPointerOverSubscribe = ref(false)
+const isSubscribeKeyboardFocused = ref(false)
+const isUnsubscribeOfferArmed = ref(true)
+const showUnsubscribe = computed(
+  () =>
+    !!moon.value?.subscribed &&
+    isUnsubscribeOfferArmed.value &&
+    (isPointerOverSubscribe.value || isSubscribeKeyboardFocused.value),
+)
+const subscribeIcon = computed(() => {
+  if (!moon.value?.subscribed) {
+    return PlusIcon
+  }
+
+  return showUnsubscribe.value ? CloseIcon : TickIcon
+})
+
+const onSubscribePointerLeave = () => {
+  isPointerOverSubscribe.value = false
+  isUnsubscribeOfferArmed.value = true
+}
+
+const onSubscribeFocus = (event: FocusEvent) => {
+  isSubscribeKeyboardFocused.value = (event.target as HTMLElement).matches(':focus-visible')
+}
 
 const toggleSubscription = async () => {
   const currentMoon = moon.value
@@ -135,6 +187,7 @@ const toggleSubscription = async () => {
     await subscriptionsStore.setSubscribed(currentMoon, subscribe)
     currentMoon.subscribed = subscribe
     currentMoon.subscribers += subscribe ? 1 : -1
+    isUnsubscribeOfferArmed.value = !subscribe
   } catch {
     errorBanner.show(
       subscribe
@@ -244,7 +297,7 @@ watch(moonName, (name) => void loadMoon(name), { immediate: true })
   /* Inset from the sidebar and the page edges, with the same radius as post cards. */
   margin: 1rem;
   border-radius: 0.75rem;
-  padding: 2rem 1.5rem;
+  padding: 4rem 1.5rem;
 }
 
 /* Lines the banner's contents up with the 40rem column of posts below. */
@@ -252,7 +305,7 @@ watch(moonName, (name) => void loadMoon(name), { immediate: true })
   max-width: 40rem;
   margin: 0 auto;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
 }
@@ -274,6 +327,7 @@ h1 {
   margin-top: 0.6rem;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 0.3rem;
 }
 
@@ -291,6 +345,10 @@ h1 {
   color: var(--text-2);
 }
 
+.age {
+  cursor: default;
+}
+
 .headerActions {
   display: flex;
   gap: 0.5rem;
@@ -300,6 +358,33 @@ h1 {
 /* The default secondary button is the banner's own colour. */
 .headerActions .submitButton.secondary {
   background-color: var(--bg-sub);
+  box-shadow: 0 1px 2px rgb(20 17 11 / 8%);
+}
+
+.headerActions .submitButton:not(:disabled):hover {
+  filter: brightness(0.96);
+}
+
+.headerActions .submitButton.offerUnsubscribe {
+  color: var(--text-error);
+}
+
+.toggleLabels {
+  display: inline-grid;
+}
+
+/* Spans would otherwise take the global text colour instead of the button's. */
+.toggleLabels,
+.toggleLabels > span {
+  color: inherit;
+}
+
+.toggleLabels > span {
+  grid-area: 1 / 1;
+}
+
+.toggleLabels > .hidden {
+  visibility: hidden;
 }
 
 main {
