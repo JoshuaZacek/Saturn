@@ -241,7 +241,10 @@ watch(moonName, (name) => void loadMoon(name), { immediate: true })
 .banner {
   --banner-color: var(--bg-2);
   background-color: var(--banner-color);
-  padding: 4rem 1.5rem 1.75rem;
+  /* Inset from the sidebar and the page edges, with the same radius as post cards. */
+  margin: 1rem;
+  border-radius: 0.75rem;
+  padding: 2rem 1.5rem;
 }
 
 /* Lines the banner's contents up with the 40rem column of posts below. */
@@ -262,6 +265,9 @@ h1 {
   font-size: 2.5rem;
   line-height: 1.15;
   overflow-wrap: anywhere;
+  /* The font leaves ~0.15em of empty space above its capitals; pull the title up
+     by that much so the visible gap at the top matches the one at the bottom. */
+  margin-top: -0.15em;
 }
 
 .moonStats {
