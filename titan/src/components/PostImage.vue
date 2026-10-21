@@ -3,7 +3,10 @@ import { computed, onMounted, ref, useTemplateRef } from 'vue'
 
 // Used before an image loads when the API doesn't know its size (older posts).
 const FALLBACK_RATIO = 4 / 3
-const PREVIEW_HEIGHT = '10rem'
+const MAX_HEIGHT = {
+  preview: '10rem',
+  full: '40rem',
+}
 
 const props = defineProps<{
   src: string
@@ -11,8 +14,9 @@ const props = defineProps<{
   // Pixel size from the API (`image_width` / `image_height`); null if unknown.
   width?: number | null
   height?: number | null
-  // preview: feed cards, PREVIEW_HEIGHT tall (or narrower if the card is).
-  // full: the post page, natural size up to the card's width.
+  // Images show at their natural size, never enlarged, shrunk to fit the
+  // card's width and the mode's MAX_HEIGHT (preview: feed cards, full: the
+  // post page).
   mode: 'preview' | 'full'
 }>()
 
@@ -30,17 +34,16 @@ const size = computed(() => {
 
 const ratio = computed(() => (size.value ? size.value.width / size.value.height : FALLBACK_RATIO))
 
-// The frame is the image's final box, so nothing moves when the image arrives.
+// The frame is the image's final box, so nothing moves when the image arrives:
+// the widest box with the image's ratio that fits every limit.
 const frameStyle = computed(() => {
-  let width: string
+  const limits = ['100%', `calc(${MAX_HEIGHT[props.mode]} * ${ratio.value})`]
 
-  if (props.mode === 'preview') {
-    width = `min(100%, calc(${PREVIEW_HEIGHT} * ${ratio.value}))`
-  } else {
-    width = size.value ? `min(100%, ${size.value.width}px)` : '100%'
+  if (size.value) {
+    limits.push(`${size.value.width}px`)
   }
 
-  return { width, aspectRatio: String(ratio.value) }
+  return { width: `min(${limits.join(', ')})`, aspectRatio: String(ratio.value) }
 })
 
 const onLoad = () => {
