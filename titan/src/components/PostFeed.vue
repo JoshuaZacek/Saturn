@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import axios from 'axios'
 import { watch } from 'vue'
+import AnimatedList from '@/components/AnimatedList.vue'
 import InfiniteScrollFooter from '@/components/InfiniteScrollFooter.vue'
 import PostCard from '@/components/PostCard.vue'
 import { usePaginatedList } from '@/composables/usePaginatedList'
@@ -58,9 +59,9 @@ watch(
 
 <template>
   <div class="postFeed">
-    <div v-if="items.length > 0" class="posts">
+    <AnimatedList v-if="items.length > 0" class="posts">
       <PostCard v-for="post in items" :key="post.id" :post="post" @deleted="removePost" />
-    </div>
+    </AnimatedList>
 
     <InfiniteScrollFooter
       class="footer"
