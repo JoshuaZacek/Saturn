@@ -19,6 +19,9 @@ defmodule Saturn.Post do
     field(:title, :string)
     field(:body, :string)
     field(:type, :string)
+    # Set from the uploaded file, never from params
+    field(:image_width, :integer)
+    field(:image_height, :integer)
     field(:hasVoted, :integer, virtual: true)
 
     timestamps(type: :utc_datetime)
