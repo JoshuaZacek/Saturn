@@ -1,6 +1,8 @@
 defmodule Saturn.Router do
   use Plug.Router
-  alias Saturn.{AuthRouter, SessionPlug, Users, Posts, Moons, Comments, Profiles}
+  import Saturn.Responses
+  import Saturn.Functions
+  alias Saturn.{AuthRouter, SessionPlug, Session, Users, Posts, Moons, Comments, Profiles}
 
   plug(Plug.Logger)
 
@@ -12,7 +14,14 @@ defmodule Saturn.Router do
 
   plug(:fetch_cookies)
   plug(:match)
-  plug(Plug.Parsers, parsers: [:json, :urlencoded, :multipart], json_decoder: Jason)
+  plug(Plug.Parsers,
+    parsers: [
+      :json,
+      :urlencoded,
+      {:multipart, length: 15_000_000}
+    ],
+    json_decoder: Jason
+  )
   plug(SessionPlug)
   plug(:dispatch)
 
@@ -22,15 +31,15 @@ defmodule Saturn.Router do
       %{"email" => email, "password" => password} ->
         case Users.login(email, password) do
           {:error, error} ->
-            send_resp(conn, 400, Jason.encode!(error))
+            send_json(conn, 400, error)
 
           session ->
             conn
             |> put_resp_cookie("session_id", session.session_id,
               same_site: "Strict",
-              max_age: 31_536_000
+              max_age: Session.max_age()
             )
-            |> send_resp(200, Jason.encode!(session.user))
+            |> send_json(200, session.user)
         end
 
       _ ->
@@ -43,15 +52,15 @@ defmodule Saturn.Router do
       %{"username" => username, "email" => email, "password" => password} ->
         case Users.signup(username, email, password) do
           {:error, error} ->
-            send_resp(conn, 400, Jason.encode!(error))
+            send_json(conn, 400, error)
 
           session ->
             conn
             |> put_resp_cookie("session_id", session.session_id,
               same_site: "Strict",
-              max_age: 31_536_000
+              max_age: Session.max_age()
             )
-            |> send_resp(200, Jason.encode!(session.user))
+            |> send_json(200, session.user)
         end
 
       _ ->
@@ -59,13 +68,14 @@ defmodule Saturn.Router do
     end
   end
 
-  get "/user/:username" do
+  # GET /user/me (the session user) is in AuthRouter
+  get "/user/:username" when username != "me" do
     case Users.get_by_username(username) do
       nil ->
         send_resp(conn, 404, "Not found")
 
       user ->
-        send_resp(conn, 200, Jason.encode!(user))
+        send_json(conn, 200, user)
     end
   end
 
@@ -75,13 +85,22 @@ defmodule Saturn.Router do
       limit: [type: :integer, required: true, number: [min: 1, max: 10]],
       sort: [type: :string, required: true, in: ["top", "new"]],
       cursor: [type: :string],
-      moon_id: [type: :integer],
-      time_period: [type: :integer]
+      moon_id: id_param(),
+      time_period: [type: :integer],
+      subscribed: [type: :boolean]
     }
 
     with {:ok, params} <- Tarams.cast(conn.params, schema) do
-      posts = Posts.get(params, conn.assigns.user_id)
-      send_resp(conn, 200, Jason.encode!(posts))
+      cond do
+        params.subscribed && params.moon_id ->
+          send_resp(conn, 400, "Bad request")
+
+        params.subscribed && !conn.assigns.user_id ->
+          send_resp(conn, 403, "Unauthorized")
+
+        true ->
+          send_json(conn, 200, Posts.get(params, conn.assigns.user_id))
+      end
     else
       {:error, _} ->
         send_resp(conn, 400, "Bad request")
@@ -89,40 +108,27 @@ defmodule Saturn.Router do
   end
 
   get "/post/:id" do
-    case Posts.get_by_id(id, conn.assigns.user_id) do
-      nil ->
+    with {:ok, params} <- Tarams.cast(conn.path_params, %{id: id_param(required: true)}),
+         %{} = post <- Posts.get_by_id(params.id, conn.assigns.user_id) do
+      send_json(conn, 200, post)
+    else
+      _ ->
         send_resp(conn, 404, "Not found")
-
-      post ->
-        send_resp(conn, 200, Jason.encode!(post))
     end
   end
 
   # /moon
   get "/moon/search/:name" do
-    case Moons.search(name) do
-      results ->
-        json_results =
-          results
-          |> Map.drop([:posts, :user, :__meta__, :__struct__, :user_id])
-          |> Jason.encode!()
-
-        send_resp(conn, 200, json_results)
-    end
+    send_json(conn, 200, Moons.search(name))
   end
 
   get "/moon/:name" do
-    case Moons.get(name) do
+    case Moons.get(name, conn.assigns.user_id) do
       nil ->
         send_resp(conn, 404, "Not found")
 
       moon ->
-        json_moon =
-          moon
-          |> Map.drop([:posts, :user, :__meta__, :__struct__, :user_id])
-          |> Jason.encode!()
-
-        send_resp(conn, 200, json_moon)
+        send_json(conn, 200, moon)
     end
   end
 
@@ -132,13 +138,12 @@ defmodule Saturn.Router do
       limit: [type: :integer, required: true, number: [min: 1, max: 10]],
       sort: [type: :string, required: true, in: ["top", "new"]],
       cursor: [type: :string],
-      parent_comment_id: [type: :integer],
-      post_id: [type: :integer]
+      parent_comment_id: id_param(),
+      post_id: id_param(required: true)
     }
 
     with {:ok, params} <- Tarams.cast(conn.params, schema) do
-      comments = Comments.get(params, conn.assigns.user_id)
-      send_resp(conn, 200, Jason.encode!(comments))
+      send_json(conn, 200, Comments.get(params, conn.assigns.user_id))
     else
       {:error, _} ->
         send_resp(conn, 400, "Bad request")
@@ -146,12 +151,12 @@ defmodule Saturn.Router do
   end
 
   get "/comments/:id" do
-    case Comments.get_by_id(id, conn.assigns.user_id) do
-      nil ->
+    with {:ok, params} <- Tarams.cast(conn.path_params, %{id: id_param(required: true)}),
+         %{} = comment <- Comments.get_by_id(params.id, conn.assigns.user_id) do
+      send_json(conn, 200, comment)
+    else
+      _ ->
         send_resp(conn, 404, "Not found")
-
-      comment ->
-        send_resp(conn, 200, Jason.encode!(comment))
     end
   end
 
@@ -162,12 +167,11 @@ defmodule Saturn.Router do
       sort: [type: :string, required: true, in: ["top", "new"]],
       cursor: [type: :string],
       parent_comment_id: [type: :integer],
-      user_id: [type: :integer]
+      user_id: id_param(required: true)
     }
 
     with {:ok, params} <- Tarams.cast(conn.params, schema) do
-      posts = Profiles.get_posts(params, conn.assigns.user_id)
-      send_resp(conn, 200, Jason.encode!(posts))
+      send_json(conn, 200, Profiles.get_posts(params, conn.assigns.user_id))
     else
       {:error, _} ->
         send_resp(conn, 400, "Bad request")
@@ -180,30 +184,26 @@ defmodule Saturn.Router do
       sort: [type: :string, required: true, in: ["top", "new"]],
       cursor: [type: :string],
       parent_comment_id: [type: :integer],
-      user_id: [type: :integer]
+      user_id: id_param(required: true)
     }
 
     with {:ok, params} <- Tarams.cast(conn.params, schema) do
       comments = Profiles.get_comments(params, conn.assigns.user_id)
 
-      json_comments =
-        %{
-          next_cursor: comments.next_cursor,
-          content:
-            Enum.map(comments.content, fn comment ->
-              Map.drop(comment, [
-                :__meta__,
-                :__struct__,
-                :post_id,
-                :user_id,
-                :comment_id,
-                :comment
-              ])
-            end)
-        }
-        |> Jason.encode!()
-
-      send_resp(conn, 200, json_comments)
+      send_json(conn, 200, %{
+        next_cursor: comments.next_cursor,
+        content:
+          Enum.map(comments.content, fn comment ->
+            Map.drop(comment, [
+              :__meta__,
+              :__struct__,
+              :post_id,
+              :user_id,
+              :comment_id,
+              :comment
+            ])
+          end)
+      })
     else
       {:error, _} ->
         send_resp(conn, 400, "Bad request")
@@ -216,12 +216,11 @@ defmodule Saturn.Router do
       sort: [type: :string, required: true, in: ["top", "new"]],
       cursor: [type: :string],
       parent_comment_id: [type: :integer],
-      user_id: [type: :integer]
+      user_id: id_param(required: true)
     }
 
     with {:ok, params} <- Tarams.cast(conn.params, schema) do
-      overview = Profiles.overview(params, conn.assigns.user_id)
-      send_resp(conn, 200, Jason.encode!(overview))
+      send_json(conn, 200, Profiles.overview(params, conn.assigns.user_id))
     else
       {:error, _} ->
         send_resp(conn, 400, "Bad request")

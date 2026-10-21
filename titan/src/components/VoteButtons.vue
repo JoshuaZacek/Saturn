@@ -1,134 +1,128 @@
 <template>
-  <Overlay v-if="overlayStatus" :status="overlayStatus" :message="overlayMessage" />
-
-  <div class="voteButtons">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 946.15" ontouchstart>
-      <path
-        d="M659.21,143.52c-82.32-141.36-218.55-141.36-295.78,0L72,653.61c-80.86,140.64-14.57,255,145.71,255H804.92c162.46,0,228.76-114.4,145.7-255Z"
-        style="fill:none;stroke:#757575;stroke-miterlimit:10;stroke-width:75px;cursor:pointer;"
-        :class="[currentVote == 'up' ? 'up' : '', 'vote']"
-        @click="submitVote('up')"
-      />
-    </svg>
-
-    <p>{{ content.votes }}</p>
-
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 946.15">
-      <path
-        d="M364.79,802.63C447.11,944,583.34,944,660.57,802.63L952,292.54c80.86-140.64,14.57-255-145.71-255H219.08c-162.46,0-228.76,114.41-145.7,255Z"
-        style="fill:none;stroke:#757575;stroke-miterlimit:10;stroke-width:75px;cursor:pointer;"
-        :class="[currentVote == 'down' ? 'down' : '', 'vote']"
-        @click="submitVote('down')"
-      />
-    </svg>
+  <div class="voteButtons" :class="size">
+    <ArrowIcon
+      direction="up"
+      :size="arrowSize"
+      :class="currentVote === 'up' ? 'up' : ''"
+      :filled="currentVote === 'up'"
+      @vote="submitVote('up')"
+    />
+    <span :class="currentVote">{{ voteCount }}</span>
+    <ArrowIcon
+      direction="down"
+      :size="arrowSize"
+      :class="currentVote === 'down' ? 'down' : ''"
+      :filled="currentVote === 'down'"
+      @vote="submitVote('down')"
+    />
   </div>
 </template>
 
-<script lang="ts">
-import { Options, Vue } from "vue-class-component";
-import Overlay from "@/components/Overlay.vue";
-import axios from "axios";
+<script setup lang="ts">
+import ArrowIcon from '@/components/icons/ArrowIcon.vue'
+import axios, { AxiosError } from 'axios'
+import { computed, ref } from 'vue'
+import { useErrorBannerStore } from '@/stores/errorBanner'
 
-@Options({
-  props: {
-    content: Object,
-    type: String,
+const props = withDefaults(
+  defineProps<{
+    type: string
+    votes: number
+    hasVoted: number | null
+    id: number
+    size?: 'default' | 'small'
+  }>(),
+  {
+    size: 'default',
   },
-  components: {
-    Overlay,
-  },
-})
-export default class VoteButtons extends Vue {
-  currentVote = "";
-  overlayMessage = "";
-  overlayStatus = "";
+)
 
-  content!: Record<string, unknown>;
-  type!: string;
+const arrowSize = computed(() => (props.size === 'small' ? 19 : 22))
 
-  created(): void {
-    if (this.content.hasVoted === 1) {
-      this.currentVote = "up";
-    } else if (this.content.hasVoted === -1) {
-      this.currentVote = "down";
-    }
-  }
+const errorBanner = useErrorBannerStore()
+const voteCount = ref(props.votes)
+const currentVote = ref<'up' | 'down' | null>(null)
+const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 
-  createSubmitURL(vote: string): string {
-    return `${process.env.VUE_APP_API_URL}/vote?vote=${vote}&${
-      this.type == "post" ? "post_id" : "comment_id"
-    }=${this.content.id}`;
-  }
+const createSubmitURL = (vote: string): string => {
+  return `${backendUrl}/vote?vote=${vote}&${
+    props.type == 'post' ? 'post_id' : 'comment_id'
+  }=${props.id}`
+}
+const createDeleteURL = (): string => {
+  return `${backendUrl}/vote?${props.type == 'post' ? 'post_id' : 'comment_id'}=${props.id}`
+}
 
-  createDeleteURL(): string {
-    return `${process.env.VUE_APP_API_URL}/vote?${
-      this.type == "post" ? "post_id" : "comment_id"
-    }=${this.content.id}`;
-  }
+if (props.hasVoted === 1) {
+  currentVote.value = 'up'
+} else if (props.hasVoted === -1) {
+  currentVote.value = 'down'
+}
 
-  async setOverlay(status: string, message: string, autoClear = true): Promise<void> {
-    this.overlayStatus = status;
-    this.overlayMessage = message;
+const deleteVote = (): Promise<void> => {
+  return axios
+    .delete(createDeleteURL())
+    .then(() => {
+      if (currentVote.value == 'up') {
+        voteCount.value -= 1
+      } else if (currentVote.value == 'down') {
+        voteCount.value += 1
+      }
 
-    if (autoClear) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      this.setOverlay("", "", false);
-    }
-  }
+      currentVote.value = null
+    })
+    .catch(() => {
+      errorBanner.show("Your vote couldn't be removed. Please try again.")
+    })
+}
 
-  deleteVote(): void {
-    axios
-      .delete(this.createDeleteURL(), { withCredentials: true })
-      .then(() => {
-        if (this.currentVote == "up") {
-          (<number>this.content.votes) -= 1;
-        } else if (this.currentVote == "down") {
-          (<number>this.content.votes) += 1;
+const postVote = (vote: string): Promise<void> => {
+  return axios
+    .post(createSubmitURL(vote), {})
+    .then(() => {
+      if (vote == 'up') {
+        if (currentVote.value == 'down') {
+          voteCount.value += 2
+        } else {
+          voteCount.value += 1
         }
 
-        this.currentVote = "";
-        this.setOverlay("success", "Vote submitted");
-      })
-      .catch(() => {
-        this.setOverlay("error", "Vote couldn't be submitted");
-      });
-  }
-
-  submitVote(vote: string): void {
-    this.setOverlay("load", "Submiting your vote", false);
-
-    if (vote == this.currentVote) {
-      this.deleteVote();
-      return;
-    }
-
-    axios
-      .post(this.createSubmitURL(vote), {}, { withCredentials: true })
-      .then(() => {
-        this.setOverlay("success", "Vote submitted");
-
-        if (vote == "up") {
-          if (this.currentVote == "down") {
-            (<number>this.content.votes) += 2;
-          } else {
-            (<number>this.content.votes) += 1;
-          }
-
-          this.currentVote = "up";
-        } else if (vote == "down") {
-          if (this.currentVote == "up") {
-            (<number>this.content.votes) -= 2;
-          } else {
-            (<number>this.content.votes) -= 1;
-          }
-
-          this.currentVote = "down";
+        currentVote.value = 'up'
+      } else if (vote == 'down') {
+        if (currentVote.value == 'up') {
+          voteCount.value -= 2
+        } else {
+          voteCount.value -= 1
         }
-      })
-      .catch(() => {
-        this.setOverlay("error", "Vote couldn't be submitted");
-      });
+
+        currentVote.value = 'down'
+      }
+    })
+    .catch((err: AxiosError) => {
+      if (err.status === 403) {
+        errorBanner.show('You must be logged in to vote.')
+        return
+      }
+
+      errorBanner.show("Your vote couldn't be submitted. Please try again.")
+    })
+}
+
+// Each response adjusts the count relative to the vote it started from, so
+// overlapping requests (e.g. a double click) would count twice. Ignore clicks
+// until the pending vote settles.
+let isVoting = false
+
+const submitVote = (vote: string): void => {
+  if (isVoting) {
+    return
   }
+
+  isVoting = true
+  const request = vote == currentVote.value ? deleteVote() : postVote(vote)
+  void request.finally(() => {
+    isVoting = false
+  })
 }
 </script>
 
@@ -136,33 +130,22 @@ export default class VoteButtons extends Vue {
 .voteButtons {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  margin-right: 10px;
-}
-.voteButtons > p {
-  font-size: 15px;
+  gap: 0.25rem;
+  font-size: 1rem;
 }
 
-.vote.down {
-  stroke: red !important;
-}
-.vote.up {
-  stroke: #006cff !important;
+.voteButtons.small {
+  gap: 0.2rem;
+  font-size: 0.9rem;
 }
 
-svg {
-  height: 15px;
+.up {
+  color: var(--vote-up);
+  font-weight: bold;
 }
 
-@media (hover: hover) {
-  .vote.down:hover {
-    fill: #ff0000 !important;
-  }
-  .vote.up:hover {
-    fill: #006cff !important;
-  }
-  .vote:not(.down, .up):hover {
-    fill: var(--textSecondary) !important;
-  }
+.down {
+  color: var(--vote-down);
+  font-weight: bold;
 }
 </style>

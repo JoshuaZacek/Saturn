@@ -1,10 +1,11 @@
 defmodule Saturn.Profiles do
   import Ecto.Query
+  import Saturn.Functions
 
   alias Saturn.{Repo, Post, Moon, User, Comment}
 
   def get_posts(params, user_id) do
-    cursor = parse_cursor(params.cursor)
+    cursor = parse_cursor(params.cursor, params.sort)
 
     order_by =
       case params.sort do
@@ -29,14 +30,21 @@ defmodule Saturn.Profiles do
           ]
       end
 
+    # Row comparisons keep posts at or after the cursor in (sort key, id) order, so ties on the
+    # sort key fall back to id instead of dropping rows
     cursor_query =
       case params.sort do
         "new" ->
           if cursor do
             dynamic(
               [p],
-              p.id <= ^cursor["id"] and
-                p.inserted_at <= ^DateTime.from_unix!(cursor["inserted_at"])
+              fragment(
+                "(?, ?) <= (?, ?)",
+                p.inserted_at,
+                p.id,
+                ^cursor["inserted_at"],
+                ^cursor["id"]
+              )
             )
           else
             is_nil(cursor)
@@ -46,9 +54,13 @@ defmodule Saturn.Profiles do
           if cursor do
             dynamic(
               [p],
-              fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", p.id) <=
-                ^cursor["votes"] and
-                p.id <= ^cursor["id"]
+              fragment(
+                "((SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?), ?) <= (?, ?)",
+                p.id,
+                p.id,
+                ^cursor["votes"],
+                ^cursor["id"]
+              )
             )
           else
             is_nil(cursor)
@@ -90,7 +102,7 @@ defmodule Saturn.Profiles do
   end
 
   def get_comments(params, user_id) do
-    cursor = parse_cursor(params.cursor)
+    cursor = parse_cursor(params.cursor, params.sort)
 
     order_by =
       case params.sort do
@@ -115,14 +127,21 @@ defmodule Saturn.Profiles do
           ]
       end
 
+    # Row comparisons keep comments at or after the cursor in (sort key, id) order, so ties on the
+    # sort key fall back to id instead of dropping rows
     cursor_query =
       case params.sort do
         "new" ->
           if cursor do
             dynamic(
               [c],
-              c.id <= ^cursor["id"] and
-                c.inserted_at <= ^DateTime.from_unix!(cursor["inserted_at"])
+              fragment(
+                "(?, ?) <= (?, ?)",
+                c.inserted_at,
+                c.id,
+                ^cursor["inserted_at"],
+                ^cursor["id"]
+              )
             )
           else
             is_nil(cursor)
@@ -132,9 +151,13 @@ defmodule Saturn.Profiles do
           if cursor do
             dynamic(
               [c],
-              fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE comment_id = ?", c.id) <=
-                ^cursor["votes"] and
-                c.id <= ^cursor["id"]
+              fragment(
+                "((SELECT COALESCE(SUM(vote), 0) FROM votes WHERE comment_id = ?), ?) <= (?, ?)",
+                c.id,
+                c.id,
+                ^cursor["votes"],
+                ^cursor["id"]
+              )
             )
           else
             is_nil(cursor)
@@ -175,7 +198,7 @@ defmodule Saturn.Profiles do
   end
 
   def overview(params, user_id) do
-    cursor = parse_cursor(params.cursor)
+    cursor = parse_cursor(params.cursor, "row")
 
     posts_query =
       from(p in Post,
@@ -191,6 +214,8 @@ defmodule Saturn.Profiles do
           moon: nil,
           title: p.title,
           body: p.body,
+          image_width: p.image_width,
+          image_height: p.image_height,
           content: nil,
           post_id: nil,
           post: nil,
@@ -222,6 +247,8 @@ defmodule Saturn.Profiles do
           moon: nil,
           title: nil,
           body: nil,
+          image_width: nil,
+          image_height: nil,
           content: c.content,
           post_id: c.post_id,
           post: nil,
@@ -240,6 +267,7 @@ defmodule Saturn.Profiles do
 
     union_query = union_all(comments_query, ^posts_query)
 
+    # contentType and id break ties, so equal rows keep the same order (and row numbers) across pages
     order_by_row_number =
       case params.sort do
         "new" ->
@@ -248,7 +276,9 @@ defmodule Saturn.Profiles do
               dynamic(
                 [q],
                 q.inserted_at
-              )
+              ),
+            asc: dynamic([q], q.contentType),
+            desc: dynamic([q], q.id)
           ]
 
         "top" ->
@@ -257,7 +287,9 @@ defmodule Saturn.Profiles do
               dynamic(
                 [q],
                 q.votes
-              )
+              ),
+            asc: dynamic([q], q.contentType),
+            desc: dynamic([q], q.id)
           ]
       end
 
@@ -382,15 +414,5 @@ defmodule Saturn.Profiles do
 
   defp get_next_cursor(comments, _, _, _) do
     {nil, comments}
-  end
-
-  defp parse_cursor(cursor) do
-    try do
-      cursor
-      |> Base.url_decode64!()
-      |> Jason.decode!()
-    rescue
-      _ -> nil
-    end
   end
 end

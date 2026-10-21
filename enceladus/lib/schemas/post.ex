@@ -1,8 +1,12 @@
 defmodule Saturn.Post do
   use Ecto.Schema
   import Ecto.Changeset
+  import Saturn.Functions
 
   alias Saturn.{User, Moon, Vote, Comment, File}
+
+  @title_max_length 100
+  @body_max_length 5_000
 
   @derive {Jason.Encoder, except: [:__meta__, :moon_id, :user_id, :files]}
   schema "posts" do
@@ -15,6 +19,9 @@ defmodule Saturn.Post do
     field(:title, :string)
     field(:body, :string)
     field(:type, :string)
+    # Set from the uploaded file, never from params
+    field(:image_width, :integer)
+    field(:image_height, :integer)
     field(:hasVoted, :integer, virtual: true)
 
     timestamps(type: :utc_datetime)
@@ -22,8 +29,11 @@ defmodule Saturn.Post do
 
   def changeset(post, attrs) do
     post
-    |> cast(attrs, [:title, :body, :moon_id, :user_id, :type])
+    |> cast(attrs, [:title, :body, :moon_id, :type])
     |> validate_required([:title, :body, :moon_id, :user_id, :type])
+    |> validate_length(:title, max: @title_max_length)
+    |> validate_length(:body, max: @body_max_length)
+    |> validate_id(:moon_id)
     |> foreign_key_constraint(:moon_id)
     |> foreign_key_constraint(:user_id)
   end

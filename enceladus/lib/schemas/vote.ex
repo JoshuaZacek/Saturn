@@ -1,6 +1,7 @@
 defmodule Saturn.Vote do
   use Ecto.Schema
   import Ecto.Changeset
+  import Saturn.Functions
 
   alias Saturn.{User, Post, Comment}
 
@@ -17,8 +18,10 @@ defmodule Saturn.Vote do
 
   def changeset(vote, attrs) do
     vote
-    |> cast(attrs, [:vote, :user_id, :post_id, :comment_id])
+    |> cast(attrs, [:vote, :post_id, :comment_id])
     |> validate_required([:vote, :user_id])
+    |> validate_id(:post_id)
+    |> validate_id(:comment_id)
     |> foreign_key_constraint(:post_id)
     |> foreign_key_constraint(:comment_id)
     |> check_constraint(:post_id, name: :must_be_comment_or_post)

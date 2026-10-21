@@ -2,26 +2,33 @@ defmodule Saturn.Posts do
   import Ecto.Query
   import Saturn.Functions
 
-  alias Saturn.{Repo, Post, User, Moon, Vote, Comment, Files, File}
+  alias Saturn.{Repo, Post, User, Moon, Vote, Comment, Files, File, Subscription}
 
   def create(params, user) do
-    file =
-      if !!params["file"] and params["type"] == "image",
-        do: Files.upload(params["file"]),
-        else: {:ok, nil}
+    upload =
+      case params do
+        %{"type" => "image", "file" => %Plug.Upload{} = file} -> Files.upload(file)
+        %{"type" => "image", "file" => _} -> {:error, :file_not_supported}
+        %{"type" => "image"} -> {:error, :missing_file}
+        _ -> {:ok, nil}
+      end
 
-    case file do
-      {:ok, filename} ->
-        params = if filename, do: Map.put(params, "body", filename), else: params
+    case upload do
+      {:ok, upload} ->
+        params = if upload, do: Map.put(params, "body", upload.filename), else: params
 
         inserted_post =
-          %Post{user_id: user.id}
+          %Post{
+            user_id: user.id,
+            image_width: upload && upload.width,
+            image_height: upload && upload.height
+          }
           |> Post.changeset(params)
           |> Repo.insert()
 
         case inserted_post do
           {:ok, post} ->
-            if filename, do: Files.insert_db(filename, user, post)
+            if upload, do: Files.insert_db(upload.filename, user, post)
 
             Repo.preload(post,
               moon: from(m in Moon, select: %{id: m.id, name: m.name}),
@@ -59,30 +66,31 @@ defmodule Saturn.Posts do
             {:error, %{errors: format_changeset(changeset)}}
         end
 
-      {:error, :file_not_supported} ->
-        {:error, :file_not_supported}
-
-      {:error, :missing_s3_config} ->
-        {:error, :missing_s3_config}
-
-      {:error, :upload_failed} ->
-        {:error, :upload_failed}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
   def get(
-        %{limit: limit, sort: sort, cursor: cursor, moon_id: moon_id, time_period: time_period},
+        %{
+          limit: limit,
+          sort: sort,
+          cursor: cursor,
+          moon_id: moon_id,
+          time_period: time_period,
+          subscribed: subscribed
+        },
         user_id
       ) do
-    cursor = parse_cursor(cursor)
+    cursor = parse_cursor(cursor, sort)
+    now = DateTime.utc_now() |> DateTime.to_unix()
 
+    # A period reaching back before 1970 covers every post
     posts_after_query =
-      if sort == "top" and time_period > 0 do
+      if sort == "top" and is_integer(time_period) and time_period > 0 and time_period < now do
         dynamic(
           [p],
-          p.inserted_at >
-            ^(((DateTime.utc_now() |> DateTime.to_unix()) - time_period)
-              |> DateTime.from_unix!())
+          p.inserted_at > ^((now - time_period) |> DateTime.from_unix!())
         )
       else
         true
@@ -90,6 +98,20 @@ defmodule Saturn.Posts do
 
     moon_query = if moon_id, do: dynamic([p], p.moon_id == ^moon_id), else: is_nil(moon_id)
 
+    subscribed_query =
+      if subscribed do
+        dynamic(
+          [p],
+          p.moon_id in subquery(
+            from(s in Subscription, where: s.user_id == ^user_id, select: s.moon_id)
+          )
+        )
+      else
+        true
+      end
+
+    # Row comparisons keep posts at or after the cursor in (sort key, id) order, so ties on the
+    # sort key fall back to id instead of dropping rows
     cursor_query =
       case sort do
         "new" ->
@@ -97,8 +119,13 @@ defmodule Saturn.Posts do
             do:
               dynamic(
                 [p],
-                p.id <= ^cursor["id"] and
-                  p.inserted_at <= ^DateTime.from_unix!(cursor["inserted_at"])
+                fragment(
+                  "(?, ?) <= (?, ?)",
+                  p.inserted_at,
+                  p.id,
+                  ^cursor["inserted_at"],
+                  ^cursor["id"]
+                )
               ),
             else: is_nil(cursor)
 
@@ -107,8 +134,13 @@ defmodule Saturn.Posts do
             do:
               dynamic(
                 [p],
-                fragment("SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?", p.id) <=
-                  ^cursor["votes"] and p.id <= ^cursor["id"]
+                fragment(
+                  "((SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = ?), ?) <= (?, ?)",
+                  p.id,
+                  p.id,
+                  ^cursor["votes"],
+                  ^cursor["id"]
+                )
               ),
             else: is_nil(cursor)
       end
@@ -140,6 +172,7 @@ defmodule Saturn.Posts do
       Repo.all(
         from(p in Post,
           where: ^moon_query,
+          where: ^subscribed_query,
           where: ^posts_after_query,
           where: ^cursor_query,
           order_by: ^order_by_query,
@@ -244,15 +277,5 @@ defmodule Saturn.Posts do
 
   defp get_next_cursor(comments, _, _) do
     {nil, comments}
-  end
-
-  defp parse_cursor(cursor) do
-    try do
-      cursor
-      |> Base.url_decode64!()
-      |> Jason.decode!()
-    rescue
-      _ -> nil
-    end
   end
 end

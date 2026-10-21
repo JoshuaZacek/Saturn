@@ -1,26 +1,35 @@
 defmodule Saturn.Files do
   import Ecto.Query
 
-  alias Saturn.Repo
+  alias Saturn.{Repo, ImageSize}
 
   @allowed_extensions [".jpg", ".jpeg", ".png", ".gif"]
 
+  # The file must really be an image (not just named like one), so its size can be stored
   def upload(file) do
     file_extension = Path.extname(String.downcase(file.filename))
 
-    case file_extension do
-      file_extension when file_extension in @allowed_extensions ->
-        filename = Ecto.UUID.generate() <> file_extension
+    with true <- file_extension in @allowed_extensions,
+         {:ok, contents} <- File.read(file.path),
+         {:ok, {width, height}} <- ImageSize.read(contents) do
+      filename = Ecto.UUID.generate() <> file_extension
 
-        with :ok <- upload_to_s3(file, filename) do
-          {:ok, filename}
-        else
-          {:error, :missing_s3_config} -> {:error, :missing_s3_config}
-          {:error, _reason} -> {:error, :upload_failed}
-        end
+      case upload_to_s3(file, filename) do
+        :ok -> {:ok, %{filename: filename, width: width, height: height}}
+        {:error, :missing_s3_config} -> {:error, :missing_s3_config}
+        {:error, _reason} -> {:error, :upload_failed}
+      end
+    else
+      _ -> {:error, :file_not_supported}
+    end
+  end
 
-      _ ->
-        {:error, :file_not_supported}
+  def download(filename) do
+    with {:ok, bucket} <- s3_bucket() do
+      case bucket |> ExAws.S3.get_object(filename) |> ExAws.request() do
+        {:ok, %{body: body}} -> {:ok, body}
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 

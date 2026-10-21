@@ -7,3 +7,5 @@ config :saturn, Saturn.Repo,
   hostname: "localhost",
   port: 5432,
   migration_timestamps: [type: :utc_datetime]
+
+config :logger, level: :warning
