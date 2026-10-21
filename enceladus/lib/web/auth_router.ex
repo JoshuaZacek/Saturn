@@ -15,6 +15,9 @@ defmodule Saturn.AuthRouter do
       {:error, :file_not_supported} ->
         send_json(conn, 400, %{errors: %{file: ["File type not supported"]}})
 
+      {:error, :missing_file} ->
+        send_json(conn, 400, %{errors: %{file: ["File can't be blank"]}})
+
       {:error, :missing_s3_config} ->
         send_json(conn, 503, %{errors: %{file: ["Image storage is not configured"]}})
 
