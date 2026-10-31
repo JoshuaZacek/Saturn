@@ -61,7 +61,7 @@
         <p v-else-if="moonStatus === 'missing'" class="feedback error">This moon does not exist.</p>
       </section>
 
-      <section>
+      <section class="titleSection">
         <input
           id="title"
           v-model="title"
@@ -734,8 +734,17 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
+/* Spans the page so it can measure whether the character counters fit beside
+   the form; its contents keep to a 40rem column. */
 main {
-  width: 40rem;
+  width: 100%;
+  padding-bottom: 2rem;
+  container-type: inline-size;
+}
+
+main > * {
+  max-width: 40rem;
+  margin-inline: auto;
 }
 
 h1 {
@@ -951,10 +960,45 @@ h1 {
   overflow: hidden;
 }
 
-@media (max-width: 720px) {
-  main {
+/* Too narrow for the counters beside the form. */
+@container (width < 50rem) {
+  /* The title's counter sits at the end of its field. */
+  .titleSection {
+    position: relative;
+  }
+
+  .titleInput {
+    padding-right: 5rem;
+  }
+
+  .titleSection .feedback.info {
+    /* Spans the field, below its top margin. */
+    top: 2rem;
+    bottom: 0;
+    right: 0.75rem;
+    /* Above the field when it's focused. */
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    margin: 0;
+    pointer-events: none;
+  }
+
+  /* The text's counter sits under its field. */
+  .section .feedback.info {
+    position: static;
+    margin: 0.35rem 0 0;
+    text-align: right;
+  }
+}
+
+@container (width < 36rem) {
+  .postSection {
+    padding: 1.5rem 1rem;
+  }
+
+  .moonInputRow {
     width: 100%;
-    padding: 0 1rem 2rem;
   }
 }
 </style>

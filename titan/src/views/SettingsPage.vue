@@ -363,7 +363,8 @@ const deleteAccount = async () => {
 
 <style scoped>
 main {
-  width: 40rem;
+  width: 100%;
+  max-width: 40rem;
 }
 
 h1 {
@@ -493,6 +494,7 @@ h1 {
 
 .buttonRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   margin-top: 1rem;

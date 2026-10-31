@@ -6,6 +6,7 @@ import PostFeed from '@/components/PostFeed.vue'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSubscriptionsStore } from '@/stores/subscriptions'
+import { useUIStore } from '@/stores/ui'
 import {
   getSingleQueryValue,
   getTimePeriod,
@@ -18,6 +19,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const subscriptionsStore = useSubscriptionsStore()
+const uiStore = useUIStore()
 
 // `/` keeps a clean URL, so a missing or unknown sort means New.
 const sort = computed<FeedSort>(() =>
@@ -81,7 +83,7 @@ const onTimePeriodChange = (value: string) => {
     <template v-else>
       <p class="description">
         Log in to see posts from the moons you subscribe to. You can log in or sign up from the
-        account card at the bottom of the sidebar.
+        account card at the bottom of the {{ uiStore.isCompactLayout ? 'menu' : 'sidebar' }}.
       </p>
 
       <RouterLink class="linkButton" :to="{ name: 'all', query: { sort: 'top', t: 'day' } }">
@@ -93,7 +95,8 @@ const onTimePeriodChange = (value: string) => {
 
 <style scoped>
 main {
-  width: 40rem;
+  width: 100%;
+  max-width: 40rem;
 }
 
 h1 {

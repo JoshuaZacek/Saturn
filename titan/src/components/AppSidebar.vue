@@ -108,22 +108,41 @@ const startResizing = (event: PointerEvent) => {
   window.addEventListener('pointerup', stopResizing)
 }
 
+// Anything that navigates from the drawer closes it, even to the page already shown.
+const removeAfterEach = router.afterEach(() => uiStore.closeSidebar())
+
+const onDocumentKeydown = (event: KeyboardEvent) => {
+  // An open select handles its own Escape first.
+  if (event.key === 'Escape' && !event.defaultPrevented && uiStore.isSidebarOpen) {
+    uiStore.closeSidebar()
+  }
+}
+
 onMounted(() => {
   uiStore.initSidebarWidth()
+  document.addEventListener('keydown', onDocumentKeydown)
 })
 
 onBeforeUnmount(() => {
   stopResizing()
+  removeAfterEach()
+  document.removeEventListener('keydown', onDocumentKeydown)
 })
 </script>
 
 <template>
   <aside
+    id="appSidebar"
     class="sidebar"
-    :class="{ resizing: isResizing }"
-    :style="{ width: `${uiStore.sidebarWidthPx}px` }"
+    :class="{
+      resizing: isResizing,
+      drawer: uiStore.isCompactLayout,
+      drawerOpen: uiStore.isSidebarOpen,
+    }"
+    :style="uiStore.isCompactLayout ? undefined : { width: `${uiStore.sidebarWidthPx}px` }"
   >
-    <div class="topBar">
+    <!-- On small screens the top bar has the logo and Create menu instead. -->
+    <div v-if="!uiStore.isCompactLayout" class="topBar">
       <router-link to="/">
         <img class="logo" width="50" height="50" src="/logo.png" alt="Logo" />
       </router-link>
@@ -168,6 +187,7 @@ onBeforeUnmount(() => {
     <AccountCard />
 
     <button
+      v-if="!uiStore.isCompactLayout"
       class="resize-handle"
       type="button"
       aria-label="Resize sidebar"
@@ -175,6 +195,15 @@ onBeforeUnmount(() => {
       tabindex="-1"
     />
   </aside>
+
+  <Transition name="backdrop-fade">
+    <div
+      v-if="uiStore.isCompactLayout && uiStore.isSidebarOpen"
+      class="drawerBackdrop"
+      aria-hidden="true"
+      @click="uiStore.closeSidebar"
+    />
+  </Transition>
 </template>
 
 <style scoped>
@@ -192,6 +221,64 @@ onBeforeUnmount(() => {
   overflow-y: scroll;
   overflow-x: hidden;
   flex-shrink: 0;
+}
+
+/* Slides in from the left under the top bar. Hidden (so it can't be focused)
+   once it has slid out. */
+.sidebar.drawer {
+  position: fixed;
+  top: var(--top-bar-height);
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  width: min(20rem, 85vw);
+  height: auto;
+  border-right: none;
+  background-color: var(--bg-1);
+  box-shadow: 0 5px 20px rgb(0 0 0 / 10%);
+  overscroll-behavior: contain;
+  visibility: hidden;
+  transform: translateX(-100%);
+  transition:
+    transform 250ms ease,
+    visibility 0s linear 250ms;
+}
+
+.sidebar.drawer.drawerOpen {
+  visibility: visible;
+  transform: none;
+  transition: transform 250ms ease;
+}
+
+/* Without the logo row above it. */
+.drawer > .feedsGroup:first-child {
+  margin-top: 0.5rem;
+}
+
+.drawerBackdrop {
+  position: fixed;
+  inset: var(--top-bar-height) 0 0;
+  z-index: 35;
+  background-color: rgb(20 17 11 / 30%);
+}
+
+.backdrop-fade-enter-active,
+.backdrop-fade-leave-active {
+  transition: opacity 250ms ease;
+}
+
+.backdrop-fade-enter-from,
+.backdrop-fade-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar.drawer,
+  .sidebar.drawer.drawerOpen,
+  .backdrop-fade-enter-active,
+  .backdrop-fade-leave-active {
+    transition: none;
+  }
 }
 
 .logo {
@@ -217,6 +304,8 @@ onBeforeUnmount(() => {
   padding: 0;
   background: transparent;
   cursor: col-resize;
+  /* Lets a finger drag it on touch screens instead of scrolling. */
+  touch-action: none;
 }
 
 ul {

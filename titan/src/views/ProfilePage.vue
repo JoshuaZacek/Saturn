@@ -233,7 +233,8 @@ watch([() => user.value?.id, contentType, sort], () => {
 
 <style scoped>
 main {
-  width: 40rem;
+  width: 100%;
+  max-width: 40rem;
 }
 
 h1 {

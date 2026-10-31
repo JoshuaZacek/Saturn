@@ -142,14 +142,15 @@ const postedDate = computed(() => formatRelativeTime(props.post.inserted_at))
 }
 
 .postPageMode {
-  width: 40rem;
-  max-width: 40rem;
+  width: 100%;
   padding-bottom: 1rem;
 }
 
+/* Wraps onto a second line when a long moon or username doesn't fit. */
 .metadataContainer {
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
 }
 
 .metadata {
@@ -157,7 +158,9 @@ const postedDate = computed(() => formatRelativeTime(props.post.inserted_at))
   display: flex;
   align-items: center;
   gap: 0.2rem;
+  min-width: 0;
   text-decoration: none;
+  overflow-wrap: anywhere;
 }
 .metadata span,
 .metadata {
@@ -167,12 +170,14 @@ const postedDate = computed(() => formatRelativeTime(props.post.inserted_at))
 .title {
   margin-top: 1rem;
   font-size: 1.25rem;
+  overflow-wrap: anywhere;
 }
 
 .body {
   margin-top: 0.25rem;
   line-height: 1.4;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   max-height: 7rem;
   overflow: hidden;
 }

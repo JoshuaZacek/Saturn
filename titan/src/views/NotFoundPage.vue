@@ -14,7 +14,8 @@
 
 <style scoped>
 main {
-  width: 40rem;
+  width: 100%;
+  max-width: 40rem;
 }
 
 p {

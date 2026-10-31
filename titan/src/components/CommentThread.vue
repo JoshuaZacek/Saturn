@@ -289,14 +289,17 @@ watch(replyToggled, async (open) => {
 
 .metadataContainer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0 0.6rem;
 }
 
 .metadata {
   font-size: 0.85rem;
   color: var(--text-2);
   text-decoration: none;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .metadata.username {
@@ -312,6 +315,7 @@ watch(replyToggled, async (open) => {
   margin-top: 0.25rem;
   line-height: 1.4;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .actions {
@@ -364,6 +368,7 @@ watch(replyToggled, async (open) => {
 .replyButtons {
   margin-top: 0.5rem;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
@@ -423,5 +428,29 @@ watch(replyToggled, async (open) => {
 
 .seeMoreReplies:hover {
   background: var(--bg-3);
+}
+
+/* Each level of replies indents less, so deep threads keep room to read. */
+@media (max-width: 600px) {
+  .commentThread {
+    padding-left: 1.75rem;
+  }
+
+  .threadDot {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .threadLine {
+    top: 1.5rem;
+    left: 0.625rem;
+  }
+}
+
+/* iOS zooms into text fields under 16px when they're focused. */
+@media (pointer: coarse) {
+  .replyTextarea {
+    font-size: 1rem;
+  }
 }
 </style>

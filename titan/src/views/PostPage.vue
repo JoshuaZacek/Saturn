@@ -400,10 +400,16 @@ onBeforeUnmount(() => {
 }
 
 main {
-  width: 40rem;
+  width: 100%;
+  max-width: 40rem;
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+/* Centring would otherwise shrink it to fit a short post. */
+.postHeader {
+  width: 100%;
 }
 
 .post-loading-enter-active,
@@ -558,5 +564,12 @@ textarea {
 
 .commentsFooter {
   margin-top: 1.5rem;
+}
+
+/* Leaves nested replies more room on phones. */
+@media (max-width: 600px) {
+  .commentsSection {
+    padding: 1rem 0.875rem;
+  }
 }
 </style>

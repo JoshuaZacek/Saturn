@@ -292,20 +292,23 @@ watch(moonName, (name) => void loadMoon(name), { immediate: true })
 .banner {
   --banner-color: var(--bg-2);
   background-color: var(--banner-color);
-  /* Inset from the sidebar and the page edges, with the same radius as post cards. */
-  margin: 1rem;
+  /* Inset from the top here and from the sides by the page's gutters, with
+     the same radius as post cards. */
+  margin: 1rem 0;
   border-radius: 0.75rem;
   padding: 4rem 1.5rem;
 }
 
-/* Lines the banner's contents up with the 40rem column of posts below. */
+/* Lines the banner's contents up with the 40rem column of posts below. When
+   the buttons don't fit beside the title, they move under it. */
 .bannerContent {
   max-width: 40rem;
   margin: 0 auto;
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1.25rem 1rem;
 }
 
 .titleBlock {
@@ -347,10 +350,12 @@ h1 {
   cursor: default;
 }
 
+/* Beside the title only when it fits whole; under the title, the buttons can
+   wrap on the narrowest phones. */
 .headerActions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
-  flex-shrink: 0;
   /* The age line's box ends ~1.4px below its lowest letters; lift the buttons by
      that much so their bottom edge lines up with the bottom of the age text. */
   margin-bottom: 0.0875rem;
@@ -411,7 +416,7 @@ h1 {
 }
 
 main {
-  width: 40rem;
+  max-width: 40rem;
   margin: 2rem auto 0;
 }
 
@@ -423,5 +428,19 @@ main {
   display: flex;
   justify-content: center;
   margin-top: 2rem;
+}
+
+@media (max-width: 600px) {
+  .banner {
+    padding: 2.5rem 1.25rem;
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+
+  main {
+    margin-top: 1.5rem;
+  }
 }
 </style>

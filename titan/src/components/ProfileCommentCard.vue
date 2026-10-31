@@ -87,6 +87,7 @@ const postedDate = computed(() => formatRelativeTime(props.comment.inserted_at))
 .context {
   font-size: 0.9rem;
   color: var(--text-2);
+  overflow-wrap: anywhere;
 }
 
 .postTitle {
@@ -101,7 +102,8 @@ const postedDate = computed(() => formatRelativeTime(props.comment.inserted_at))
 .metadataContainer {
   margin-top: 0.75rem;
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
 }
 
 .metadata {
@@ -109,7 +111,9 @@ const postedDate = computed(() => formatRelativeTime(props.comment.inserted_at))
   display: flex;
   align-items: center;
   gap: 0.2rem;
+  min-width: 0;
   text-decoration: none;
+  overflow-wrap: anywhere;
 }
 .metadata span,
 .metadata {
@@ -138,6 +142,7 @@ const postedDate = computed(() => formatRelativeTime(props.comment.inserted_at))
   margin-top: 0.5rem;
   line-height: 1.4;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   max-height: 7rem;
   overflow: hidden;
 }

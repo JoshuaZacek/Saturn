@@ -336,8 +336,17 @@ onBeforeUnmount(() => {
   margin-top: 2rem;
 }
 
+/* Spans the page so it can measure whether the character counter fits beside
+   the form; its contents keep to a 40rem column. */
 main {
-  width: 40rem;
+  width: 100%;
+  padding-bottom: 2rem;
+  container-type: inline-size;
+}
+
+main > * {
+  max-width: 40rem;
+  margin-inline: auto;
 }
 
 h1 {
@@ -438,10 +447,18 @@ h1 {
   overflow: hidden;
 }
 
-@media (max-width: 720px) {
-  main {
-    width: 100%;
-    padding: 0 1rem 2rem;
+/* Too narrow for the counter beside the form, so it sits under the field. */
+@container (width < 50rem) {
+  .feedback.info {
+    position: static;
+    margin: 0.35rem 0 0;
+    text-align: right;
+  }
+}
+
+@container (width < 36rem) {
+  .moonSection {
+    padding: 1.5rem 1rem;
   }
 }
 </style>

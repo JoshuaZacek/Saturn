@@ -70,7 +70,8 @@ h1 {
 }
 
 main {
-  width: 40rem;
+  width: 100%;
+  max-width: 40rem;
   --post-feed-gap: 2rem;
 }
 

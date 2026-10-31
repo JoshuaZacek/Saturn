@@ -2,7 +2,10 @@
   <main>
     <h1>Unauthorized</h1>
     <p>{{ message }}</p>
-    <p>You can log in or sign up from the account card at the bottom of the sidebar.</p>
+    <p>
+      You can log in or sign up from the account card at the bottom of the
+      {{ uiStore.isCompactLayout ? 'menu' : 'sidebar' }}.
+    </p>
 
     <RouterLink class="linkButton" :to="{ name: 'all', query: { sort: 'top', t: 'day' } }">
       Browse top posts
@@ -13,8 +16,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useUIStore } from '@/stores/ui'
 
 const route = useRoute()
+const uiStore = useUIStore()
 const message = computed(() => {
   const queryMessage = route.query.message
   return typeof queryMessage === 'string' ? queryMessage : 'You must be logged in to do that'
@@ -23,7 +28,8 @@ const message = computed(() => {
 
 <style scoped>
 main {
-  width: 40rem;
+  width: 100%;
+  max-width: 40rem;
 }
 
 p {

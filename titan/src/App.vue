@@ -2,6 +2,7 @@
 import { watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppSidebar from '@/components/AppSidebar.vue'
+import AppTopBar from '@/components/AppTopBar.vue'
 import ErrorBanner from '@/components/ErrorBanner.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useErrorBannerStore } from '@/stores/errorBanner'
@@ -33,12 +34,17 @@ watch(
 </script>
 
 <template>
+  <AppTopBar v-if="uiStore.isCompactLayout" />
   <AppSidebar />
-  <main class="page-content" :class="{ fullWidth: route.meta.fullWidth }">
+  <main
+    class="page-content"
+    :class="{ fullWidth: route.meta.fullWidth, compact: uiStore.isCompactLayout }"
+    :inert="uiStore.isCompactLayout && uiStore.isSidebarOpen"
+  >
     <div
       v-if="errorBanner.message"
       class="errorBannerHost"
-      :style="{ left: `${uiStore.sidebarWidthPx}px` }"
+      :style="uiStore.isCompactLayout ? undefined : { left: `${uiStore.sidebarWidthPx}px` }"
     >
       <ErrorBanner :message="errorBanner.message" @dismiss="errorBanner.dismiss" />
     </div>
@@ -64,6 +70,8 @@ watch(
 
   --accent-color: #ff741a; /* used for interactive elements like buttons and links */
   --accent-text: #ffffff; /* text color for elements with accent-color background */
+
+  --top-bar-height: 3.5rem; /* the top bar that replaces the sidebar on small screens */
 }
 
 html,
@@ -73,6 +81,12 @@ body,
   width: 100%;
   height: 100%;
   position: relative;
+}
+
+html {
+  /* Keeps iOS from enlarging text when a phone is turned sideways. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 * {
@@ -95,12 +109,19 @@ body,
   display: flex;
 }
 
+/* Pages are up to 40rem wide and shrink to fit between the gutters. */
 .page-content {
   flex: 1;
   display: flex;
   justify-content: center;
-  padding-top: 5rem;
+  padding: 5rem 1rem 0;
   overflow-y: scroll;
+}
+
+/* Below the fixed top bar, which already takes up some of the space above. */
+.page-content.compact {
+  margin-top: var(--top-bar-height);
+  padding-top: 1.5rem;
 }
 
 .page-content.fullWidth {
@@ -110,12 +131,17 @@ body,
 .errorBannerHost {
   position: fixed;
   top: 1rem;
+  left: 0;
   right: 0;
   z-index: 20;
   display: flex;
   justify-content: center;
   padding: 0 1rem;
   pointer-events: none;
+}
+
+.compact .errorBannerHost {
+  top: calc(var(--top-bar-height) + 0.75rem);
 }
 
 .errorBannerHost > * {
