@@ -19,23 +19,33 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          # Stop at the first failing command, so a failed migration doesn't
+          # restart the app on a database it doesn't match.
+          script_stop: true
           script: |
+            set -e
             cd /var/www/saturn
             git pull origin main
 
             cd enceladus
             cat <<EOF > .env
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            DATABASE_URL='${{ secrets.DATABASE_URL }}'
             MIX_ENV=prod
-            CORS_URL=${{ vars.CORS_URL }}
-            S3_BUCKET=${{ vars.S3_BUCKET }}
-            AWS_REGION=${{ vars.AWS_REGION }}
-            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            S3_SIGNED_URL_TTL=${{ vars.S3_SIGNED_URL_TTL }}
+            CORS_URL='${{ vars.CORS_URL }}'
+            S3_BUCKET='${{ vars.S3_BUCKET }}'
+            AWS_REGION='${{ vars.AWS_REGION }}'
+            AWS_ACCESS_KEY_ID='${{ secrets.AWS_ACCESS_KEY_ID }}'
+            AWS_SECRET_ACCESS_KEY='${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+            S3_SIGNED_URL_TTL='${{ vars.S3_SIGNED_URL_TTL }}'
             EOF
 
-            mix deps.get
+            # mix needs the same environment the app reads from .env (MIX_ENV,
+            # DATABASE_URL); without it, it builds and migrates dev instead.
+            set -a
+            . ./.env
+            set +a
+
+            mix deps.get --only prod
             mix compile
             mix ecto.migrate
 
