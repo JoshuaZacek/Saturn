@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import axios from 'axios'
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import SegmentedControl from '@/components/SegmentedControl.vue'
+import SheetDialog from '@/components/SheetDialog.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
-import CloseIcon from '@/components/icons/CloseIcon.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 import { useUIStore, type AuthMode } from '@/stores/ui'
@@ -12,7 +12,6 @@ import { useUIStore, type AuthMode } from '@/stores/ui'
 // Log in and sign up, in a sheet over the page: centred on wide screens, from
 // the bottom on phones. Opened from anywhere through the UI store.
 const LOCAL_VALIDATION_DELAY_MS = 450
-const SHEET_TRANSITION_MS = 220
 
 const modeOptions: Array<{ label: string; value: AuthMode }> = [
   { label: 'Log in', value: 'login' },
@@ -25,12 +24,9 @@ const errorBanner = useErrorBannerStore()
 const uiStore = useUIStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 
-const dialog = ref<HTMLDialogElement | null>(null)
 const form = ref<HTMLFormElement | null>(null)
-const isVisible = ref(false)
 const isSubmitting = ref(false)
 const errors = ref({ username: '', email: '', password: '' })
-let closeTimer: ReturnType<typeof setTimeout> | undefined
 
 const mode = computed(() => uiStore.authSheet.mode)
 const isSignup = computed(() => mode.value === 'signup')
@@ -39,58 +35,17 @@ const clearErrors = () => {
   errors.value = { username: '', email: '', password: '' }
 }
 
-const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
 const focusFirstField = () => {
   const selector = isSignup.value ? 'input[name="username"]' : 'input[name="email"]'
   form.value?.querySelector<HTMLInputElement>(selector)?.focus()
 }
 
-const show = async () => {
-  const element = dialog.value
-  if (!element) {
-    return
-  }
-
-  clearTimeout(closeTimer)
-  if (!element.open) {
-    element.showModal()
-  }
-
-  await nextTick()
-  requestAnimationFrame(() => {
-    isVisible.value = true
-  })
-  focusFirstField()
-}
-
-const hide = () => {
-  const element = dialog.value
-  isVisible.value = false
-
-  const finish = () => {
-    element?.close()
-    form.value?.reset()
-    clearErrors()
-    isSubmitting.value = false
-    authStore.clearSessionExpired()
-  }
-
-  clearTimeout(closeTimer)
-  closeTimer = setTimeout(finish, prefersReducedMotion() ? 0 : SHEET_TRANSITION_MS)
-}
-
-const requestClose = () => {
-  if (!isSubmitting.value) {
-    uiStore.closeAuth()
-  }
-}
-
-// A click on the dialog itself (not the sheet inside it) is a click on the backdrop.
-const onDialogClick = (event: MouseEvent) => {
-  if (event.target === dialog.value) {
-    requestClose()
-  }
+// Starts over for next time, once it has finished closing.
+const onClosed = () => {
+  form.value?.reset()
+  clearErrors()
+  isSubmitting.value = false
+  authStore.clearSessionExpired()
 }
 
 const switchMode = async (value: string) => {
@@ -103,11 +58,6 @@ const switchMode = async (value: string) => {
   await nextTick()
   focusFirstField()
 }
-
-watch(
-  () => uiStore.authSheet.open,
-  (open) => (open ? void show() : hide()),
-)
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -191,185 +141,102 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <dialog
-    ref="dialog"
+  <SheetDialog
     class="authSheet"
-    :class="{ visible: isVisible }"
-    :aria-label="isSignup ? 'Sign up' : 'Log in'"
-    @cancel.prevent="requestClose"
-    @click="onDialogClick"
+    :open="uiStore.authSheet.open"
+    :label="isSignup ? 'Sign up' : 'Log in'"
+    :busy="isSubmitting"
+    @close="uiStore.closeAuth()"
+    @opened="focusFirstField"
+    @closed="onClosed"
   >
-    <div class="sheet">
-      <header class="sheetHeader">
-        <img class="logo" src="/logo.png" width="40" height="40" alt="" />
-        <button class="closeButton" type="button" aria-label="Close" @click="requestClose">
-          <CloseIcon :size="20" />
-        </button>
-      </header>
+    <template #header>
+      <img class="logo" src="/logo.png" width="40" height="40" alt="" />
+    </template>
 
-      <SegmentedControl
-        label="Log in or sign up"
-        :model-value="mode"
-        :options="modeOptions"
-        @update:model-value="switchMode"
-      />
+    <SegmentedControl
+      label="Log in or sign up"
+      :model-value="mode"
+      :options="modeOptions"
+      @update:model-value="switchMode"
+    />
 
-      <p v-if="authStore.sessionExpired" class="sessionNotice" role="status">
-        Your session has expired. Log in again to continue.
-      </p>
+    <p v-if="authStore.sessionExpired" class="sessionNotice" role="status">
+      Your session has expired. Log in again to continue.
+    </p>
 
-      <form ref="form" class="authForm" novalidate @submit.prevent="handleSubmit">
-        <!-- Only for signing up; opens and closes in place. -->
-        <div class="collapsible" :class="{ open: isSignup }">
-          <div class="collapsibleInner">
-            <label class="formField">
-              <span class="fieldLabel">Username</span>
-              <input
-                class="field"
-                :class="{ error: !!errors.username }"
-                name="username"
-                type="text"
-                autocomplete="username"
-                autocapitalize="off"
-                spellcheck="false"
-                :disabled="!isSignup"
-                :aria-invalid="!!errors.username || undefined"
-                aria-describedby="auth-username-error"
-                @input="errors.username = ''"
-              />
-              <span v-if="errors.username" id="auth-username-error" class="fieldError">{{
-                errors.username
-              }}</span>
-            </label>
-          </div>
+    <form ref="form" class="authForm" novalidate @submit.prevent="handleSubmit">
+      <!-- Only for signing up; opens and closes in place. -->
+      <div class="collapsible" :class="{ open: isSignup }">
+        <div class="collapsibleInner">
+          <label class="formField">
+            <span class="fieldLabel">Username</span>
+            <input
+              class="field"
+              :class="{ error: !!errors.username }"
+              name="username"
+              type="text"
+              autocomplete="nickname"
+              autocapitalize="off"
+              spellcheck="false"
+              :disabled="!isSignup"
+              :aria-invalid="!!errors.username || undefined"
+              aria-describedby="auth-username-error"
+              @input="errors.username = ''"
+            />
+            <span v-if="errors.username" id="auth-username-error" class="fieldError">{{
+              errors.username
+            }}</span>
+          </label>
         </div>
+      </div>
 
-        <label class="formField">
-          <span class="fieldLabel">Email</span>
-          <input
-            class="field"
-            :class="{ error: !!errors.email }"
-            name="email"
-            type="email"
-            autocomplete="email"
-            :aria-invalid="!!errors.email || undefined"
-            aria-describedby="auth-email-error"
-            @input="errors.email = ''"
-          />
-          <span v-if="errors.email" id="auth-email-error" class="fieldError">{{
-            errors.email
-          }}</span>
-        </label>
+      <!-- People log in with their email, so password managers (Apple's
+           Keychain especially) need it marked as the account's username. -->
+      <label class="formField">
+        <span class="fieldLabel">Email</span>
+        <input
+          class="field"
+          :class="{ error: !!errors.email }"
+          name="email"
+          type="email"
+          autocomplete="username"
+          :aria-invalid="!!errors.email || undefined"
+          aria-describedby="auth-email-error"
+          @input="errors.email = ''"
+        />
+        <span v-if="errors.email" id="auth-email-error" class="fieldError">{{ errors.email }}</span>
+      </label>
 
-        <label class="formField">
-          <span class="fieldLabel">Password</span>
-          <input
-            class="field"
-            :class="{ error: !!errors.password }"
-            name="password"
-            type="password"
-            :autocomplete="isSignup ? 'new-password' : 'current-password'"
-            :aria-invalid="!!errors.password || undefined"
-            aria-describedby="auth-password-error"
-            @input="errors.password = ''"
-          />
-          <span v-if="errors.password" id="auth-password-error" class="fieldError">{{
-            errors.password
-          }}</span>
-        </label>
+      <label class="formField">
+        <span class="fieldLabel">Password</span>
+        <input
+          class="field"
+          :class="{ error: !!errors.password }"
+          name="password"
+          type="password"
+          :autocomplete="isSignup ? 'new-password' : 'current-password'"
+          :aria-invalid="!!errors.password || undefined"
+          aria-describedby="auth-password-error"
+          @input="errors.password = ''"
+        />
+        <span v-if="errors.password" id="auth-password-error" class="fieldError">{{
+          errors.password
+        }}</span>
+      </label>
 
-        <SubmitButton class="submit" type="submit" size="lg" block :loading="isSubmitting">
-          {{ isSignup ? 'Sign up' : 'Log in' }}
-        </SubmitButton>
-      </form>
-    </div>
-  </dialog>
+      <SubmitButton class="submit" type="submit" size="lg" block :loading="isSubmitting">
+        {{ isSignup ? 'Sign up' : 'Log in' }}
+      </SubmitButton>
+    </form>
+  </SheetDialog>
 </template>
 
 <style scoped>
-/* The dialog fills the screen invisibly; the sheet inside it is what shows. */
-.authSheet {
-  width: 100%;
-  max-width: none;
-  height: 100%;
-  max-height: none;
-  margin: 0;
-  padding: 1rem;
-  border: none;
-  background: transparent;
-  overflow: auto;
-}
-
-.authSheet[open] {
-  display: grid;
-  place-items: center;
-}
-
-.authSheet::backdrop {
-  background-color: var(--backdrop);
-  opacity: 0;
-  transition: opacity var(--duration-base) var(--ease-out);
-}
-
-.authSheet.visible::backdrop {
-  opacity: 1;
-}
-
-.sheet {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  width: min(24rem, 100%);
-  padding: 1rem 1.5rem 1.5rem;
-  border-radius: var(--radius-xl);
-  background-color: var(--surface-raised);
-  box-shadow: var(--shadow-lg);
-  opacity: 0;
-  transform: translateY(0.5rem) scale(0.98);
-  transition:
-    opacity var(--duration-base) var(--ease-out),
-    transform var(--duration-base) var(--ease-out);
-}
-
-.visible .sheet {
-  opacity: 1;
-  transform: none;
-}
-
-.sheetHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
 .logo {
   filter: var(--logo-filter);
   user-select: none;
   -webkit-user-drag: none;
-}
-
-.closeButton {
-  display: inline-grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  margin-right: -0.5rem;
-  border: none;
-  border-radius: var(--radius-full);
-  background: none;
-  color: var(--text-2);
-  cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-out);
-}
-
-@media (hover: hover) {
-  .closeButton:hover {
-    background-color: var(--fill-hover);
-  }
-}
-
-.closeButton:active {
-  background-color: var(--fill-pressed);
 }
 
 .sessionNotice {
@@ -437,31 +304,5 @@ const handleSubmit = async () => {
 
 .submit {
   margin-top: 0.25rem;
-}
-
-/* iOS zooms into text fields under 16px; these are 16px already. */
-
-/* Phones: a sheet from the bottom of the screen. */
-@media (max-width: 600px) {
-  .authSheet {
-    padding: 0;
-  }
-
-  .authSheet[open] {
-    place-items: end stretch;
-  }
-
-  .sheet {
-    width: 100%;
-    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-    opacity: 1;
-    transform: translateY(100%);
-    transition: transform var(--duration-slow) var(--ease-out);
-  }
-
-  .visible .sheet {
-    transform: none;
-  }
 }
 </style>

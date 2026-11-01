@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
 import ActionMenu, { type ActionMenuItem } from '@/components/ActionMenu.vue'
 import CreateActionsSelect from '@/components/CreateActionsSelect.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
@@ -14,25 +13,26 @@ import { useLogout } from '@/composables/useLogout'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 
-const router = useRouter()
 const authStore = useAuthStore()
 const uiStore = useUIStore()
 const logout = useLogout()
 
 const username = computed(() => String(authStore.user.username ?? ''))
 
-const accountActions: ActionMenuItem[] = [
-  { value: 'profile', label: 'Your profile', icon: ProfileIcon },
-  { value: 'settings', label: 'Settings', icon: GearIcon },
-  { value: 'logout', label: 'Log out', icon: SignOutIcon, danger: true },
-]
+// The same items as the sidebar's account card, in the same menu as Create (+).
+const accountActions = computed<ActionMenuItem[]>(() => [
+  {
+    value: 'profile',
+    label: 'Your profile',
+    icon: ProfileIcon,
+    to: { name: 'profile', params: { username: username.value } },
+  },
+  { value: 'settings', label: 'Settings', icon: GearIcon, to: { name: 'settings' } },
+  { value: 'logout', label: 'Log out', icon: SignOutIcon, danger: true, separated: true },
+])
 
 const onAccountAction = (action: string) => {
-  if (action === 'profile') {
-    void router.push({ name: 'profile', params: { username: username.value } })
-  } else if (action === 'settings') {
-    void router.push({ name: 'settings' })
-  } else if (action === 'logout') {
+  if (action === 'logout') {
     void logout()
   }
 }
@@ -65,10 +65,16 @@ const onAccountAction = (action: string) => {
           class="accountMenu"
           label="Account"
           :items="accountActions"
+          size="lg"
           @select="onAccountAction"
         >
           <template #trigger>
-            <UserAvatar :name="username" :size="30" />
+            <UserAvatar
+              :name="username"
+              :color="authStore.user.avatar_color"
+              :image="authStore.user.avatar_image"
+              :size="30"
+            />
           </template>
         </ActionMenu>
       </template>
@@ -142,10 +148,9 @@ const onAccountAction = (action: string) => {
   margin-left: auto;
 }
 
-/* The avatar is the menu's button: a little larger target around it. */
-.accountMenu :deep(.trigger) {
+/* Both menu buttons: the same circle as the menu button on the left. */
+.topActions :deep(.trigger) {
   width: 2.5rem;
   height: 2.5rem;
-  margin: 0;
 }
 </style>

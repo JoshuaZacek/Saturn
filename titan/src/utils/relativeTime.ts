@@ -1,6 +1,5 @@
-export const formatRelativeTime = (dateString: string) => {
+export const formatRelativeTime = (dateString: string, now = Date.now()) => {
   const date = new Date(dateString)
-  const now = Date.now()
 
   if (Number.isNaN(date.getTime())) {
     return ''
@@ -68,4 +67,20 @@ const monthYearFormatter = new Intl.DateTimeFormat('en', { month: 'long', year: 
 export const formatMonthYear = (dateString: string) => {
   const date = new Date(dateString)
   return Number.isNaN(date.getTime()) ? '' : monthYearFormatter.format(date)
+}
+
+const preciseFormatter = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+})
+
+// "Sun 1 November 2026, 14:03" (in the reader's own locale and time zone):
+// exactly when something happened.
+export const formatPreciseTime = (dateString: string) => {
+  const date = new Date(dateString)
+  return Number.isNaN(date.getTime()) ? '' : preciseFormatter.format(date)
 }

@@ -89,8 +89,8 @@ defmodule Saturn.Profiles do
         )
       )
       |> Repo.preload(
-        moon: from(m in Moon, select: map(m, [:name, :id, :inserted_at])),
-        user: from(u in User, select: map(u, [:username, :id, :inserted_at]))
+        moon: from(m in Moon, select: map(m, ^Moon.public_fields())),
+        user: from(u in User, select: map(u, ^User.public_fields()))
       )
 
     {next_cursor, posts} = get_next_cursor(posts, params.limit, params.sort)
@@ -167,7 +167,7 @@ defmodule Saturn.Profiles do
     comments =
       Repo.all(
         from(c in Comment,
-          where: c.user_id == ^params.user_id,
+          where: c.user_id == ^params.user_id and not c.deleted,
           where: ^cursor_query,
           order_by: ^order_by,
           limit: ^params.limit + 1,
@@ -185,7 +185,7 @@ defmodule Saturn.Profiles do
         )
       )
       |> Repo.preload(
-        user: from(u in User, select: map(u, [:username, :id, :inserted_at])),
+        user: from(u in User, select: map(u, ^User.public_fields())),
         post: from(p in Post, select: map(p, [:id, :title]))
       )
 
@@ -217,6 +217,7 @@ defmodule Saturn.Profiles do
           image_width: p.image_width,
           image_height: p.image_height,
           content: nil,
+          edited_at: nil,
           post_id: nil,
           post: nil,
           contentType: "post",
@@ -235,7 +236,7 @@ defmodule Saturn.Profiles do
 
     comments_query =
       from(c in Comment,
-        where: c.user_id == ^params.user_id,
+        where: c.user_id == ^params.user_id and not c.deleted,
         select: %{
           id: c.id,
           inserted_at: c.inserted_at,
@@ -250,6 +251,7 @@ defmodule Saturn.Profiles do
           image_width: nil,
           image_height: nil,
           content: c.content,
+          edited_at: c.edited_at,
           post_id: c.post_id,
           post: nil,
           contentType: "comment",
@@ -339,7 +341,9 @@ defmodule Saturn.Profiles do
             | user: %{
                 id: u.id,
                 username: u.username,
-                inserted_at: u.inserted_at
+                inserted_at: u.inserted_at,
+                avatar_color: u.avatar_color,
+                avatar_image: u.avatar_image
               },
               post: %{
                 id: p.id,
@@ -348,7 +352,9 @@ defmodule Saturn.Profiles do
               moon: %{
                 id: m.id,
                 name: m.name,
-                inserted_at: m.inserted_at
+                inserted_at: m.inserted_at,
+                avatar_color: m.avatar_color,
+                avatar_image: m.avatar_image
               }
           },
           where: ^cursor_query,

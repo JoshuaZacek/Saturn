@@ -18,16 +18,12 @@ const props = withDefaults(
     placeholder?: string
     label?: string
     disabled?: boolean
-    triggerIcon?: Component
-    focusMenuOnOpen?: boolean
   }>(),
   {
     modelValue: undefined,
     placeholder: 'Select an option',
     label: 'Select',
     disabled: false,
-    triggerIcon: undefined,
-    focusMenuOnOpen: false,
   },
 )
 
@@ -72,10 +68,10 @@ const isOptionSelected = (option: SelectOption) => {
 
 const selectedIndex = computed(() => props.options.findIndex((option) => isOptionSelected(option)))
 const selectedOption = computed(() => props.options[selectedIndex.value])
-const isIconTriggerMode = computed(() => Boolean(props.triggerIcon))
-const optionHeightPx = computed(() => (isIconTriggerMode.value ? 48 : 32))
+// Matches the option height in the CSS below.
+const OPTION_HEIGHT_PX = 32
 const menuMaxHeightPx = computed(
-  () => Math.min(props.options.length, MAX_VISIBLE_OPTIONS) * optionHeightPx.value,
+  () => Math.min(props.options.length, MAX_VISIBLE_OPTIONS) * OPTION_HEIGHT_PX,
 )
 const menuPosition = ref({
   left: 0,
@@ -98,25 +94,19 @@ const updateMenuPosition = () => {
     return
   }
 
-  const isIconTrigger = Boolean(props.triggerIcon)
   const triggerRect = triggerRef.value.getBoundingClientRect()
-  const selectedRowOffset =
-    selectedIndex.value >= 0 ? selectedIndex.value * optionHeightPx.value : 0
-  // A plain select opens with its selected row over the trigger, as on macOS.
-  const desiredTop = isIconTrigger
-    ? triggerRect.bottom + 6
-    : triggerRect.top - selectedRowOffset - MENU_PADDING_PX
+  const selectedRowOffset = selectedIndex.value >= 0 ? selectedIndex.value * OPTION_HEIGHT_PX : 0
+  // It opens with its selected row over the trigger, as on macOS.
+  const desiredTop = triggerRect.top - selectedRowOffset - MENU_PADDING_PX
   const desiredLeft = triggerRect.left
-  const menuWidth = isIconTrigger ? Math.max(176, triggerRect.width) : triggerRect.width
+  const menuWidth = triggerRect.width
 
-  const totalMenuHeight = props.options.length * optionHeightPx.value
+  const totalMenuHeight = props.options.length * OPTION_HEIGHT_PX
   const visibleMenuHeight = Math.min(totalMenuHeight, menuMaxHeightPx.value) + MENU_PADDING_PX * 2
   const maxTop = window.innerHeight - VIEWPORT_EDGE_PADDING_PX - visibleMenuHeight
   const maxLeft = window.innerWidth - VIEWPORT_EDGE_PADDING_PX - menuWidth
 
-  const clampedTop = isIconTrigger
-    ? Math.max(VIEWPORT_EDGE_PADDING_PX, desiredTop)
-    : Math.max(VIEWPORT_EDGE_PADDING_PX, Math.min(desiredTop, maxTop))
+  const clampedTop = Math.max(VIEWPORT_EDGE_PADDING_PX, Math.min(desiredTop, maxTop))
   const clampedLeft = Math.min(desiredLeft, maxLeft)
 
   menuPosition.value = {
@@ -229,7 +219,7 @@ const openList = (
   void nextTick(() => {
     updateMenuPosition()
 
-    if (origin === 'keyboard' || props.focusMenuOnOpen) {
+    if (origin === 'keyboard') {
       listboxRef.value?.focus()
     }
   })
@@ -377,11 +367,6 @@ const handleKeydown = (event: KeyboardEvent) => {
   }
 
   if (event.key === 'Tab' && isOpen.value) {
-    if (isIconTriggerMode.value) {
-      event.preventDefault()
-      return
-    }
-
     // Let focus move naturally, but clear arrow-key active state
     // so only the focused item is visually highlighted.
     keyboardMode.value = false
@@ -524,7 +509,6 @@ onBeforeUnmount(() => {
     :class="{
       open: isOpen,
       disabled,
-      iconTriggerMode: Boolean(triggerIcon),
       hasActiveOption: activeIndex >= 0,
     }"
   >
@@ -542,13 +526,8 @@ onBeforeUnmount(() => {
       @click="onTriggerClick"
       @keydown="onTriggerKeydown"
     >
-      <template v-if="triggerIcon">
-        <component :is="triggerIcon" :size="24" class="triggerIcon" />
-      </template>
-      <template v-else>
-        <span class="text">{{ selectedOption?.label ?? placeholder }}</span>
-        <DownIcon size="16" class="chevron" />
-      </template>
+      <span class="text">{{ selectedOption?.label ?? placeholder }}</span>
+      <DownIcon size="16" class="chevron" />
     </button>
 
     <Transition name="customSelectMenu">
@@ -588,31 +567,11 @@ onBeforeUnmount(() => {
             :to="option.to"
             @click.stop="onLinkClick(index)"
           >
-            <component
-              v-if="option.icon"
-              :is="option.icon"
-              :size="isIconTriggerMode ? 24 : 16"
-              class="optionIcon"
-            />
-            <span
-              v-else-if="triggerIcon"
-              class="optionIcon optionIconPlaceholder"
-              aria-hidden="true"
-            />
+            <component v-if="option.icon" :is="option.icon" :size="16" class="optionIcon" />
             {{ option.label }}
           </RouterLink>
           <template v-else>
-            <component
-              v-if="option.icon"
-              :is="option.icon"
-              :size="isIconTriggerMode ? 24 : 16"
-              class="optionIcon"
-            />
-            <span
-              v-else-if="triggerIcon"
-              class="optionIcon optionIconPlaceholder"
-              aria-hidden="true"
-            />
+            <component v-if="option.icon" :is="option.icon" :size="16" class="optionIcon" />
             <span>{{ option.label }}</span>
           </template>
         </li>
@@ -625,11 +584,6 @@ onBeforeUnmount(() => {
 .customSelect {
   position: relative;
   display: inline-block;
-}
-
-.iconTriggerMode {
-  width: auto;
-  max-width: none;
 }
 
 /* The same height, fill and corners as a compact segmented control, so the
@@ -665,31 +619,6 @@ onBeforeUnmount(() => {
   color: var(--text-2);
 }
 
-.iconTriggerMode .trigger {
-  width: var(--control-md);
-  min-width: 0;
-  height: var(--control-md);
-  padding: 0;
-  justify-content: center;
-  border-radius: var(--radius-full);
-  background: transparent;
-}
-
-@media (hover: hover) {
-  .iconTriggerMode .trigger:hover:not(:disabled) {
-    background: var(--fill-hover);
-  }
-}
-
-.iconTriggerMode .trigger:active:not(:disabled),
-.iconTriggerMode .trigger[aria-expanded='true'] {
-  background: var(--fill-pressed);
-}
-
-.iconTriggerMode .trigger:active:not(:disabled) {
-  transform: scale(0.95);
-}
-
 .menu {
   position: fixed;
   box-sizing: content-box;
@@ -704,11 +633,6 @@ onBeforeUnmount(() => {
   box-shadow: var(--shadow-lg);
   overflow-y: auto;
   transform-origin: center;
-}
-
-/* Drops down from the icon trigger, so it grows from there. */
-.iconTriggerMode .menu {
-  transform-origin: top left;
 }
 
 .customSelectMenu-enter-active {
@@ -727,11 +651,6 @@ onBeforeUnmount(() => {
 .customSelectMenu-leave-to {
   opacity: 0;
   transform: scale(0.97);
-}
-
-.iconTriggerMode .customSelectMenu-enter-from,
-.iconTriggerMode .customSelectMenu-leave-to {
-  transform: translateY(-4px) scale(0.97);
 }
 
 .customSelectMenu-enter-to,
@@ -756,23 +675,8 @@ onBeforeUnmount(() => {
   transition: background-color var(--duration-fast) var(--ease-out);
 }
 
-.iconTriggerMode .option {
-  min-height: 2.35rem;
-  height: auto;
-  padding: 0.5rem 0.7rem;
-}
-
 .optionIcon {
   flex-shrink: 0;
-}
-
-.iconTriggerMode .optionIcon {
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
-.optionIconPlaceholder {
-  display: inline-block;
 }
 
 .optionLink {
@@ -796,12 +700,8 @@ onBeforeUnmount(() => {
   outline: none;
 }
 
-.customSelect:not(.iconTriggerMode) .option.selected {
+.option.selected {
   font-weight: 600;
-}
-
-.iconTriggerMode .option.selected {
-  font-weight: 400;
 }
 
 .option.disabled {

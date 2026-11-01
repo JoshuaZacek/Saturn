@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 import DotsThreeIcon from '@/components/icons/DotsThreeIcon.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
 
@@ -8,27 +9,60 @@ export type ActionMenuItem = {
   label: string
   icon?: Component
   danger?: boolean
+  // Goes somewhere: a link, so it can also be opened in a new tab.
+  to?: RouteLocationRaw
+  // A hairline above it, setting it apart from the items before.
+  separated?: boolean
   // Asks first: the menu turns into a short confirmation in place.
   confirm?: { title: string; message?: string; action: string }
 }
 
-const props = defineProps<{
-  label: string
-  items: ActionMenuItem[]
-  // The chosen action is running; the confirm button shows a spinner.
-  busy?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    label: string
+    items: ActionMenuItem[]
+    // The chosen action is running; the confirm button shows a spinner.
+    busy?: boolean
+    // sm: a card's options (⋯). lg: the app's own menus (Create, the account),
+    // with 24px icons, like the sidebar's.
+    size?: 'sm' | 'lg'
+    // Which edge of the trigger the menu lines up with.
+    align?: 'start' | 'end'
+  }>(),
+  {
+    size: 'sm',
+    align: 'end',
+  },
+)
 
 const emit = defineEmits<{
   select: [value: string]
 }>()
 
+const iconSize = props.size === 'lg' ? 24 : 18
 const isOpen = ref(false)
 const confirming = ref<ActionMenuItem | null>(null)
 const root = ref<HTMLElement | null>(null)
 const trigger = ref<HTMLButtonElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
 const panelId = `action-menu-${Math.random().toString(36).slice(2)}`
+// How far the panel is nudged sideways to stay on screen.
+const panelShift = ref(0)
+const EDGE_PX = 8
+
+const fitPanel = async () => {
+  await nextTick()
+  panelShift.value = 0
+  await nextTick()
+  const rect = panel.value?.getBoundingClientRect()
+  if (!rect) {
+    return
+  }
+
+  const overflowRight = rect.right - (window.innerWidth - EDGE_PX)
+  const overflowLeft = EDGE_PX - rect.left
+  panelShift.value = overflowRight > 0 ? -overflowRight : Math.max(0, overflowLeft)
+}
 
 const menuItems = () =>
   Array.from(panel.value?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])
@@ -43,7 +77,7 @@ const focusItem = (index: number) => {
 const open = async () => {
   confirming.value = null
   isOpen.value = true
-  await nextTick()
+  await fitPanel()
   focusItem(0)
 }
 
@@ -60,7 +94,8 @@ const toggle = () => (isOpen.value ? close() : void open())
 const choose = async (item: ActionMenuItem) => {
   if (item.confirm) {
     confirming.value = item
-    await nextTick()
+    // The confirmation is wider than the list.
+    await fitPanel()
     // The safe choice takes focus.
     panel.value?.querySelector<HTMLElement>('.cancelAction')?.focus()
     return
@@ -124,7 +159,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocumentPoin
 </script>
 
 <template>
-  <div ref="root" class="actionMenu" @keydown="onKeydown">
+  <div ref="root" class="actionMenu" :class="[size, `align-${align}`]" @keydown="onKeydown">
     <button
       ref="trigger"
       class="trigger"
@@ -141,21 +176,41 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocumentPoin
     </button>
 
     <Transition name="action-menu">
-      <div v-if="isOpen" :id="panelId" ref="panel" class="panel">
+      <div
+        v-if="isOpen"
+        :id="panelId"
+        ref="panel"
+        class="panel"
+        :style="panelShift ? { translate: `${panelShift}px 0` } : undefined"
+      >
         <div v-if="!confirming" role="menu" :aria-label="label" @keydown="onMenuKeydown">
-          <button
-            v-for="item in items"
-            :key="item.value"
-            class="item"
-            :class="{ danger: item.danger }"
-            type="button"
-            role="menuitem"
-            tabindex="-1"
-            @click="choose(item)"
-          >
-            <component :is="item.icon" v-if="item.icon" :size="18" />
-            <span>{{ item.label }}</span>
-          </button>
+          <template v-for="item in items" :key="item.value">
+            <div v-if="item.separated" class="separator" role="separator" />
+            <RouterLink
+              v-if="item.to"
+              class="item"
+              :class="{ danger: item.danger }"
+              :to="item.to"
+              role="menuitem"
+              tabindex="-1"
+              @click="close(false)"
+            >
+              <component :is="item.icon" v-if="item.icon" :size="iconSize" />
+              <span>{{ item.label }}</span>
+            </RouterLink>
+            <button
+              v-else
+              class="item"
+              :class="{ danger: item.danger }"
+              type="button"
+              role="menuitem"
+              tabindex="-1"
+              @click="choose(item)"
+            >
+              <component :is="item.icon" v-if="item.icon" :size="iconSize" />
+              <span>{{ item.label }}</span>
+            </button>
+          </template>
         </div>
 
         <div
@@ -247,6 +302,12 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocumentPoin
   transform-origin: top right;
 }
 
+.align-start .panel {
+  right: auto;
+  left: 0;
+  transform-origin: top left;
+}
+
 .item {
   display: flex;
   align-items: center;
@@ -260,8 +321,28 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocumentPoin
   font-size: var(--text-subhead);
   text-align: left;
   white-space: nowrap;
+  text-decoration: none;
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.separator {
+  height: 1px;
+  margin: 0.25rem 0.5rem;
+  background-color: var(--separator);
+}
+
+/* The app's own menus: the same rows as the sidebar's, a little smaller. */
+.lg .item {
+  height: 2.5rem;
+  padding: 0 0.7rem;
+}
+
+.lg .trigger {
+  width: var(--control-md);
+  height: var(--control-md);
+  margin: 0;
+  color: var(--text-1);
 }
 
 .item:focus-visible {

@@ -5,8 +5,12 @@ defmodule Saturn.Moon do
   alias Saturn.Post
   alias Saturn.User
   alias Saturn.Subscription
+  alias Saturn.Avatars
 
   @name_max_length 20
+
+  # What anyone may see of a moon, wherever it appears
+  @public_fields [:id, :name, :inserted_at, :avatar_color, :avatar_image]
 
   @derive {Jason.Encoder, except: [:__meta__]}
   schema "moons" do
@@ -15,8 +19,21 @@ defmodule Saturn.Moon do
     has_many(:subscriptions, Subscription, on_delete: :delete_all)
 
     field(:name, :string)
+    # Its picture, set by its owner (see Saturn.Avatars): a monogram colour, picked at random when
+    # it's created, and an uploaded image's filename, which is shown instead when set
+    field(:avatar_color, :string, autogenerate: {Avatars, :random_color, []})
+    field(:avatar_image, :string)
 
     timestamps(type: :utc_datetime)
+  end
+
+  def public_fields, do: @public_fields
+
+  def avatar_changeset(moon, attrs) do
+    moon
+    |> cast(attrs, [:avatar_color, :avatar_image])
+    |> validate_required([:avatar_color])
+    |> validate_inclusion(:avatar_color, Avatars.colors(), message: "isn't one of the choices")
   end
 
   def changeset(moon, attrs) do

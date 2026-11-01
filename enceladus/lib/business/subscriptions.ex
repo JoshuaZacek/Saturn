@@ -2,7 +2,7 @@ defmodule Saturn.Subscriptions do
   import Ecto.Query
   import Saturn.Functions
 
-  alias Saturn.{Repo, Subscription}
+  alias Saturn.{Repo, Subscription, Moon}
 
   def create(params, user_id) do
     inserted_subscription =
@@ -34,7 +34,7 @@ defmodule Saturn.Subscriptions do
           join: m in assoc(s, :moon),
           where: s.user_id == ^user_id,
           order_by: [asc: fragment("lower(?)", m.name), asc: m.name],
-          select: %{id: m.id, name: m.name}
+          select: map(m, ^Moon.public_fields())
         )
       )
 

@@ -1,8 +1,9 @@
 import axios from 'axios'
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
+import type { AvatarFields } from '@/utils/avatar'
 
-export interface SubscribedMoon {
+export interface SubscribedMoon extends AvatarFields {
   id: number
   name: string
 }
@@ -49,12 +50,24 @@ export const useSubscriptionsStore = defineStore('subscriptions', () => {
     if (subscribed) {
       await axios.post(`${apiBase()}/subscription`, { moon_id: moon.id })
       if (!moons.value.some((m) => m.id === moon.id)) {
-        moons.value = [...moons.value, { id: moon.id, name: moon.name }].sort(byName)
+        moons.value = [
+          ...moons.value,
+          {
+            id: moon.id,
+            name: moon.name,
+            avatar_color: moon.avatar_color,
+            avatar_image: moon.avatar_image,
+          },
+        ].sort(byName)
       }
     } else {
       await axios.delete(`${apiBase()}/subscription`, { params: { moon_id: moon.id } })
       moons.value = moons.value.filter((m) => m.id !== moon.id)
     }
+  }
+
+  const updateAvatar = (moonId: number, avatar: AvatarFields) => {
+    moons.value = moons.value.map((moon) => (moon.id === moonId ? { ...moon, ...avatar } : moon))
   }
 
   return {
@@ -63,5 +76,6 @@ export const useSubscriptionsStore = defineStore('subscriptions', () => {
     load,
     clear,
     setSubscribed,
+    updateAvatar,
   }
 })

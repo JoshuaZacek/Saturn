@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useAvatarStore } from '@/stores/avatars'
 import { useSubscriptionsStore } from '@/stores/subscriptions'
 import { useUIStore } from '@/stores/ui'
 import FeedButton from '@/components/FeedButton.vue'
@@ -17,6 +18,7 @@ const route = useRoute()
 const uiStore = useUIStore()
 const authStore = useAuthStore()
 const subscriptionsStore = useSubscriptionsStore()
+const avatarStore = useAvatarStore()
 const getSingleQueryValue = (value: unknown) => (Array.isArray(value) ? value[0] : value)
 
 const sortQuery = computed(() => getSingleQueryValue(route.query.sort))
@@ -46,20 +48,32 @@ const isContextMoon = (name: string) => contextMoon.value === name
 const currentItem = computed(() => {
   if (route.name === 'profile') {
     const username = String(route.params.username)
+    const avatar = avatarStore.lookup('user', username)
     return {
       key: `@${username}`,
       label: `@${username}`,
-      avatar: { name: username, shape: 'circle' as const },
+      avatar: {
+        name: username,
+        shape: 'circle' as const,
+        color: avatar?.avatar_color,
+        image: avatar?.avatar_image,
+      },
       to: null,
     }
   }
 
   const moon = contextMoon.value
   if (moon && !isSubscribedTo(moon)) {
+    const avatar = avatarStore.lookup('moon', moon)
     return {
       key: `/${moon}`,
       label: `/${moon}`,
-      avatar: { name: moon, shape: 'tile' as const },
+      avatar: {
+        name: moon,
+        shape: 'tile' as const,
+        color: avatar?.avatar_color,
+        image: avatar?.avatar_image,
+      },
       to: route.name === 'post' ? { name: 'moon', params: { moon } } : null,
     }
   }
@@ -147,9 +161,13 @@ const movePill = () => {
   pillFrame = requestAnimationFrame(step)
 }
 
+// The name matters as well as the address: a missing moon or profile turns
+// into Not Found without the address changing.
 watch(
   [
     () => route.fullPath,
+    () => route.name,
+    () => currentItem.value?.key,
     () => authStore.isLoggedIn,
     () => subscriptionsStore.moons.length,
     () => uiStore.isCompactLayout,
@@ -279,14 +297,20 @@ onBeforeUnmount(() => {
         v-for="moon in subscriptionsStore.moons"
         :key="moon.id"
         :label="`/${moon.name}`"
-        :avatar="{ name: moon.name, shape: 'tile' }"
+        :avatar="{
+          name: moon.name,
+          shape: 'tile',
+          color: moon.avatar_color,
+          image: moon.avatar_image,
+        }"
         :active="isContextMoon(moon.name)"
         :current="route.name === 'post' ? 'location' : 'page'"
         @click="router.push({ name: 'moon', params: { moon: moon.name } })"
       />
     </div>
 
-    <AccountCard />
+    <!-- On phones, the top bar's account menu does this job once you're logged in. -->
+    <AccountCard v-if="!(uiStore.isCompactLayout && authStore.isLoggedIn)" />
 
     <button
       v-if="!uiStore.isCompactLayout"
@@ -367,6 +391,11 @@ onBeforeUnmount(() => {
 .drawer > .currentGroup + .mainFeeds,
 .drawer > .mainFeeds:first-of-type {
   margin-top: 0.5rem;
+}
+
+/* Without the account card at its foot, the list needs its own room below. */
+.sidebar.drawer:not(:has(> .accountCard)) {
+  padding-bottom: 1rem;
 }
 
 .drawerBackdrop {

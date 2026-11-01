@@ -1,5 +1,9 @@
 <template>
-  <article ref="threadRef" class="commentThread" :class="{ hasReplies, collapsed, lineHover }">
+  <article
+    ref="threadRef"
+    class="commentThread"
+    :class="{ hasReplies, collapsed, lineHover, deleted: current.deleted }"
+  >
     <!-- A reply's stretch of its parent's line: clicking it collapses the parent. -->
     <span
       class="parentLine"
@@ -22,9 +26,16 @@
       >
         <PlusIcon :size="14" />
       </button>
+      <!-- A deleted comment's author isn't shown. -->
+      <span v-else-if="!current.user" class="deletedAvatar" aria-hidden="true" />
       <!-- The username beside it is the link for keyboards and screen readers. -->
       <RouterLink v-else class="avatarLink" :to="profileLocation" tabindex="-1" aria-hidden="true">
-        <UserAvatar :name="comment.user.username" :size="28" />
+        <UserAvatar
+          :name="current.user.username"
+          :color="current.user.avatar_color"
+          :image="current.user.avatar_image"
+          :size="28"
+        />
       </RouterLink>
 
       <button
@@ -42,18 +53,33 @@
 
       <div class="commentBody">
         <div class="meta">
-          <RouterLink class="username" :to="profileLocation">
-            {{ comment.user.username }}
+          <span v-if="!current.user" class="deletedName">Deleted</span>
+          <RouterLink v-else class="username" :to="profileLocation">
+            {{ current.user.username }}
           </RouterLink>
-          <time class="time" :datetime="comment.inserted_at" :title="`Posted ${absoluteDate}`">
-            {{ postedDate }}
-          </time>
+          <RelativeTime class="time" :datetime="current.inserted_at" />
+          <HoverTooltip v-if="current.edited_at" :text="editedText">
+            <span class="edited">edited</span>
+          </HoverTooltip>
         </div>
 
         <div v-show="!collapsed">
-          <p class="content">{{ comment.content }}</p>
+          <p v-if="current.deleted" class="content deletedContent">This comment was deleted.</p>
+          <div v-else-if="isEditing" class="editArea">
+            <CommentComposer
+              v-model="draft"
+              reply
+              label="Edit your comment"
+              submit-label="Save"
+              :loading="isSaving"
+              :error="editError"
+              @submit="saveEdit"
+              @cancel="cancelEditing"
+            />
+          </div>
+          <p v-else class="content">{{ current.content }}</p>
 
-          <div class="actions">
+          <div v-if="!current.deleted && !isEditing" class="actions">
             <VoteButtons
               :id="comment.id"
               :votes="comment.votes"
@@ -72,16 +98,26 @@
             >
               <ReplyIcon :size="18" />
             </button>
+
+            <ActionMenu
+              v-if="isOwner"
+              class="options"
+              label="Comment options"
+              align="start"
+              :items="ownerActions"
+              :busy="isDeleting"
+              @select="onOwnerAction"
+            />
           </div>
 
           <Transition name="reply-area">
-            <div v-if="replyToggled" class="replyArea">
+            <div v-if="replyToggled && !current.deleted && !isEditing" class="replyArea">
               <CommentComposer
                 v-if="authStore.isLoggedIn"
                 v-model="replyContent"
                 reply
-                :label="`Reply to ${comment.user.username}`"
-                :placeholder="`Reply to ${comment.user.username}`"
+                :label="`Reply to ${current.user?.username}`"
+                :placeholder="`Reply to ${current.user?.username}`"
                 submit-label="Reply"
                 :loading="isSendingReply"
                 :error="replyError"
@@ -108,6 +144,7 @@
         :sort="sort"
         @collapse-parent="collapse"
         @hover-parent="lineHover = $event"
+        @removed="onReplyRemoved"
       />
 
       <InfiniteScrollFooter
@@ -136,17 +173,20 @@ import axios from 'axios'
 import { computed, inject, nextTick, onMounted, ref } from 'vue'
 import PlusIcon from '@/components/icons/PlusIcon.vue'
 import ReplyIcon from '@/components/icons/ReplyIcon.vue'
+import ActionMenu from '@/components/ActionMenu.vue'
 import CommentComposer from '@/components/CommentComposer.vue'
+import HoverTooltip from '@/components/HoverTooltip.vue'
 import InfiniteScrollFooter from '@/components/InfiniteScrollFooter.vue'
+import RelativeTime from '@/components/RelativeTime.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import VoteButtons from '@/components/VoteButtons.vue'
 import { COMMENT_MAX_LENGTH, countCharacters } from '@/utils/characterCount'
+import { useCommentEditing } from '@/composables/useCommentEditing'
 import { usePaginatedList } from '@/composables/usePaginatedList'
 import { useAuthStore } from '@/stores/auth'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 import { useUIStore } from '@/stores/ui'
-import { formatRelativeTime } from '@/utils/relativeTime'
 import { waitForMinimumVisibleTime } from '@/config/loading'
 import type { Comment, CommentsResponse } from '@/types/comment'
 
@@ -162,9 +202,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   collapseParent: []
   hoverParent: [hovering: boolean]
+  // Deleted and gone from the thread (not kept as a placeholder for its replies).
+  removed: [commentId: number]
 }>()
 
-const incrementComments = inject<() => void>('incrementComments', () => {})
+// The post page's comment count.
+const adjustCommentCount = inject<(delta: number) => void>('adjustCommentCount', () => {})
 
 const authStore = useAuthStore()
 const errorBanner = useErrorBannerStore()
@@ -176,9 +219,31 @@ const replyContent = ref('')
 const replyError = ref('')
 const isSendingReply = ref(false)
 
-const profileLocation = computed(() => `/@${props.comment.user.username}`)
-const postedDate = computed(() => formatRelativeTime(props.comment.inserted_at))
-const absoluteDate = computed(() => new Date(props.comment.inserted_at).toLocaleString())
+// Your own comment can be edited and deleted.
+const {
+  current,
+  isOwner,
+  editedText,
+  isEditing,
+  draft,
+  editError,
+  isSaving,
+  isDeleting,
+  cancelEditing,
+  saveEdit,
+  ownerActions,
+  onOwnerAction,
+} = useCommentEditing(
+  () => props.comment,
+  () => {
+    adjustCommentCount(-1)
+    emit('removed', props.comment.id)
+  },
+)
+
+const profileLocation = computed(() =>
+  current.value.user ? `/@${current.value.user.username}` : '',
+)
 const hasMoreReplies = computed(() => Boolean(props.comment.replies))
 const showSeeMoreReplies = computed(
   () => props.level >= MAX_AUTO_EXPAND_LEVEL && hasMoreReplies.value,
@@ -222,6 +287,17 @@ const {
     },
   },
 )
+
+// A deleted placeholder is only kept for its replies, so once the last of them
+// is gone, the API removes it too, and so does the thread.
+const onReplyRemoved = (replyId: number) => {
+  replies.value = replies.value.filter((reply) => reply.id !== replyId)
+
+  if (current.value.deleted && replies.value.length === 0 && !hasMoreReplyPages.value) {
+    adjustCommentCount(-1)
+    emit('removed', props.comment.id)
+  }
+}
 
 // Lines run from a comment to its replies only when there are some to show.
 const hasReplies = computed(() => replies.value.length > 0 || showSeeMoreReplies.value)
@@ -296,7 +372,7 @@ const submitReply = async () => {
     // The create endpoint doesn't compute an aggregate vote total for a
     // brand-new comment (it comes back as `[]`), so seed it ourselves.
     replies.value.unshift({ ...response.data, votes: 0, hasVoted: null })
-    incrementComments()
+    adjustCommentCount(1)
     succeeded = true
   } catch (err) {
     replyError.value =
@@ -459,6 +535,11 @@ const submitReply = async () => {
   font-size: var(--text-footnote);
 }
 
+.deletedName {
+  font-weight: 600;
+  color: var(--text-3);
+}
+
 .username {
   font-weight: 600;
   color: var(--text-1);
@@ -474,6 +555,26 @@ const submitReply = async () => {
 
 .time {
   color: var(--text-2);
+}
+
+.edited {
+  color: var(--text-3);
+}
+
+/* Stands in for the avatar of a deleted comment's (hidden) author. */
+.deletedAvatar {
+  width: var(--avatar);
+  height: var(--avatar);
+  border-radius: var(--radius-full);
+  border: 1.5px dashed var(--separator-strong);
+}
+
+.deletedContent {
+  color: var(--text-3);
+}
+
+.editArea {
+  margin-top: 0.15rem;
 }
 
 .content {

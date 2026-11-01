@@ -14,7 +14,7 @@ defmodule Saturn.Comments do
       {:ok, comment} ->
         comment
         |> Repo.preload(
-          user: from(u in User, select: map(u, [:username, :id, :inserted_at])),
+          user: from(u in User, select: map(u, ^User.public_fields())),
           votes:
             from(v in Vote,
               select: %{
@@ -60,7 +60,8 @@ defmodule Saturn.Comments do
         }
       )
     )
-    |> Repo.preload(user: from(u in User, select: map(u, [:username, :id, :inserted_at])))
+    |> Repo.preload(user: from(u in User, select: map(u, ^User.public_fields())))
+    |> hide_deleted()
   end
 
   def get(params, user_id) do
@@ -157,7 +158,8 @@ defmodule Saturn.Comments do
           }
         )
       )
-      |> Repo.preload(user: from(u in User, select: map(u, [:username, :id, :inserted_at])))
+      |> Repo.preload(user: from(u in User, select: map(u, ^User.public_fields())))
+      |> Enum.map(&hide_deleted/1)
 
     {next_cursor, comments} = get_next_cursor(comments, params.limit, params.sort)
 
@@ -166,6 +168,76 @@ defmodule Saturn.Comments do
       next_cursor: next_cursor
     }
   end
+
+  # Its author changes its text. Returns the comment as listed, with the new text and edit time.
+  def edit(comment_id, params, user) do
+    with {:ok, comment} <- own_comment(comment_id, user) do
+      comment
+      |> Comment.edit_changeset(params)
+      |> Repo.update()
+      |> case do
+        {:ok, _} -> {:ok, get_by_id(comment_id, user.id)}
+        {:error, changeset} -> {:error, %{errors: format_changeset(changeset)}}
+      end
+    end
+  end
+
+  # Its author deletes it. A comment with replies is kept as a placeholder (no text, no author),
+  # so the replies stay in their thread; one without is removed, and so is any deleted
+  # placeholder above it that was only kept for it. `kept` says which happened.
+  def delete(comment_id, user) do
+    with {:ok, comment} <- own_comment(comment_id, user) do
+      if has_replies?(comment.id) do
+        comment
+        |> Ecto.Changeset.change(deleted: true, content: "", edited_at: nil)
+        |> Repo.update!()
+
+        {:ok, %{id: comment.id, kept: true}}
+      else
+        Repo.delete!(comment)
+        remove_empty_placeholders(comment.comment_id)
+        {:ok, %{id: comment.id, kept: false}}
+      end
+    end
+  end
+
+  defp own_comment(comment_id, user) do
+    case Repo.get(Comment, comment_id) do
+      %Comment{deleted: false, user_id: author_id} = comment when author_id == user.id ->
+        {:ok, comment}
+
+      %Comment{deleted: false} ->
+        {:error, :forbidden}
+
+      _ ->
+        {:error, :not_found}
+    end
+  end
+
+  defp has_replies?(comment_id) do
+    Repo.exists?(from(c in Comment, where: c.comment_id == ^comment_id))
+  end
+
+  defp remove_empty_placeholders(nil), do: :ok
+
+  defp remove_empty_placeholders(parent_id) do
+    case Repo.get(Comment, parent_id) do
+      %Comment{deleted: true} = parent ->
+        unless has_replies?(parent.id) do
+          Repo.delete!(parent)
+          remove_empty_placeholders(parent.comment_id)
+        end
+
+        :ok
+
+      _ ->
+        :ok
+    end
+  end
+
+  # A deleted placeholder shows neither what it said nor who said it
+  defp hide_deleted(%{deleted: true} = comment), do: %{comment | user: nil, content: ""}
+  defp hide_deleted(comment), do: comment
 
   defp get_next_cursor(comments, limit, sort) when length(comments) > 0 do
     [head | tail] = Enum.reverse(comments)

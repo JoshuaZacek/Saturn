@@ -1,10 +1,12 @@
-export interface PostUser {
+import type { AvatarFields } from '@/utils/avatar'
+
+export interface PostUser extends AvatarFields {
   id: number
   username: string
   inserted_at: string
 }
 
-export interface PostMoon {
+export interface PostMoon extends AvatarFields {
   id: number
   name: string
   inserted_at: string

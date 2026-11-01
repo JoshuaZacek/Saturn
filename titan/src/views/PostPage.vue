@@ -15,6 +15,7 @@ import { waitForMinimumVisibleTime } from '@/config/loading'
 import { usePaginatedList } from '@/composables/usePaginatedList'
 import { notFoundLocation } from '@/router'
 import { useAuthStore } from '@/stores/auth'
+import { useAvatarStore } from '@/stores/avatars'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 import { useUIStore } from '@/stores/ui'
 import type { Post } from '@/types/post'
@@ -29,6 +30,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const errorBanner = useErrorBannerStore()
 const uiStore = useUIStore()
+const avatarStore = useAvatarStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 
 const postId = computed(() => String(route.params.post_id))
@@ -54,8 +56,13 @@ const commentsTitle = computed(() => {
     : `${formatCompactCount(count)} ${count === 1 ? 'comment' : 'comments'}`
 })
 
-// The sidebar shows the moon this post lives in.
-watch(post, (current) => uiStore.setPostMoon(current?.moon.name ?? null))
+// The sidebar shows the moon this post lives in, with its picture.
+watch(post, (current) => {
+  uiStore.setPostMoon(current?.moon.name ?? null)
+  if (current) {
+    avatarStore.remember('moon', current.moon.name, current.moon)
+  }
+})
 onBeforeUnmount(() => uiStore.setPostMoon(null))
 
 const commentSort = ref<CommentSort>('new')
@@ -232,11 +239,14 @@ const onPostDeleted = () => {
   }
 }
 
-const incrementComments = () => {
-  numberOfComments.value += 1
-}
+// Replies add to the count; deleted comments that leave the thread take away.
+provide('adjustCommentCount', (delta: number) => {
+  numberOfComments.value = Math.max(0, numberOfComments.value + delta)
+})
 
-provide('incrementComments', incrementComments)
+const onCommentRemoved = (id: number) => {
+  comments.value = comments.value.filter((comment) => comment.id !== id)
+}
 
 watch(postId, () => void loadPost(), { immediate: true })
 // Re-sorting keeps the current comments up (dimmed) until the new order
@@ -401,6 +411,7 @@ onBeforeUnmount(() => {
               :post-id="postId"
               :level="0"
               :sort="commentSort"
+              @removed="onCommentRemoved"
             />
 
             <InfiniteScrollFooter

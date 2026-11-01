@@ -21,7 +21,12 @@
       aria-controls="account-menu"
       @click="isMenuClosed = !isMenuClosed"
     >
-      <UserAvatar :name="username" :size="28" />
+      <UserAvatar
+        :name="username"
+        :color="authStore.user.avatar_color"
+        :image="authStore.user.avatar_image"
+        :size="28"
+      />
       <span class="headerName">@{{ username }}</span>
       <CaretIcon class="caret" :direction="isMenuClosed ? 'up' : 'down'" />
     </button>

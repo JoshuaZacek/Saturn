@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import axios from 'axios'
 import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import ActionMenu, { type ActionMenuItem } from '@/components/ActionMenu.vue'
 import PostImage from '@/components/PostImage.vue'
+import RelativeTime from '@/components/RelativeTime.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import VoteButtons from '@/components/VoteButtons.vue'
 import ChatCircleIcon from '@/components/icons/ChatCircleIcon.vue'
@@ -10,7 +12,6 @@ import DeleteIcon from '@/components/icons/DeleteIcon.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 import { formatCompactCount } from '@/utils/formatCount'
-import { formatRelativeTime } from '@/utils/relativeTime'
 import type { Post } from '@/types/post'
 
 const props = defineProps<{
@@ -28,6 +29,7 @@ const emit = defineEmits<{
   deleted: [postId: number]
 }>()
 
+const router = useRouter()
 const authStore = useAuthStore()
 const errorBanner = useErrorBannerStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
@@ -39,12 +41,18 @@ const postLocation = computed(() => ({
   params: { post_id: String(props.post.id) },
 }))
 const imageURL = computed(() => `${backendUrl}/assets/${props.post.body}`)
-const postedDate = computed(() => formatRelativeTime(props.post.inserted_at))
-const dateCreated = computed(() => new Date(props.post.inserted_at).toLocaleString())
 const commentLabel = computed(
   () => `${props.post.comments} ${props.post.comments === 1 ? 'comment' : 'comments'}`,
 )
 const avatarSize = computed(() => (props.postPageMode ? 24 : 20))
+
+// The time sits above the card's link (so it can show its tooltip), and still
+// opens the post like the rest of the card.
+const onTimeClick = () => {
+  if (!props.postPageMode) {
+    void router.push(postLocation.value)
+  }
+}
 // A card previews the text as one paragraph; the post page keeps its breaks.
 const bodyText = computed(() =>
   props.postPageMode ? props.post.body : props.post.body?.replace(/\s+/g, ' ').trim(),
@@ -95,11 +103,22 @@ const onAction = (action: string) => {
   <article class="postCard" :class="{ article: postPageMode }">
     <header class="meta">
       <RouterLink v-if="!hideMoon" class="identity" :to="`/${post.moon.name}`">
-        <UserAvatar :name="post.moon.name" shape="tile" :size="avatarSize" />
+        <UserAvatar
+          :name="post.moon.name"
+          :color="post.moon.avatar_color"
+          :image="post.moon.avatar_image"
+          shape="tile"
+          :size="avatarSize"
+        />
         <span class="identityName">/{{ post.moon.name }}</span>
       </RouterLink>
       <RouterLink v-else class="identity" :to="`/@${post.user.username}`">
-        <UserAvatar :name="post.user.username" :size="avatarSize" />
+        <UserAvatar
+          :name="post.user.username"
+          :color="post.user.avatar_color"
+          :image="post.user.avatar_image"
+          :size="avatarSize"
+        />
         <span class="identityName">{{ post.user.username }}</span>
       </RouterLink>
 
@@ -107,9 +126,7 @@ const onAction = (action: string) => {
         {{ post.user.username }}
       </RouterLink>
 
-      <time class="time" :datetime="post.inserted_at" :title="`Posted ${dateCreated}`">
-        {{ postedDate }}
-      </time>
+      <RelativeTime class="time" :datetime="post.inserted_at" @click="onTimeClick" />
 
       <ActionMenu
         v-if="isOwner"
@@ -214,9 +231,15 @@ const onAction = (action: string) => {
 }
 
 .time {
+  /* Above the card's link, for its tooltip. */
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
   margin-left: auto;
-  white-space: nowrap;
+}
+
+.postCard:not(.article) .time {
+  cursor: pointer;
 }
 
 .options {

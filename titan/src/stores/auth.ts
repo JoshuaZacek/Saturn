@@ -1,13 +1,17 @@
 import axios from 'axios'
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import type { AvatarFields } from '@/utils/avatar'
 
 const AUTH_STORAGE_KEY = 'auth-user'
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 
 type AuthUser = {
+  id?: number
   username?: string
   email?: string
+  avatar_color?: string
+  avatar_image?: string | null
   [key: string]: unknown
 }
 
@@ -49,6 +53,15 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = {
       ...user.value,
       email: newEmail,
+    }
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user.value))
+  }
+
+  const changeAvatar = (avatar: AvatarFields) => {
+    user.value = {
+      ...user.value,
+      avatar_color: avatar.avatar_color,
+      avatar_image: avatar.avatar_image,
     }
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user.value))
   }
@@ -102,6 +115,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     logout,
     changeEmail,
+    changeAvatar,
     verifySession,
     clearSessionExpired,
     isLoggedIn,

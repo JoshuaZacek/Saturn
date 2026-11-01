@@ -1,7 +1,8 @@
 import type { ProfileComment } from '@/types/comment'
 import type { Post } from '@/types/post'
+import type { AvatarFields } from '@/utils/avatar'
 
-export interface ProfileUser {
+export interface ProfileUser extends AvatarFields {
   id: number
   username: string
   inserted_at: string

@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import WarningIcon from '@/components/icons/WarningIcon.vue'
 
+// A quiet, centred notice for pages with nothing else to show.
 defineProps<{
   message: string
 }>()
 </script>
 
+<!-- No comments before <main>: dev builds keep them, which turns the root into
+     a fragment, and the page transition then never finishes leaving (the next
+     page never appears). -->
 <template>
-  <!-- A quiet, centred notice for pages with nothing else to show. -->
   <main class="statusMessage">
     <WarningIcon class="statusIcon" :size="56" />
     <h1 class="statusText">{{ message }}</h1>

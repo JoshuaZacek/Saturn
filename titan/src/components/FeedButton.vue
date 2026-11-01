@@ -7,7 +7,12 @@ withDefaults(
     label: string
     icon?: Component
     // A monogram (a moon's tile or a person's circle) in place of an icon.
-    avatar?: { name: string; shape: 'tile' | 'circle' }
+    avatar?: {
+      name: string
+      shape: 'tile' | 'circle'
+      color?: string | null
+      image?: string | null
+    }
     active?: boolean
     iconSize?: number
     // Static rows only label where you are; they don't go anywhere.
@@ -41,7 +46,14 @@ defineEmits<{
     <!-- Every row keeps a 30px leading slot, so all the labels line up. -->
     <span class="lead" aria-hidden="true">
       <component :is="icon" v-if="icon" :filled="active" :size="iconSize" />
-      <UserAvatar v-else-if="avatar" :name="avatar.name" :shape="avatar.shape" :size="22" />
+      <UserAvatar
+        v-else-if="avatar"
+        :name="avatar.name"
+        :shape="avatar.shape"
+        :color="avatar.color"
+        :image="avatar.image"
+        :size="22"
+      />
     </span>
     <span class="label">{{ label }}</span>
   </button>

@@ -1,16 +1,25 @@
 <template>
   <main class="moonPage">
-    <EntityHeader :name="moonName" :title="`/${moonName}`" kind="moon">
+    <EntityHeader
+      :name="moonName"
+      :title="`/${moonName}`"
+      kind="moon"
+      :avatar="moon"
+      :editable="isOwner"
+      @edit-avatar="isEditingAvatar = true"
+    >
       <template #meta>
         <!-- Kept in the layout while loading, so the header doesn't change height. -->
         <span class="metaItem" :class="{ pending: !moon }" :aria-hidden="!moon">
           <UsersIcon :size="16" />
           <span>{{ subscriberText }}</span>
         </span>
-        <span v-if="moon" class="metaItem" :title="createdAtText">
-          <ClockIcon :size="16" />
-          <span>{{ createdText }}</span>
-        </span>
+        <HoverTooltip v-if="moon" :text="createdAtText">
+          <span class="metaItem">
+            <ClockIcon :size="16" />
+            <span>{{ createdText }}</span>
+          </span>
+        </HoverTooltip>
       </template>
 
       <template v-if="moon" #actions>
@@ -66,6 +75,17 @@
         <SpinnerLoader :size="28" fg-color="var(--text-3)" />
       </div>
     </div>
+
+    <AvatarEditor
+      v-if="moon && isOwner"
+      :open="isEditingAvatar"
+      kind="moon"
+      :name="moon.name"
+      :avatar="moon"
+      :endpoint="`/moon/${moon.id}/avatar`"
+      @close="isEditingAvatar = false"
+      @saved="onAvatarSaved"
+    />
   </main>
 </template>
 
@@ -73,9 +93,11 @@
 import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AvatarEditor from '@/components/AvatarEditor.vue'
 import EntityHeader from '@/components/EntityHeader.vue'
 import FeedEmptyState from '@/components/FeedEmptyState.vue'
 import FeedToolbar from '@/components/FeedToolbar.vue'
+import HoverTooltip from '@/components/HoverTooltip.vue'
 import SpinnerLoader from '@/components/SpinnerLoader.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
 import PostFeed from '@/components/PostFeed.vue'
@@ -87,20 +109,24 @@ import TickIcon from '@/components/icons/TickIcon.vue'
 import UsersIcon from '@/components/icons/UsersIcon.vue'
 import { notFoundLocation } from '@/router'
 import { useAuthStore } from '@/stores/auth'
+import { useAvatarStore } from '@/stores/avatars'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 import { useSubscriptionsStore } from '@/stores/subscriptions'
 import { useUIStore } from '@/stores/ui'
 import { getSingleQueryValue, getTimePeriod, type FeedSort } from '@/utils/feedQuery'
 import { formatCompactCount } from '@/utils/formatCount'
-import { formatMonthYear } from '@/utils/relativeTime'
+import type { AvatarFields } from '@/utils/avatar'
+import { formatMonthYear, formatPreciseTime } from '@/utils/relativeTime'
 
-type Moon = {
+type Moon = AvatarFields & {
   id: number
   name: string
   inserted_at: string
   updated_at: string
   subscribed: boolean
   subscribers: number
+  // Its owner, who can change its picture.
+  user_id: number
 }
 
 const route = useRoute()
@@ -118,6 +144,24 @@ const selectedTimePeriod = computed(() => (typeof t.value === 'string' ? t.value
 const moon = ref<Moon | null>(null)
 const isLoadingMoon = ref(true)
 const isUpdatingSubscription = ref(false)
+const isEditingAvatar = ref(false)
+const avatarStore = useAvatarStore()
+
+const isOwner = computed(
+  () => !!moon.value && authStore.isLoggedIn && moon.value.user_id === authStore.user.id,
+)
+
+// The new picture shows everywhere this moon appears, straight away.
+const onAvatarSaved = (avatar: AvatarFields) => {
+  isEditingAvatar.value = false
+  if (!moon.value) {
+    return
+  }
+
+  moon.value = { ...moon.value, ...avatar }
+  avatarStore.change('moon', moon.value.name, avatar)
+  subscriptionsStore.updateAvatar(moon.value.id, avatar)
+}
 
 // Placeholder text keeps the stats' height while the moon loads.
 const subscriberText = computed(() => {
@@ -132,7 +176,7 @@ const createdText = computed(() =>
   moon.value ? `Created ${formatMonthYear(moon.value.inserted_at)}` : '',
 )
 const createdAtText = computed(() =>
-  moon.value ? `Created ${new Date(moon.value.inserted_at).toLocaleString()}` : undefined,
+  moon.value ? `Created ${formatPreciseTime(moon.value.inserted_at)}` : '',
 )
 
 // Posting needs an account, so without one this opens the log-in sheet.
@@ -262,6 +306,8 @@ const loadMoon = async (name: string) => {
     }
 
     moon.value = response.data
+    // For the sidebar's "Currently viewing" row.
+    avatarStore.remember('moon', response.data.name, response.data)
   } catch (err) {
     if (currentRequestId !== moonRequestId) {
       return

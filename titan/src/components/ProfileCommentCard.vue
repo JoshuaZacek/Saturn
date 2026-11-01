@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import ChatCircleIcon from '@/components/icons/ChatCircleIcon.vue'
+import ActionMenu from '@/components/ActionMenu.vue'
+import CommentComposer from '@/components/CommentComposer.vue'
+import HoverTooltip from '@/components/HoverTooltip.vue'
+import RelativeTime from '@/components/RelativeTime.vue'
 import VoteButtons from '@/components/VoteButtons.vue'
-import { formatRelativeTime } from '@/utils/relativeTime'
+import { useCommentEditing } from '@/composables/useCommentEditing'
 import type { ProfileComment } from '@/types/comment'
 
 // A comment on someone's profile: the comment first, then the post it was on.
@@ -11,13 +15,38 @@ const props = defineProps<{
   comment: ProfileComment
 }>()
 
+const emit = defineEmits<{
+  // Deleted: it's no longer one of theirs, whether or not the thread keeps a placeholder.
+  removed: [commentId: number]
+}>()
+
+const {
+  current,
+  isOwner,
+  editedText,
+  isEditing,
+  draft,
+  editError,
+  isSaving,
+  isDeleting,
+  cancelEditing,
+  saveEdit,
+  ownerActions,
+  onOwnerAction,
+} = useCommentEditing(
+  () => props.comment,
+  () => emit('removed', props.comment.id),
+)
+
+watch(
+  () => current.value.deleted,
+  (deleted) => deleted && emit('removed', props.comment.id),
+)
+
 const threadLocation = computed(() => ({
   name: 'post',
   params: { post_id: String(props.comment.post.id), comment_id: String(props.comment.id) },
 }))
-
-const dateCreated = computed(() => new Date(props.comment.inserted_at).toLocaleString())
-const postedDate = computed(() => formatRelativeTime(props.comment.inserted_at))
 </script>
 
 <template>
@@ -29,14 +58,38 @@ const postedDate = computed(() => formatRelativeTime(props.comment.inserted_at))
           comment.post.title
         }}</RouterLink>
       </span>
-      <time class="time" :datetime="comment.inserted_at" :title="`Posted ${dateCreated}`">
-        {{ postedDate }}
-      </time>
+      <span class="when">
+        <HoverTooltip v-if="current.edited_at" :text="editedText">
+          <span class="edited">edited</span>
+        </HoverTooltip>
+        <RelativeTime :datetime="current.inserted_at" />
+      </span>
+
+      <ActionMenu
+        v-if="isOwner && !isEditing"
+        class="options"
+        label="Comment options"
+        :items="ownerActions"
+        :busy="isDeleting"
+        @select="onOwnerAction"
+      />
     </header>
 
-    <p class="content">{{ comment.content }}</p>
+    <div v-if="isEditing" class="editArea">
+      <CommentComposer
+        v-model="draft"
+        reply
+        label="Edit your comment"
+        submit-label="Save"
+        :loading="isSaving"
+        :error="editError"
+        @submit="saveEdit"
+        @cancel="cancelEditing"
+      />
+    </div>
+    <p v-else class="content">{{ current.content }}</p>
 
-    <footer class="actions">
+    <footer v-if="!isEditing" class="actions">
       <VoteButtons
         :id="comment.id"
         :votes="comment.votes"
@@ -91,9 +144,27 @@ const postedDate = computed(() => formatRelativeTime(props.comment.inserted_at))
   }
 }
 
-.time {
+/* When, and whether it has been edited since. */
+.when {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
   flex-shrink: 0;
   margin-left: auto;
+}
+
+.edited {
+  color: var(--text-3);
+}
+
+.options {
+  flex-shrink: 0;
+  align-self: center;
+  margin: -0.25rem -0.4rem -0.25rem -0.2rem;
+}
+
+.editArea {
+  margin-top: 0.6rem;
 }
 
 .content {

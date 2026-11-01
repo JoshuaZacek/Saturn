@@ -2,16 +2,20 @@
 import axios from 'axios'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AvatarEditor from '@/components/AvatarEditor.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
+import UserAvatar from '@/components/UserAvatar.vue'
 import CaretLeftIcon from '@/components/icons/CaretLeftIcon.vue'
 import CaretRightIcon from '@/components/icons/CaretRightIcon.vue'
 import CheckIcon from '@/components/icons/CheckIcon.vue'
 import { waitForMinimumVisibleTime } from '@/config/loading'
 import { useAuthStore } from '@/stores/auth'
+import { useAvatarStore } from '@/stores/avatars'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 import { useUIStore, type Theme } from '@/stores/ui'
+import type { AvatarFields } from '@/utils/avatar'
 
 type Step = 'email' | 'password' | 'delete'
 
@@ -23,6 +27,20 @@ const router = useRouter()
 const authStore = useAuthStore()
 const errorBanner = useErrorBannerStore()
 const uiStore = useUIStore()
+const avatarStore = useAvatarStore()
+
+const username = computed(() => String(authStore.user.username ?? ''))
+const isEditingAvatar = ref(false)
+const currentAvatar = computed<AvatarFields>(() => ({
+  avatar_color: authStore.user.avatar_color ?? '',
+  avatar_image: authStore.user.avatar_image ?? null,
+}))
+
+const onAvatarSaved = (avatar: AvatarFields) => {
+  isEditingAvatar.value = false
+  authStore.changeAvatar(avatar)
+  avatarStore.change('user', username.value, avatar)
+}
 
 const themeOptions: { label: string; value: Theme }[] = [
   { label: 'System', value: 'system' },
@@ -41,7 +59,7 @@ const step = computed<Step | null>(() => {
 const notice = ref('')
 const isSubmitting = ref(false)
 const emailErrors = ref({ newEmail: '', confirmEmail: '' })
-const passwordErrors = ref({ oldPassword: '', newPassword: '' })
+const passwordErrors = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
 
 const hasEmailErrors = computed(() => Object.values(emailErrors.value).some(Boolean))
 const hasPasswordErrors = computed(() => Object.values(passwordErrors.value).some(Boolean))
@@ -61,7 +79,7 @@ const returnToSettings = (message: string) => {
 
 watch(step, async (nextStep) => {
   emailErrors.value = { newEmail: '', confirmEmail: '' }
-  passwordErrors.value = { oldPassword: '', newPassword: '' }
+  passwordErrors.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
   isSubmitting.value = false
 
   if (!nextStep) {
@@ -136,7 +154,8 @@ const submitPassword = async (event: Event) => {
   const formData = new FormData(event.target as HTMLFormElement)
   const oldPassword = String(formData.get('oldpassword') ?? '')
   const newPassword = String(formData.get('newpassword') ?? '')
-  const nextErrors = { oldPassword: '', newPassword: '' }
+  const confirmPassword = String(formData.get('confirmpassword') ?? '')
+  const nextErrors = { oldPassword: '', newPassword: '', confirmPassword: '' }
 
   if (!oldPassword) {
     nextErrors.oldPassword = 'Current password is required'
@@ -148,6 +167,12 @@ const submitPassword = async (event: Event) => {
     nextErrors.newPassword = `Your new password must contain ${PASSWORD_MIN_LENGTH} characters or more`
   } else if (newPassword === oldPassword) {
     nextErrors.newPassword = 'Your new password must be different from your current one'
+  }
+
+  if (!confirmPassword) {
+    nextErrors.confirmPassword = 'Please confirm your new password'
+  } else if (newPassword && confirmPassword !== newPassword) {
+    nextErrors.confirmPassword = "Passwords don't match"
   }
 
   passwordErrors.value = nextErrors
@@ -239,6 +264,18 @@ const deleteAccount = async () => {
 
       <h2 class="groupTitle">Account</h2>
       <div class="settingsList">
+        <button class="settingRow" type="button" @click="isEditingAvatar = true">
+          <span class="rowTitle">Profile picture</span>
+          <UserAvatar
+            class="rowAvatar"
+            :name="username"
+            :color="authStore.user.avatar_color"
+            :image="authStore.user.avatar_image"
+            :size="32"
+          />
+          <CaretRightIcon class="chevron" />
+        </button>
+
         <RouterLink class="settingRow" :to="{ name: 'settings', params: { step: 'email' } }">
           <span class="rowTitle">Email</span>
           <span class="rowValue">{{ authStore.user.email }}</span>
@@ -258,6 +295,16 @@ const deleteAccount = async () => {
           <CaretRightIcon class="chevron" />
         </RouterLink>
       </div>
+
+      <AvatarEditor
+        :open="isEditingAvatar"
+        kind="user"
+        :name="username"
+        :avatar="currentAvatar"
+        endpoint="/user/avatar"
+        @close="isEditingAvatar = false"
+        @saved="onAvatarSaved"
+      />
     </template>
 
     <section v-else ref="stepSection" class="settingsStep">
@@ -357,6 +404,24 @@ const deleteAccount = async () => {
               :class="{ error: !!passwordErrors.newPassword }"
             >
               {{ passwordErrors.newPassword || `At least ${PASSWORD_MIN_LENGTH} characters.` }}
+            </p>
+          </div>
+
+          <div class="formField">
+            <label class="fieldLabel" for="confirmpassword">Confirm new password</label>
+            <input
+              id="confirmpassword"
+              class="field"
+              :class="{ error: !!passwordErrors.confirmPassword }"
+              type="password"
+              name="confirmpassword"
+              autocomplete="new-password"
+              :aria-invalid="!!passwordErrors.confirmPassword || undefined"
+              aria-describedby="confirmpassword-message"
+              @input="passwordErrors.confirmPassword = ''"
+            />
+            <p id="confirmpassword-message" class="fieldMessage error">
+              {{ passwordErrors.confirmPassword }}
             </p>
           </div>
 
@@ -463,14 +528,35 @@ const deleteAccount = async () => {
   border-radius: var(--radius-lg);
 }
 
+/* Rows that open a sheet rather than a page. */
+button.settingRow {
+  width: 100%;
+  border: none;
+  background: none;
+  font-size: var(--text-body);
+  text-align: left;
+  cursor: pointer;
+}
+
 @media (hover: hover) {
-  a.settingRow:hover {
+  a.settingRow:hover,
+  button.settingRow:hover {
     background-color: var(--fill-hover);
   }
 }
 
-a.settingRow:active {
+a.settingRow:active,
+button.settingRow:active {
   background-color: var(--fill-pressed);
+}
+
+/* The current picture, where other rows show their value. */
+.rowAvatar {
+  margin-left: auto;
+}
+
+.rowAvatar + .chevron {
+  margin-left: 0;
 }
 
 .rowTitle {

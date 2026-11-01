@@ -82,9 +82,15 @@ watch(
   },
 )
 
+// Replies (and edits, which start with the comment's text) open focused, with
+// the caret after the text and the field tall enough to show all of it.
 onMounted(() => {
-  if (props.reply) {
-    textarea.value?.focus()
+  void autoGrow()
+
+  const field = textarea.value
+  if (props.reply && field) {
+    field.focus()
+    field.setSelectionRange(field.value.length, field.value.length)
   }
 })
 </script>

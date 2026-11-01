@@ -31,11 +31,8 @@ defmodule Saturn.Posts do
             if upload, do: Files.insert_db(upload.filename, user, post)
 
             Repo.preload(post,
-              moon: from(m in Moon, select: %{id: m.id, name: m.name}),
-              user:
-                from(u in User,
-                  select: %{username: u.username, id: u.id, inserted_at: u.inserted_at}
-                ),
+              moon: from(m in Moon, select: map(m, ^Moon.public_fields())),
+              user: from(u in User, select: map(u, ^User.public_fields())),
               comments:
                 from(c in Comment,
                   select:
@@ -192,8 +189,8 @@ defmodule Saturn.Posts do
         )
       )
       |> Repo.preload(
-        moon: from(m in Moon, select: map(m, [:name, :id, :inserted_at])),
-        user: from(u in User, select: map(u, [:username, :id, :inserted_at]))
+        moon: from(m in Moon, select: map(m, ^Moon.public_fields())),
+        user: from(u in User, select: map(u, ^User.public_fields()))
       )
 
     {next_cursor, posts} = get_next_cursor(posts, limit, sort)
@@ -223,8 +220,8 @@ defmodule Saturn.Posts do
       )
     )
     |> Repo.preload(
-      moon: from(m in Moon, select: map(m, [:name, :id, :inserted_at])),
-      user: from(u in User, select: map(u, [:username, :id, :inserted_at]))
+      moon: from(m in Moon, select: map(m, ^Moon.public_fields())),
+      user: from(u in User, select: map(u, ^User.public_fields()))
     )
   end
 

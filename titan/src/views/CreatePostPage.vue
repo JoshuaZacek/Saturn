@@ -257,12 +257,17 @@ const isMoonNameInSync = computed(() => {
   return selectedMoon.value.name.toLowerCase() === moonInput.value.trim().toLowerCase()
 })
 
+// While typing, someone may still be searching the suggestions for the right
+// moon, so "doesn't exist" waits until they leave the field. Typing again
+// hides it until they leave again.
+const hasLeftMoonInput = ref(moonInput.value.length > 0)
+
 const moonMessage = computed(() => {
   if (errors.value.moon) {
     return errors.value.moon
   }
 
-  return moonStatus.value === 'missing' ? 'This moon does not exist.' : ''
+  return moonStatus.value === 'missing' && hasLeftMoonInput.value ? 'This moon does not exist.' : ''
 })
 
 // The chosen image is shown before posting.
@@ -502,6 +507,7 @@ const selectMoonSuggestion = (suggestion: MoonSuggestion) => {
 
 const onMoonInputBlur = () => {
   isMoonInputFocused.value = false
+  hasLeftMoonInput.value = true
   void validateMoonNow()
 }
 
@@ -753,6 +759,8 @@ const submitPost = async () => {
 
 watch(moonInput, () => {
   errors.value.moon = ''
+  // A suggestion picked from the list is a finished choice, not more typing.
+  hasLeftMoonInput.value = skipNextMoonSearch
   scheduleMoonValidation()
 
   if (skipNextMoonSearch) {

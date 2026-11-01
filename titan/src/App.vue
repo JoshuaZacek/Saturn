@@ -180,6 +180,9 @@ const runErrorAction = () => {
   --separator-strong: color-mix(in srgb, var(--text-1) 15%, transparent); /* input borders */
   --backdrop: rgb(20 17 11 / 28%);
   --top-bar-bg: color-mix(in srgb, var(--bg-1) 82%, transparent);
+  /* Tooltips: dark on the light page, for contrast. */
+  --tooltip-bg: #2c2a26;
+  --tooltip-text: #f7f5f0;
   --logo-filter: none; /* the logo is black line art; dark mode inverts it */
 
   /* Corner radii */
@@ -261,6 +264,8 @@ const runErrorAction = () => {
     --avatar-bg-l: 27%;
     --avatar-fg-l: 82%;
     --surface-raised: #2a2927;
+    --tooltip-bg: var(--surface-raised);
+    --tooltip-text: var(--text-1);
     --fill-raised: #464441;
     --fill-secondary: rgb(255 255 255 / 8%); /* translucent, so it lifts on any surface */
     --fill-secondary-hover: rgb(255 255 255 / 12%);
@@ -303,6 +308,8 @@ const runErrorAction = () => {
   --avatar-bg-l: 27%;
   --avatar-fg-l: 82%;
   --surface-raised: #2a2927;
+  --tooltip-bg: var(--surface-raised);
+  --tooltip-text: var(--text-1);
   --fill-raised: #464441;
   --fill-secondary: rgb(255 255 255 / 8%); /* translucent, so it lifts on any surface */
   --fill-secondary-hover: rgb(255 255 255 / 12%);

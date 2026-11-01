@@ -13,7 +13,7 @@ defmodule Saturn.Moons do
     case inserted_post do
       {:ok, moon} ->
         moon
-        |> Repo.preload(user: from(u in User, select: map(u, [:id, :username, :inserted_at])))
+        |> Repo.preload(user: from(u in User, select: map(u, ^User.public_fields())))
         |> Map.drop([:__meta__, :user_id, :posts, :subscriptions, :__struct__])
 
       {:error, changeset} ->
@@ -27,7 +27,7 @@ defmodule Saturn.Moons do
         from(m in Moon,
           where: ilike(m.name, ^"#{Regex.replace(~r/^$|([%_])/, search_term, "\\\\\\1")}%"),
           limit: 5,
-          select: %{name: m.name, id: m.id}
+          select: map(m, ^Moon.public_fields())
         )
       )
 
@@ -42,6 +42,10 @@ defmodule Saturn.Moons do
           id: m.id,
           name: m.name,
           inserted_at: m.inserted_at,
+          avatar_color: m.avatar_color,
+          avatar_image: m.avatar_image,
+          # Its owner, who can change its picture
+          user_id: m.user_id,
           updated_at: m.updated_at,
           subscribers: fragment("SELECT COUNT(*) FROM subscriptions WHERE moon_id = ?", m.id),
           subscribed:
