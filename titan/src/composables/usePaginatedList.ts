@@ -10,6 +10,8 @@ type Status = 'idle' | 'loading' | 'loaded' | 'error'
 // Cursor-paginated list state shared by the feeds, profile and comments.
 // `reload` starts over from the first page; responses from a superseded
 // `reload` are dropped, so switching sort/filter mid-request can't mix results.
+// `reload({ keepItems: true })` leaves the current items up until the new first
+// page replaces them, so re-sorting doesn't empty the list in between.
 // With `getKey`, items already in the list are skipped when appending a page.
 export const usePaginatedList = <T>(
   fetchPage: (cursor: string | null) => Promise<Page<T>>,
@@ -22,9 +24,11 @@ export const usePaginatedList = <T>(
   const loadMoreFailed = ref(false)
   let requestId = 0
 
-  const reload = async () => {
+  const reload = async ({ keepItems = false }: { keepItems?: boolean } = {}) => {
     const currentRequestId = ++requestId
-    items.value = []
+    if (!keepItems) {
+      items.value = []
+    }
     nextCursor.value = null
     status.value = 'loading'
     isLoadingMore.value = false

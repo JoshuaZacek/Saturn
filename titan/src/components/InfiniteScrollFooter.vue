@@ -45,7 +45,12 @@ useInfiniteScroll(
     <div v-if="loading" class="status" aria-live="polite" aria-busy="true">
       <SpinnerLoader :size="spinnerSize" :bgColor="spinnerBgColor" fgColor="var(--text-3)" />
     </div>
-    <button v-else-if="failed" class="retryButton" type="button" @click="emit('retry')">
+    <button
+      v-else-if="failed"
+      class="retryButton btn-secondary"
+      type="button"
+      @click="emit('retry')"
+    >
       Try again
     </button>
     <p v-else-if="empty && emptyText" class="status">{{ emptyText }}</p>
@@ -70,14 +75,5 @@ useInfiniteScroll(
   justify-content: center;
   color: var(--text-2);
   text-align: center;
-}
-
-.retryButton {
-  border: none;
-  border-radius: 10px;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.9rem;
-  background: var(--bg-2);
-  cursor: pointer;
 }
 </style>

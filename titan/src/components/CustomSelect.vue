@@ -18,16 +18,12 @@ const props = withDefaults(
     placeholder?: string
     label?: string
     disabled?: boolean
-    triggerIcon?: Component
-    focusMenuOnOpen?: boolean
   }>(),
   {
     modelValue: undefined,
     placeholder: 'Select an option',
     label: 'Select',
     disabled: false,
-    triggerIcon: undefined,
-    focusMenuOnOpen: false,
   },
 )
 
@@ -50,6 +46,8 @@ let typeaheadTimer: ReturnType<typeof setTimeout> | undefined
 
 const listboxId = `custom-select-${Math.random().toString(36).slice(2)}`
 const VIEWPORT_EDGE_PADDING_PX = 16
+// Matches the menu's vertical padding in the CSS below.
+const MENU_PADDING_PX = 4
 const MAX_VISIBLE_OPTIONS = 12
 
 const isOptionRouteActive = (option: SelectOption) => {
@@ -70,10 +68,10 @@ const isOptionSelected = (option: SelectOption) => {
 
 const selectedIndex = computed(() => props.options.findIndex((option) => isOptionSelected(option)))
 const selectedOption = computed(() => props.options[selectedIndex.value])
-const isIconTriggerMode = computed(() => Boolean(props.triggerIcon))
-const optionHeightPx = computed(() => (isIconTriggerMode.value ? 48 : 32))
+// Matches the option height in the CSS below.
+const OPTION_HEIGHT_PX = 32
 const menuMaxHeightPx = computed(
-  () => Math.min(props.options.length, MAX_VISIBLE_OPTIONS) * optionHeightPx.value,
+  () => Math.min(props.options.length, MAX_VISIBLE_OPTIONS) * OPTION_HEIGHT_PX,
 )
 const menuPosition = ref({
   left: 0,
@@ -83,10 +81,11 @@ const menuPosition = ref({
 const activeDescendantId = computed(() =>
   activeIndex.value >= 0 ? `${listboxId}-option-${activeIndex.value}` : undefined,
 )
+// At least as wide as its trigger; wider when an option needs the room.
 const menuStyle = computed(() => ({
   left: `${menuPosition.value.left}px`,
   top: `${menuPosition.value.top}px`,
-  width: `${menuPosition.value.width}px`,
+  minWidth: `${menuPosition.value.width}px`,
   maxHeight: `${menuMaxHeightPx.value}px`,
 }))
 
@@ -95,22 +94,19 @@ const updateMenuPosition = () => {
     return
   }
 
-  const isIconTrigger = Boolean(props.triggerIcon)
   const triggerRect = triggerRef.value.getBoundingClientRect()
-  const selectedRowOffset =
-    selectedIndex.value >= 0 ? selectedIndex.value * optionHeightPx.value : 0
-  const desiredTop = isIconTrigger ? triggerRect.bottom + 6 : triggerRect.top - selectedRowOffset
+  const selectedRowOffset = selectedIndex.value >= 0 ? selectedIndex.value * OPTION_HEIGHT_PX : 0
+  // It opens with its selected row over the trigger, as on macOS.
+  const desiredTop = triggerRect.top - selectedRowOffset - MENU_PADDING_PX
   const desiredLeft = triggerRect.left
-  const menuWidth = isIconTrigger ? Math.max(176, triggerRect.width) : triggerRect.width
+  const menuWidth = triggerRect.width
 
-  const totalMenuHeight = props.options.length * optionHeightPx.value
-  const visibleMenuHeight = Math.min(totalMenuHeight, menuMaxHeightPx.value)
+  const totalMenuHeight = props.options.length * OPTION_HEIGHT_PX
+  const visibleMenuHeight = Math.min(totalMenuHeight, menuMaxHeightPx.value) + MENU_PADDING_PX * 2
   const maxTop = window.innerHeight - VIEWPORT_EDGE_PADDING_PX - visibleMenuHeight
   const maxLeft = window.innerWidth - VIEWPORT_EDGE_PADDING_PX - menuWidth
 
-  const clampedTop = isIconTrigger
-    ? Math.max(VIEWPORT_EDGE_PADDING_PX, desiredTop)
-    : Math.max(VIEWPORT_EDGE_PADDING_PX, Math.min(desiredTop, maxTop))
+  const clampedTop = Math.max(VIEWPORT_EDGE_PADDING_PX, Math.min(desiredTop, maxTop))
   const clampedLeft = Math.min(desiredLeft, maxLeft)
 
   menuPosition.value = {
@@ -223,7 +219,7 @@ const openList = (
   void nextTick(() => {
     updateMenuPosition()
 
-    if (origin === 'keyboard' || props.focusMenuOnOpen) {
+    if (origin === 'keyboard') {
       listboxRef.value?.focus()
     }
   })
@@ -371,11 +367,6 @@ const handleKeydown = (event: KeyboardEvent) => {
   }
 
   if (event.key === 'Tab' && isOpen.value) {
-    if (isIconTriggerMode.value) {
-      event.preventDefault()
-      return
-    }
-
     // Let focus move naturally, but clear arrow-key active state
     // so only the focused item is visually highlighted.
     keyboardMode.value = false
@@ -518,7 +509,6 @@ onBeforeUnmount(() => {
     :class="{
       open: isOpen,
       disabled,
-      iconTriggerMode: Boolean(triggerIcon),
       hasActiveOption: activeIndex >= 0,
     }"
   >
@@ -536,13 +526,8 @@ onBeforeUnmount(() => {
       @click="onTriggerClick"
       @keydown="onTriggerKeydown"
     >
-      <template v-if="triggerIcon">
-        <component :is="triggerIcon" :size="24" class="triggerIcon" />
-      </template>
-      <template v-else>
-        <span class="text">{{ selectedOption?.label ?? placeholder }}</span>
-        <DownIcon size="16" class="chevron" />
-      </template>
+      <span class="text">{{ selectedOption?.label ?? placeholder }}</span>
+      <DownIcon size="16" class="chevron" />
     </button>
 
     <Transition name="customSelectMenu">
@@ -582,31 +567,11 @@ onBeforeUnmount(() => {
             :to="option.to"
             @click.stop="onLinkClick(index)"
           >
-            <component
-              v-if="option.icon"
-              :is="option.icon"
-              :size="isIconTriggerMode ? 24 : 16"
-              class="optionIcon"
-            />
-            <span
-              v-else-if="triggerIcon"
-              class="optionIcon optionIconPlaceholder"
-              aria-hidden="true"
-            />
+            <component v-if="option.icon" :is="option.icon" :size="16" class="optionIcon" />
             {{ option.label }}
           </RouterLink>
           <template v-else>
-            <component
-              v-if="option.icon"
-              :is="option.icon"
-              :size="isIconTriggerMode ? 24 : 16"
-              class="optionIcon"
-            />
-            <span
-              v-else-if="triggerIcon"
-              class="optionIcon optionIconPlaceholder"
-              aria-hidden="true"
-            />
+            <component v-if="option.icon" :is="option.icon" :size="16" class="optionIcon" />
             <span>{{ option.label }}</span>
           </template>
         </li>
@@ -618,77 +583,74 @@ onBeforeUnmount(() => {
 <style scoped>
 .customSelect {
   position: relative;
-  width: 100%;
-  max-width: 10rem;
+  display: inline-block;
 }
 
-.iconTriggerMode {
-  width: auto;
-  max-width: none;
-}
-
+/* The same height, fill and corners as a compact segmented control, so the
+   two sit together in a toolbar. */
 .trigger {
   width: 100%;
-  height: 2rem;
+  min-width: 7.5rem;
+  height: var(--control-sm);
   border: none;
-  border-radius: 0.5rem;
-  padding: 0 0.75rem;
-  background: var(--bg-2);
+  border-radius: var(--radius-sm);
+  padding: 0 0.55rem 0 0.75rem;
+  background: var(--fill-secondary);
   color: var(--text-1);
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: var(--text-subhead);
+  font-weight: 500;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
 }
 
-.iconTriggerMode .trigger {
-  width: 2.1rem;
-  height: 2.1rem;
-  padding: 0;
-  justify-content: center;
-  border-radius: 999px;
-  background: transparent;
+@media (hover: hover) {
+  .trigger:hover:not(:disabled) {
+    background: var(--fill-secondary-hover);
+  }
 }
 
-.iconTriggerMode .trigger:hover {
-  background: var(--bg-2);
-}
-
-.iconTriggerMode .trigger:focus-visible {
-  background: var(--bg-2);
-  outline: none;
-  box-shadow: none;
-}
-
-.triggerIcon {
-  color: var(--text-1);
+.chevron {
+  color: var(--text-2);
 }
 
 .menu {
   position: fixed;
   box-sizing: content-box;
+  width: max-content;
+  max-width: calc(100vw - 2rem);
   z-index: 1000;
   list-style: none;
-  border: 1px solid var(--bg-3);
-  border-radius: 0.5rem;
-  background: var(--bg-sub);
-  box-shadow: 0 10px 20px rgb(0 0 0 / 10%);
+  /* Keep in step with MENU_PADDING_PX. */
+  padding: 4px 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
   overflow-y: auto;
+  transform-origin: center;
 }
 
-.customSelectMenu-enter-active,
+.customSelectMenu-enter-active {
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-base) var(--ease-out);
+}
+
 .customSelectMenu-leave-active {
   transition:
-    opacity 0.15s cubic-bezier(0.25, 0.1, 0.25, 1),
-    transform 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
+    opacity var(--duration-fast) var(--ease-in-out),
+    transform var(--duration-fast) var(--ease-in-out);
 }
 
 .customSelectMenu-enter-from,
 .customSelectMenu-leave-to {
   opacity: 0;
-  transform: translateY(-4px) scale(0.95);
+  transform: scale(0.97);
 }
 
 .customSelectMenu-enter-to,
@@ -697,33 +659,24 @@ onBeforeUnmount(() => {
   transform: translateY(0) scale(1);
 }
 
+/* Rows are inset from the menu's sides, with rounded highlights. Their height
+   stays exact: the menu's position is worked out from it. */
 .option {
   height: 2rem;
-  padding: 0 0.75rem;
+  margin: 0 0.25rem;
+  padding: 0 0.75rem 0 0.5rem;
+  font-size: var(--text-subhead);
+  white-space: nowrap;
+  border-radius: var(--radius-xs);
   display: flex;
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
-}
-
-.iconTriggerMode .option {
-  min-height: 2.35rem;
-  height: auto;
-  padding: 0.5rem 0.95rem;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
 .optionIcon {
-  color: var(--text-1);
   flex-shrink: 0;
-}
-
-.iconTriggerMode .optionIcon {
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
-.optionIconPlaceholder {
-  display: inline-block;
 }
 
 .optionLink {
@@ -736,23 +689,19 @@ onBeforeUnmount(() => {
 }
 
 .option.active {
-  background: var(--bg-2);
+  background: var(--fill-hover);
 }
 
 .customSelect:not(.hasActiveOption) .option:focus-within {
-  background: var(--bg-2);
+  background: var(--fill-hover);
 }
 
 .optionLink:focus-visible {
   outline: none;
 }
 
-.customSelect:not(.iconTriggerMode) .option.selected {
-  font-weight: 700;
-}
-
-.iconTriggerMode .option.selected {
-  font-weight: 400;
+.option.selected {
+  font-weight: 600;
 }
 
 .option.disabled {

@@ -25,7 +25,7 @@ const props = withDefaults(
   }>(),
   {
     size: 20,
-    color: 'var(--text-1)',
+    color: 'currentColor',
     direction: 'down',
   },
 )

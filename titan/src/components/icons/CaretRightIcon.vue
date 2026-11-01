@@ -4,7 +4,7 @@ withDefaults(
     size?: number | string
   }>(),
   {
-    size: 20,
+    size: 16,
   },
 )
 </script>
@@ -19,7 +19,7 @@ withDefaults(
     aria-hidden="true"
   >
     <path
-      d="M222,128a6,6,0,0,1-6,6H54.49l61.75,61.76a6,6,0,1,1-8.48,8.48l-72-72a6,6,0,0,1,0-8.48l72-72a6,6,0,0,1,8.48,8.48L54.49,122H216A6,6,0,0,1,222,128Z"
+      d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"
     />
   </svg>
 </template>
@@ -28,6 +28,7 @@ withDefaults(
 .icon {
   display: inline-block;
   flex-shrink: 0;
-  color: var(--text-1);
+  color: inherit;
+  fill: currentColor;
 }
 </style>

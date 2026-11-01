@@ -46,8 +46,8 @@ const onAfterEnter = (el: Element) => {
 <style>
 .animatedListItem-enter-active {
   transition:
-    opacity 280ms ease-out,
-    transform 280ms ease-out;
+    opacity var(--duration-slow) var(--ease-out),
+    transform var(--duration-slow) var(--ease-out);
 }
 
 .animatedListItem-enter-from {

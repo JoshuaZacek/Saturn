@@ -2,7 +2,7 @@ defmodule Saturn.AuthRouter do
   use Plug.Router
   import Saturn.Responses
   import Saturn.Functions
-  alias Saturn.{Repo, Posts, Votes, Moons, Comments, Users, Subscriptions}
+  alias Saturn.{Repo, Posts, Votes, Moons, Comments, Users, Subscriptions, Avatars}
 
   plug(:match)
   # Every route here needs a session. As a plug (not a call inside the route), its halt stops
@@ -99,6 +99,48 @@ defmodule Saturn.AuthRouter do
     end
   end
 
+  patch "/comment/:id" do
+    with {:ok, params} <- Tarams.cast(conn.path_params, %{id: id_param(required: true)}),
+         {:ok, comment} <- Comments.edit(params.id, conn.body_params, conn.assigns.user) do
+      send_json(conn, 200, comment)
+    else
+      {:error, :forbidden} -> send_resp(conn, 403, "Only the author can edit this comment")
+      {:error, :not_found} -> send_resp(conn, 404, "Not found")
+      {:error, %{errors: _} = error} -> send_json(conn, 400, error)
+      {:error, _} -> send_resp(conn, 400, "Bad request")
+    end
+  end
+
+  delete "/comment/:id" do
+    with {:ok, params} <- Tarams.cast(conn.path_params, %{id: id_param(required: true)}),
+         {:ok, result} <- Comments.delete(params.id, conn.assigns.user) do
+      send_json(conn, 200, result)
+    else
+      {:error, :forbidden} -> send_resp(conn, 403, "Only the author can delete this comment")
+      {:error, :not_found} -> send_resp(conn, 404, "Not found")
+      {:error, _} -> send_resp(conn, 400, "Bad request")
+    end
+  end
+
+  # A picture: `type` "monogram" with a `color`, or "image" with a `file`
+  post "/user/avatar" do
+    conn
+    |> send_avatar_result(Avatars.update_user(conn.assigns.user, conn.body_params))
+  end
+
+  post "/moon/:id/avatar" do
+    case Tarams.cast(conn.path_params, %{id: id_param(required: true)}) do
+      {:ok, params} ->
+        send_avatar_result(
+          conn,
+          Avatars.update_moon(params.id, conn.body_params, conn.assigns.user)
+        )
+
+      {:error, _} ->
+        send_resp(conn, 400, "Bad request")
+    end
+  end
+
   post "/subscription" do
     schema = %{
       moon_id: id_param(required: true)
@@ -190,5 +232,39 @@ defmodule Saturn.AuthRouter do
 
   match _ do
     send_resp(conn, 404, "Not found")
+  end
+
+  defp send_avatar_result(conn, result) do
+    case result do
+      {:ok, avatar} ->
+        send_json(conn, 200, avatar)
+
+      {:error, :forbidden} ->
+        send_resp(conn, 403, "Only the moon's owner can change its picture")
+
+      {:error, :not_found} ->
+        send_resp(conn, 404, "Not found")
+
+      {:error, :missing_file} ->
+        send_json(conn, 400, %{errors: %{file: ["File can't be blank"]}})
+
+      {:error, :file_not_supported} ->
+        send_json(conn, 400, %{errors: %{file: ["File type not supported"]}})
+
+      {:error, :file_too_large} ->
+        send_json(conn, 400, %{errors: %{file: ["Image must be 5 MB or smaller"]}})
+
+      {:error, :missing_s3_config} ->
+        send_json(conn, 503, %{errors: %{file: ["Image storage is not configured"]}})
+
+      {:error, :upload_failed} ->
+        send_json(conn, 502, %{errors: %{file: ["Image upload failed"]}})
+
+      {:error, %{errors: _} = error} ->
+        send_json(conn, 400, error)
+
+      {:error, _} ->
+        send_resp(conn, 400, "Bad request")
+    end
   end
 end

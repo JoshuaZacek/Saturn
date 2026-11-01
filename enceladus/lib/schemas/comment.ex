@@ -15,6 +15,8 @@ defmodule Saturn.Comment do
     belongs_to(:comment, Comment)
 
     field(:content, :string)
+    field(:edited_at, :utc_datetime)
+    field(:deleted, :boolean, default: false)
     field(:hasVoted, :integer, virtual: true)
     field(:replies, :integer, virtual: true)
 
@@ -36,5 +38,24 @@ defmodule Saturn.Comment do
       name: :content_length,
       message: "must be #{@content_max_length} characters or fewer"
     )
+  end
+
+  # Its author changing its text. Only a real change marks it as edited.
+  def edit_changeset(comment, attrs) do
+    changeset =
+      comment
+      |> cast(attrs, [:content])
+      |> validate_required([:content])
+      |> validate_length(:content, max: @content_max_length, count: :codepoints)
+      |> check_constraint(:content,
+        name: :content_length,
+        message: "must be #{@content_max_length} characters or fewer"
+      )
+
+    if changed?(changeset, :content) do
+      put_change(changeset, :edited_at, DateTime.utc_now() |> DateTime.truncate(:second))
+    else
+      changeset
+    end
   end
 end

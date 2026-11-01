@@ -5,11 +5,14 @@ defmodule Saturn.Files do
 
   @allowed_extensions [".jpg", ".jpeg", ".png", ".gif"]
 
-  # The file must really be an image (not just named like one), so its size can be stored
-  def upload(file) do
+  # The file must really be an image (not just named like one), so its size can be stored.
+  # `max_bytes` caps the file's size, for uploads smaller than the request limit allows.
+  def upload(file, opts \\ []) do
     file_extension = Path.extname(String.downcase(file.filename))
+    max_bytes = Keyword.get(opts, :max_bytes)
 
     with true <- file_extension in @allowed_extensions,
+         :ok <- check_size(file.path, max_bytes),
          {:ok, contents} <- File.read(file.path),
          {:ok, {width, height}} <- ImageSize.read(contents) do
       filename = Ecto.UUID.generate() <> file_extension
@@ -20,7 +23,18 @@ defmodule Saturn.Files do
         {:error, _reason} -> {:error, :upload_failed}
       end
     else
+      {:error, :file_too_large} -> {:error, :file_too_large}
       _ -> {:error, :file_not_supported}
+    end
+  end
+
+  defp check_size(_path, nil), do: :ok
+
+  defp check_size(path, max_bytes) do
+    case File.stat(path) do
+      {:ok, %{size: size}} when size <= max_bytes -> :ok
+      {:ok, _} -> {:error, :file_too_large}
+      error -> error
     end
   end
 
@@ -33,9 +47,10 @@ defmodule Saturn.Files do
     end
   end
 
+  # `post` is nil for a person's or moon's picture
   def insert_db(filename, user, post) do
     Repo.insert(
-      Saturn.File.changeset(%Saturn.File{user_id: user.id, post_id: post.id}, %{
+      Saturn.File.changeset(%Saturn.File{user_id: user.id, post_id: post && post.id}, %{
         filename: filename
       })
     )
@@ -57,7 +72,7 @@ defmodule Saturn.Files do
   def delete(filename) do
     case delete_from_s3(filename) do
       :ok ->
-        from(f in Saturn.File, where: f.filename == ^filename) |> Repo.one!() |> Repo.delete!()
+        Repo.delete_all(from(f in Saturn.File, where: f.filename == ^filename))
         :ok
 
       {:error, reason} ->

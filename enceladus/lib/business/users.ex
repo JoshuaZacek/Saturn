@@ -5,7 +5,7 @@ defmodule Saturn.Users do
 
   alias Saturn.{Repo, User, Session}
 
-  @session_user_fields [:id, :username, :email, :inserted_at]
+  @session_user_fields [:id, :username, :email, :inserted_at, :avatar_color, :avatar_image]
 
   def check_password_match(changeset, old_password, new_password) do
     if old_password == new_password do
@@ -114,7 +114,7 @@ defmodule Saturn.Users do
     Repo.one(
       from(u in User,
         where: u.username == ^username,
-        select: map(u, [:id, :username, :inserted_at])
+        select: map(u, ^User.public_fields())
       )
     )
   end

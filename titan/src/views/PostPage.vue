@@ -2,21 +2,26 @@
 import axios from 'axios'
 import { computed, nextTick, onBeforeUnmount, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import SpinnerLoader from '@/components/SpinnerLoader.vue'
-import SegmentedControl from '@/components/SegmentedControl.vue'
+import CommentComposer from '@/components/CommentComposer.vue'
 import CommentThread from '@/components/CommentThread.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import InfiniteScrollFooter from '@/components/InfiniteScrollFooter.vue'
+import PostCard from '@/components/PostCard.vue'
+import SegmentedControl from '@/components/SegmentedControl.vue'
+import SpinnerLoader from '@/components/SpinnerLoader.vue'
+import SubmitButton from '@/components/SubmitButton.vue'
+import CaretLeftIcon from '@/components/icons/CaretLeftIcon.vue'
 import { waitForMinimumVisibleTime } from '@/config/loading'
 import { usePaginatedList } from '@/composables/usePaginatedList'
 import { notFoundLocation } from '@/router'
 import { useAuthStore } from '@/stores/auth'
+import { useAvatarStore } from '@/stores/avatars'
 import { useErrorBannerStore } from '@/stores/errorBanner'
+import { useUIStore } from '@/stores/ui'
 import type { Post } from '@/types/post'
 import type { Comment, CommentsResponse } from '@/types/comment'
-import PostCard from '@/components/PostCard.vue'
-import SubmitButton from '@/components/SubmitButton.vue'
-import CharacterCounter from '@/components/CharacterCounter.vue'
 import { COMMENT_MAX_LENGTH, countCharacters } from '@/utils/characterCount'
+import { formatCompactCount } from '@/utils/formatCount'
 
 type CommentSort = 'new' | 'top'
 
@@ -24,6 +29,8 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const errorBanner = useErrorBannerStore()
+const uiStore = useUIStore()
+const avatarStore = useAvatarStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 
 const postId = computed(() => String(route.params.post_id))
@@ -37,23 +44,26 @@ const commentSortOptions: Array<{ label: string; value: CommentSort }> = [
 
 const post = ref<Post | null>(null)
 const numberOfComments = ref(0)
-const commentInput = ref<HTMLTextAreaElement | null>(null)
 const fetchingPost = ref(true)
 const error = ref('')
 const loadingDots = ref('...')
 const loadingDotsWidth = computed(() => `${loadingDots.value.length || 0}ch`)
-const randomPlaceholder = computed(() => {
-  const placeholders = [
-    'Share your thoughts...',
-    "What's on your mind?",
-    'Join the discussion...',
-    'Leave a comment...',
-    'Add your perspective...',
-  ]
 
-  const index = Math.floor(Math.random() * placeholders.length)
-  return placeholders[index]!
+const commentsTitle = computed(() => {
+  const count = numberOfComments.value
+  return count === 0
+    ? 'Comments'
+    : `${formatCompactCount(count)} ${count === 1 ? 'comment' : 'comments'}`
 })
+
+// The sidebar shows the moon this post lives in, with its picture.
+watch(post, (current) => {
+  uiStore.setPostMoon(current?.moon.name ?? null)
+  if (current) {
+    avatarStore.remember('moon', current.moon.name, current.moon)
+  }
+})
+onBeforeUnmount(() => uiStore.setPostMoon(null))
 
 const commentSort = ref<CommentSort>('new')
 
@@ -84,24 +94,6 @@ const stopLoadingDotsAnimation = () => {
 
   clearInterval(loadingDotsInterval)
   loadingDotsInterval = null
-}
-
-const autoGrowCommentInput = async () => {
-  await nextTick()
-
-  const textArea = commentInput.value
-  if (!textArea) {
-    return
-  }
-
-  const computedStyle = window.getComputedStyle(textArea)
-  const minHeight = Number.parseFloat(computedStyle.minHeight) || 0
-  const borderTop = Number.parseFloat(computedStyle.borderTopWidth) || 0
-  const borderBottom = Number.parseFloat(computedStyle.borderBottomWidth) || 0
-
-  textArea.style.height = 'auto'
-  const nextHeight = Math.max(textArea.scrollHeight + borderTop + borderBottom, minHeight)
-  textArea.style.height = `${nextHeight}px`
 }
 
 const loadPost = async () => {
@@ -230,11 +222,6 @@ const submitComment = async () => {
     comments.value.unshift({ ...response.data, votes: 0, hasVoted: null })
     numberOfComments.value += 1
     newCommentContent.value = ''
-
-    await nextTick()
-    if (commentInput.value) {
-      commentInput.value.style.height = 'auto'
-    }
   } catch (err) {
     postCommentError.value =
       (axios.isAxiosError(err) && err.response?.data?.errors?.content?.[0]) ||
@@ -252,14 +239,75 @@ const onPostDeleted = () => {
   }
 }
 
-const incrementComments = () => {
-  numberOfComments.value += 1
+// Replies add to the count; deleted comments that leave the thread take away.
+provide('adjustCommentCount', (delta: number) => {
+  numberOfComments.value = Math.max(0, numberOfComments.value + delta)
+})
+
+const onCommentRemoved = (id: number) => {
+  comments.value = comments.value.filter((comment) => comment.id !== id)
 }
 
-provide('incrementComments', incrementComments)
-
 watch(postId, () => void loadPost(), { immediate: true })
-watch([postId, commentId, commentSort], () => void loadComments(), { immediate: true })
+// Re-sorting keeps the current comments up (dimmed) until the new order
+// arrives, then fades it in while the card eases to its new height.
+const commentsSection = ref<HTMLElement | null>(null)
+const commentsPhase = ref<'idle' | 'stale' | 'entering'>('idle')
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+watch(
+  [postId, commentId],
+  () => {
+    commentsPhase.value = 'idle'
+    void loadComments()
+  },
+  { immediate: true },
+)
+
+watch(commentSort, () => {
+  commentsPhase.value = comments.value.length > 0 ? 'stale' : 'idle'
+  void loadComments({ keepItems: true })
+})
+
+// Runs before the new comments render, so the old height can still be read.
+watch(
+  commentsStatus,
+  (status) => {
+    if (commentsPhase.value !== 'stale' || status === 'loading') {
+      return
+    }
+
+    if (status !== 'loaded' || prefersReducedMotion()) {
+      commentsPhase.value = 'idle'
+      return
+    }
+
+    const section = commentsSection.value
+    const startHeight = section?.offsetHeight ?? 0
+    commentsPhase.value = 'entering'
+
+    void nextTick(() => {
+      if (!section) {
+        return
+      }
+
+      const endHeight = section.offsetHeight
+      if (endHeight === startHeight) {
+        return
+      }
+
+      section.style.overflow = 'hidden'
+      const animation = section.animate(
+        [{ height: `${startHeight}px` }, { height: `${endHeight}px` }],
+        { duration: 260, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+      )
+      void animation.finished.finally(() => {
+        section.style.overflow = ''
+      })
+    })
+  },
+  { flush: 'pre' },
+)
 
 onBeforeUnmount(() => {
   stopLoadingDotsAnimation()
@@ -267,11 +315,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main>
+  <main class="postPage">
     <template v-if="fetchingPost">
       <Transition name="post-loading" appear>
         <div class="loadingState" aria-live="polite" aria-busy="true">
-          <SpinnerLoader :size="36" bgColor="var(--bg-sub)" fgColor="var(--text-3)" />
+          <SpinnerLoader :size="36" bg-color="var(--bg-1)" fg-color="var(--text-3)" />
           <p class="loadingText">
             Loading post<span class="loadingDots" :style="{ width: loadingDotsWidth }">{{
               loadingDots
@@ -280,71 +328,81 @@ onBeforeUnmount(() => {
         </div>
       </Transition>
     </template>
-    <template v-else>
-      <section v-if="post" class="postHeader">
-        <PostCard :post="post" :post-page-mode="true" @deleted="onPostDeleted" />
 
-        <RouterLink
-          v-if="isSingleCommentView"
-          class="seeAllCommentsButton"
-          :to="{ name: 'post', params: { post_id: postId } }"
-        >
-          See all comments on this post
-        </RouterLink>
+    <template v-else-if="post">
+      <RouterLink class="backLink" :to="{ name: 'moon', params: { moon: post.moon.name } }">
+        <CaretLeftIcon :size="16" />
+        <span>/{{ post.moon.name }}</span>
+      </RouterLink>
 
-        <template v-else>
-          <h1>{{ numberOfComments }} {{ numberOfComments === 1 ? 'Comment' : 'Comments' }}</h1>
+      <!-- The back link already names the moon, so the post leads with its author. -->
+      <PostCard :post="post" :post-page-mode="true" hide-moon @deleted="onPostDeleted" />
 
-          <div v-if="authStore.isLoggedIn" class="commentWritingSection">
-            <textarea
-              ref="commentInput"
-              v-model="newCommentContent"
-              class="commentInput"
-              :placeholder="randomPlaceholder"
-              rows="1"
-              @input="autoGrowCommentInput"
-            ></textarea>
-            <div class="divider"></div>
-            <div class="commentActions">
-              <CharacterCounter :text="newCommentContent" :max="COMMENT_MAX_LENGTH" />
-              <SubmitButton :disabled="isPostingComment" @click="submitComment">
-                <span
-                  class="submitSpinner"
-                  :class="{ visible: isPostingComment }"
-                  aria-hidden="true"
-                >
-                  <SpinnerLoader
-                    :size="20"
-                    bgColor="var(--accent-color)"
-                    fgColor="var(--accent-text)"
-                  />
-                </span>
-                <span class="submitLabel" :class="{ hidden: isPostingComment }">Post</span>
+      <section class="comments" aria-labelledby="comments-heading">
+        <header class="commentsHeader">
+          <h2 id="comments-heading" class="commentsTitle">
+            {{ isSingleCommentView ? 'Thread' : commentsTitle }}
+          </h2>
+
+          <RouterLink
+            v-if="isSingleCommentView"
+            class="btn-secondary"
+            :to="{ name: 'post', params: { post_id: postId } }"
+          >
+            See all comments
+          </RouterLink>
+          <SegmentedControl
+            v-else-if="comments.length > 1"
+            size="sm"
+            label="Sort comments"
+            :model-value="commentSort"
+            :options="commentSortOptions"
+            @update:model-value="onCommentSortChange"
+          />
+        </header>
+
+        <template v-if="!isSingleCommentView">
+          <CommentComposer
+            v-if="authStore.isLoggedIn"
+            v-model="newCommentContent"
+            label="Add a comment"
+            placeholder="Add a comment"
+            :loading="isPostingComment"
+            :error="postCommentError"
+            @submit="submitComment"
+          />
+          <div v-else class="loginPrompt">
+            <p>Log in to join the conversation.</p>
+            <div class="loginButtons">
+              <SubmitButton size="sm" variant="secondary" @click="uiStore.openAuth('signup')">
+                Sign up
               </SubmitButton>
+              <SubmitButton size="sm" @click="uiStore.openAuth('login')">Log in</SubmitButton>
             </div>
-          </div>
-          <p v-else class="loginPrompt">Log in to your account to post a comment.</p>
-
-          <p v-if="postCommentError" class="feedback error">{{ postCommentError }}</p>
-
-          <div v-if="comments.length > 0" class="commentSortRow">
-            <span class="commentSortLabel">Sort by</span>
-            <SegmentedControl
-              class="commentSort"
-              :model-value="commentSort"
-              :options="commentSortOptions"
-              @update:model-value="onCommentSortChange"
-            />
           </div>
         </template>
 
-        <div class="commentsSection">
-          <p v-if="commentsStatus === 'idle' || commentsStatus === 'loading'" class="loadingText">
-            Loading comments...
-          </p>
-          <p v-else-if="commentsStatus === 'error'" class="feedback error">{{ commentsError }}</p>
-          <template v-else>
-            <p v-if="comments.length === 0" class="emptyText">No comments yet.</p>
+        <div ref="commentsSection" class="commentsSection">
+          <div
+            v-if="
+              (commentsStatus === 'idle' || commentsStatus === 'loading') && comments.length === 0
+            "
+            class="commentsLoading"
+            aria-busy="true"
+          >
+            <SpinnerLoader :size="24" bg-color="var(--bg-1)" fg-color="var(--text-3)" />
+          </div>
+          <EmptyState v-else-if="commentsStatus === 'error'" :title="commentsError">
+            <button class="btn-secondary" type="button" @click="retryComments">Try again</button>
+          </EmptyState>
+          <div
+            v-else
+            class="commentsList"
+            :class="commentsPhase"
+            :aria-busy="commentsPhase === 'stale'"
+            @animationend.self="commentsPhase = 'idle'"
+          >
+            <EmptyState v-if="comments.length === 0" title="No comments yet" />
 
             <CommentThread
               v-for="comment in comments"
@@ -353,6 +411,7 @@ onBeforeUnmount(() => {
               :post-id="postId"
               :level="0"
               :sort="commentSort"
+              @removed="onCommentRemoved"
             />
 
             <InfiniteScrollFooter
@@ -365,25 +424,27 @@ onBeforeUnmount(() => {
               @load-more="loadMoreComments"
               @retry="retryComments"
             />
-          </template>
+          </div>
         </div>
       </section>
-
-      <p v-else class="loadingText">{{ error }}</p>
     </template>
+
+    <EmptyState v-else class="postError" :title="error">
+      <button class="btn-secondary" type="button" @click="loadPost">Try again</button>
+    </EmptyState>
   </main>
 </template>
 
 <style scoped>
+/* Centred in the area beside the sidebar (and under the phone top bar). */
 .loadingState {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   flex-direction: column;
   justify-content: center;
   gap: 1rem;
-  height: 100vh;
-  position: absolute;
-  top: 0;
 }
 
 .loadingText,
@@ -399,30 +460,17 @@ onBeforeUnmount(() => {
   will-change: width;
 }
 
-main {
-  width: 100%;
-  max-width: 40rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-/* Centring would otherwise shrink it to fit a short post. */
-.postHeader {
-  width: 100%;
-}
-
 .post-loading-enter-active,
 .post-loading-appear-active {
   transition:
-    opacity 180ms ease,
-    transform 180ms ease;
+    opacity var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-out);
 }
 
 .post-loading-enter-from,
 .post-loading-appear-from {
   opacity: 0;
-  transform: translateY(0.5rem) scale(0.98);
+  transform: translateY(0.5rem) scale(0.99);
 }
 
 .post-loading-enter-to,
@@ -431,145 +479,135 @@ main {
   transform: translateY(0) scale(1);
 }
 
-.commentsSection {
-  border: 1px solid var(--bg-2);
-  border-radius: 0.75rem;
-  padding: 1rem 1.25rem;
-  max-width: 40rem;
-  background-color: var(--bg-sub);
-  margin-top: 1.5rem;
-}
-
-.emptyText {
-  color: var(--text-3);
-}
-
-h1 {
-  margin-top: 2.5rem;
-  margin-left: 0.5rem;
-  margin-bottom: 1rem;
-  font-size: 1.25rem;
-}
-
-textarea {
+.postPage {
   width: 100%;
-  border-radius: 0.75rem 0.75rem 0 0;
-  border: none;
-  padding: 1rem 1rem;
-  font-size: 1rem;
-  resize: none;
-  min-height: 5rem;
-}
-
-.commentWritingSection {
-  width: 100%;
-  border-radius: 0.75rem;
-  border: 1px solid var(--bg-2);
-  font-size: 1rem;
-  background-color: var(--bg-sub);
+  max-width: var(--column-width);
   display: flex;
   flex-direction: column;
-}
-
-.divider {
-  width: calc(100% - 1.5rem);
-  height: 1px;
-  background-color: var(--bg-2);
-  align-self: center;
-}
-
-.commentActions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.25rem;
-}
-
-.commentWritingSection button {
-  display: inline-grid;
-  place-items: center;
-  align-self: flex-end;
-  margin: 0.5rem 1rem;
-}
-
-.submitSpinner,
-.submitLabel {
-  grid-area: 1 / 1;
-}
-
-.submitSpinner {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-}
-
-.submitSpinner.visible {
-  opacity: 1;
-}
-
-.submitLabel {
-  color: var(--accent-text);
-  opacity: 1;
-}
-
-.submitLabel.hidden {
-  opacity: 0;
-}
-
-.loginPrompt {
-  color: var(--text-2);
-  margin-top: 0.5rem;
-}
-
-.feedback.error {
-  color: var(--text-error);
-  margin-top: 0.5rem;
-}
-
-.commentSortRow {
-  margin-top: 1.75rem;
-  margin-left: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.commentSortLabel {
-  color: var(--text-2);
-  font-size: 0.9rem;
-}
-
-.commentSort {
-  width: auto;
-  max-width: 10rem;
-  margin-bottom: 0;
-}
-
-.seeAllCommentsButton {
-  display: inline-block;
-  margin-top: 1.5rem;
-  margin-left: 0.5rem;
-  color: var(--text-2);
-  background: var(--bg-2);
-  padding: 0.5rem 0.9rem;
-  border-radius: 10px;
-  text-decoration: none;
+  align-items: stretch;
+  /* Grow with the content instead of stretching to the window, so the
+     spacer below is part of the scrollable height. */
   align-self: flex-start;
 }
 
-.seeAllCommentsButton:hover {
-  background: var(--bg-3);
+/* Room below the last comment, as below the feeds. */
+.postPage::after {
+  content: '';
+  flex-shrink: 0;
+  height: 5rem;
 }
 
-.commentsFooter {
+/* Back to the moon the post lives in. Its text lines up with the article's. */
+.backLink {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin: -0.35rem 0 1.25rem -0.55rem;
+  padding: 0.3rem 0.65rem 0.3rem 0.35rem;
+  border-radius: var(--radius-full);
+  color: var(--text-2);
+  font-size: var(--text-subhead);
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .backLink:hover {
+    background-color: var(--fill-hover);
+    color: var(--text-1);
+  }
+}
+
+.backLink:active {
+  background-color: var(--fill-pressed);
+}
+
+.comments {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--separator);
+}
+
+.commentsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: var(--control-sm);
+}
+
+.commentsTitle {
+  font-size: var(--text-title-3);
+  font-weight: 600;
+}
+
+.loginPrompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding: 0.75rem 0.75rem 0.75rem 1rem;
+  border-radius: var(--radius-lg);
+  background-color: var(--surface);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--text-subhead);
+  color: var(--text-2);
+}
+
+.loginButtons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.commentsSection {
+  margin-top: 0.5rem;
+}
+
+.commentsLoading {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 0;
+}
+
+.commentsList > .commentThread + .commentThread {
   margin-top: 1.5rem;
 }
 
-/* Leaves nested replies more room on phones. */
-@media (max-width: 600px) {
-  .commentsSection {
-    padding: 1rem 0.875rem;
+/* The footer is an invisible scroll sentinel until it has something to say. */
+.commentsFooter:has(> :not(.sentinel)) {
+  margin-top: 1.5rem;
+}
+
+.commentsList {
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+/* The old order, while the new one loads. */
+.commentsList.stale {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.commentsList.entering {
+  animation: comments-in var(--duration-base) var(--ease-out);
+}
+
+@keyframes comments-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
+}
+
+.postError {
+  margin-top: 4rem;
 }
 </style>

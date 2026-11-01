@@ -15,7 +15,8 @@ defmodule Saturn.File do
   def changeset(file, attrs) do
     file
     |> cast(attrs, [:filename, :user_id, :post_id])
-    |> validate_required([:filename, :user_id, :post_id])
+    # Pictures of people and moons belong to no post
+    |> validate_required([:filename, :user_id])
     |> foreign_key_constraint(:post_id)
     |> foreign_key_constraint(:user_id)
   end

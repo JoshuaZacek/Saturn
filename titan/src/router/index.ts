@@ -90,6 +90,8 @@ const router = createRouter({
       meta: {
         title: 'Saturn',
       },
+      // Home is the subscribed feed; without an account, start on today's top posts.
+      beforeEnter: () => isLoggedIn() || { name: 'all', query: { sort: 'top', t: 'day' } },
     },
     {
       path: '/all',
@@ -149,6 +151,7 @@ const router = createRouter({
       component: UnauthorizedPage,
       meta: {
         title: 'Unauthorized',
+        centered: true,
       },
     },
     {
@@ -167,8 +170,6 @@ const router = createRouter({
       component: MoonPage,
       meta: {
         title: (to: RouteLocationNormalizedLoaded) => `/${String(to.params.moon)}`,
-        // The page draws its own full-width banner from the very top.
-        fullWidth: true,
       },
       beforeEnter: (to) => {
         const sort = to.query.sort
@@ -207,6 +208,7 @@ const router = createRouter({
       component: NotFoundPage,
       meta: {
         title: 'Not Found',
+        centered: true,
       },
     },
   ],

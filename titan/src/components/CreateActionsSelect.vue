@@ -1,39 +1,21 @@
 <script setup lang="ts">
-import { ref, type Component } from 'vue'
-import type { RouteLocationRaw } from 'vue-router'
-import CustomSelect from '@/components/CustomSelect.vue'
-import PlusIcon from '@/components/icons/PlusIcon.vue'
+import ActionMenu, { type ActionMenuItem } from '@/components/ActionMenu.vue'
 import CreatePostIcon from '@/components/icons/CreatePostIcon.vue'
+import PlanetIcon from '@/components/icons/PlanetIcon.vue'
+import PlusIcon from '@/components/icons/PlusIcon.vue'
 
-const selectedAction = ref<string | undefined>(undefined)
-
-const createOptions: Array<{
-  label: string
-  value: string
-  to: RouteLocationRaw
-  icon?: Component
-}> = [
-  {
-    label: 'Create post...',
-    value: 'create-post',
-    to: { name: 'create-post' },
-    icon: CreatePostIcon,
-  },
-  {
-    label: 'Create moon...',
-    value: 'create-moon',
-    to: { name: 'create-moon' },
-  },
+// The Create (+) menu, in the sidebar and the phone top bar. The same menu as
+// the account menu beside it on phones.
+const createActions: ActionMenuItem[] = [
+  { value: 'create-post', label: 'Create post', icon: CreatePostIcon, to: { name: 'create-post' } },
+  { value: 'create-moon', label: 'Create moon', icon: PlanetIcon, to: { name: 'create-moon' } },
 ]
 </script>
 
 <template>
-  <CustomSelect
-    v-model="selectedAction"
-    :options="createOptions"
-    label="Create"
-    placeholder="Create"
-    :trigger-icon="PlusIcon"
-    :focus-menu-on-open="false"
-  />
+  <ActionMenu class="createMenu" label="Create" :items="createActions" size="lg">
+    <template #trigger>
+      <PlusIcon :size="24" />
+    </template>
+  </ActionMenu>
 </template>

@@ -1,52 +1,38 @@
 <template>
-  <main>
-    <h1>Create moon</h1>
+  <main class="formPage">
+    <PageHeader title="Create moon" />
 
-    <div class="moonSection">
-      <form @submit.prevent="submitMoon">
-        <section>
-          <div class="nameInputRow">
-            <span class="namePrefix">/</span>
-            <input
-              id="name"
-              v-model="name"
-              class="textInput nameInput"
-              type="text"
-              name="name"
-              autocomplete="off"
-              autocapitalize="off"
-              spellcheck="false"
-              placeholder="Moon name..."
-              @blur="validateNameNow"
-            />
+    <form class="formCard" novalidate @submit.prevent="submitMoon">
+      <div class="formField">
+        <div class="labelRow">
+          <label class="fieldLabel" for="name">Name</label>
+          <CharacterCounter :text="name" :max="NAME_MAX_LENGTH" :show-within="5" />
+        </div>
+        <div class="prefixField" :class="{ error: nameMessage.tone === 'error' }">
+          <span class="prefix" aria-hidden="true">/</span>
+          <input
+            id="name"
+            v-model="name"
+            type="text"
+            name="name"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            :aria-invalid="nameMessage.tone === 'error' || undefined"
+            aria-describedby="name-message"
+            @blur="validateNameNow"
+          />
+          <InputStatusIndicator :status="indicatorStatus" />
+        </div>
+        <p id="name-message" class="fieldMessage" :class="nameMessage.tone" aria-live="polite">
+          {{ nameMessage.text }}
+        </p>
+      </div>
 
-            <InputStatusIndicator :status="indicatorStatus" />
-          </div>
-
-          <p class="feedback info" :class="{ danger: isNameCharacterCountAtLimit }">
-            {{ name.length }} / {{ NAME_MAX_LENGTH }}
-          </p>
-
-          <p v-if="errors.name" class="feedback error">{{ errors.name }}</p>
-          <p v-else-if="nameStatus === 'taken'" class="feedback error">
-            This moon name is already taken.
-          </p>
-        </section>
-
-        <button class="submitButton" type="submit" :disabled="isSubmitting">
-          <span class="submitButtonContent">
-            <span v-if="isSubmitting" class="submitButtonSpinner">
-              <SpinnerLoader
-                :size="20"
-                bgColor="var(--accent-color)"
-                fgColor="var(--accent-text)"
-              />
-            </span>
-            <span style="color: var(--accent-text)">Create moon</span>
-          </span>
-        </button>
-      </form>
-    </div>
+      <div class="formFooter">
+        <SubmitButton type="submit" size="lg" :loading="isSubmitting">Create moon</SubmitButton>
+      </div>
+    </form>
   </main>
 </template>
 
@@ -54,10 +40,13 @@
 import axios from 'axios'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import SpinnerLoader from '@/components/SpinnerLoader.vue'
+import CharacterCounter from '@/components/CharacterCounter.vue'
 import InputStatusIndicator from '@/components/InputStatusIndicator.vue'
+import PageHeader from '@/components/PageHeader.vue'
+import SubmitButton from '@/components/SubmitButton.vue'
 import { waitForMinimumVisibleTime } from '@/config/loading'
 import { useErrorBannerStore } from '@/stores/errorBanner'
+import { useUIStore } from '@/stores/ui'
 
 type NameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'error'
 
@@ -68,6 +57,7 @@ const NAME_MAX_LENGTH = 20
 
 const router = useRouter()
 const errorBanner = useErrorBannerStore()
+const uiStore = useUIStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 
 const name = ref('')
@@ -86,7 +76,26 @@ const indicatorStatus = computed(() => {
   return nameStatus.value === 'available' ? 'valid' : null
 })
 
-const isNameCharacterCountAtLimit = computed(() => name.value.length >= NAME_MAX_LENGTH)
+// Under the field: the error if there is one, else whether the name is free,
+// else what a moon is and what its name can contain.
+const nameMessage = computed(() => {
+  if (errors.value.name) {
+    return { text: errors.value.name, tone: 'error' }
+  }
+
+  if (nameStatus.value === 'taken') {
+    return { text: 'This moon name is already taken.', tone: 'error' }
+  }
+
+  if (nameStatus.value === 'available') {
+    return { text: `/${name.value.trim()} is available.`, tone: 'success' }
+  }
+
+  return {
+    text: 'A moon is a community for one topic. Names can use letters, numbers and underscores.',
+    tone: '',
+  }
+})
 
 let nameValidationTimeout: ReturnType<typeof setTimeout> | null = null
 let nameValidationRequestId = 0
@@ -284,7 +293,10 @@ const submitMoon = async () => {
     }
 
     if (axios.isAxiosError(error) && error.response?.status === 403) {
-      errorBanner.show('Please log in to create a moon.')
+      errorBanner.show('Please log in to create a moon.', {
+        label: 'Log in',
+        run: () => uiStore.openAuth('login'),
+      })
       return
     }
 
@@ -327,138 +339,8 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.moonSection {
-  background: var(--bg-sub);
-  border: 1px solid var(--bg-2);
-  border-radius: 20px;
-  padding: 2rem 1.5rem;
+.formPage {
   width: 100%;
-  margin-top: 2rem;
-}
-
-/* Spans the page so it can measure whether the character counter fits beside
-   the form; its contents keep to a 40rem column. */
-main {
-  width: 100%;
-  padding-bottom: 2rem;
-  container-type: inline-size;
-}
-
-main > * {
-  max-width: 40rem;
-  margin-inline: auto;
-}
-
-h1 {
-  margin-bottom: 1.5rem;
-}
-
-.nameInputRow {
-  width: 100%;
-  display: flex;
-  align-items: center;
-}
-
-.namePrefix {
-  color: var(--text-3);
-  font-size: 1.75rem;
-  line-height: 1;
-  margin-right: 0.5rem;
-  flex-shrink: 0;
-}
-
-.textInput:focus {
-  position: relative;
-  z-index: 1;
-  outline: 2px solid var(--accent-color);
-  outline-offset: 1px;
-}
-
-.textInput {
-  width: 100%;
-  border: 1px solid var(--bg-2);
-  border-radius: 10px;
-  background: transparent;
-  color: var(--text-1);
-  font-size: 1rem;
-  padding: 0.75rem 0.75rem;
-  background-color: var(--bg-1);
-}
-
-.textInput::placeholder {
-  color: var(--text-3);
-}
-
-.feedback {
-  font-size: 1rem;
-  margin-top: 0.5rem;
-}
-
-.feedback.info {
-  color: var(--text-2);
-  position: absolute;
-  font-size: 0.8rem;
-  margin-top: -1rem;
-  margin-left: 39.5rem;
-  text-wrap: nowrap;
-}
-
-.feedback.info.danger {
-  color: var(--text-error);
-}
-
-.feedback.error {
-  color: var(--text-error);
-}
-
-.submitButton {
-  margin-top: 2rem;
-  width: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 2.75rem;
-  border: 1px solid var(--bg-2);
-  border-radius: 11px;
-  padding: 0 0.75rem;
-  background: var(--accent-color);
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1;
-  cursor: pointer;
-  box-sizing: border-box;
-}
-
-.submitButtonContent {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  line-height: 1;
-}
-
-.submitButtonSpinner {
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  overflow: hidden;
-}
-
-/* Too narrow for the counter beside the form, so it sits under the field. */
-@container (width < 50rem) {
-  .feedback.info {
-    position: static;
-    margin: 0.35rem 0 0;
-    text-align: right;
-  }
-}
-
-@container (width < 36rem) {
-  .moonSection {
-    padding: 1.5rem 1rem;
-  }
+  max-width: var(--column-width);
 }
 </style>

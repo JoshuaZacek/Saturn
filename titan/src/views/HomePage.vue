@@ -1,25 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import CustomSelect from '@/components/CustomSelect.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import FeedEmptyState from '@/components/FeedEmptyState.vue'
+import FeedToolbar from '@/components/FeedToolbar.vue'
+import PageHeader from '@/components/PageHeader.vue'
 import PostFeed from '@/components/PostFeed.vue'
-import SegmentedControl from '@/components/SegmentedControl.vue'
+import PlanetIcon from '@/components/icons/PlanetIcon.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSubscriptionsStore } from '@/stores/subscriptions'
-import { useUIStore } from '@/stores/ui'
-import {
-  getSingleQueryValue,
-  getTimePeriod,
-  sortOptions,
-  timePeriodOptions,
-  type FeedSort,
-} from '@/utils/feedQuery'
+import { getSingleQueryValue, getTimePeriod, type FeedSort } from '@/utils/feedQuery'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const subscriptionsStore = useSubscriptionsStore()
-const uiStore = useUIStore()
 
 // `/` keeps a clean URL, so a missing or unknown sort means New.
 const sort = computed<FeedSort>(() =>
@@ -38,13 +33,11 @@ const feedParams = computed(() => {
   return params
 })
 
-const emptyText = computed(() =>
-  subscriptionsStore.hasLoaded && subscriptionsStore.moons.length === 0
-    ? "You haven't subscribed to any moons yet. Subscribe to a moon to see its posts here."
-    : 'Hmmm... empty.',
+const hasNoSubscriptions = computed(
+  () => subscriptionsStore.hasLoaded && subscriptionsStore.moons.length === 0,
 )
 
-const onSortChange = (value: string) => {
+const onSortChange = (value: FeedSort) => {
   void router.push({
     name: 'home',
     query: value === 'top' ? { sort: 'top', t: 'day' } : {},
@@ -57,71 +50,42 @@ const onTimePeriodChange = (value: string) => {
 </script>
 
 <template>
-  <main>
-    <h1>Home</h1>
-
-    <template v-if="authStore.isLoggedIn">
-      <p class="description">Posts from the moons you subscribe to.</p>
-
-      <SegmentedControl
-        :model-value="sort"
-        :options="sortOptions"
-        @update:model-value="onSortChange"
+  <main class="feedPage">
+    <PageHeader title="Home">
+      <FeedToolbar
+        v-if="authStore.isLoggedIn"
+        :sort="sort"
+        :time-period="selectedTimePeriod"
+        @update:sort="onSortChange"
+        @update:time-period="onTimePeriodChange"
       />
+    </PageHeader>
 
-      <CustomSelect
-        v-if="sort === 'top'"
-        label="Top time period"
-        :model-value="selectedTimePeriod"
-        :options="timePeriodOptions"
-        @update:model-value="onTimePeriodChange"
-      />
-
-      <PostFeed class="feed" :params="feedParams" :empty-text="emptyText" />
-    </template>
-
-    <template v-else>
-      <p class="description">
-        Log in to see posts from the moons you subscribe to. You can log in or sign up from the
-        account card at the bottom of the {{ uiStore.isCompactLayout ? 'menu' : 'sidebar' }}.
-      </p>
-
-      <RouterLink class="linkButton" :to="{ name: 'all', query: { sort: 'top', t: 'day' } }">
-        Browse top posts
-      </RouterLink>
-    </template>
+    <!-- The router only lets logged-in users here. -->
+    <PostFeed v-if="authStore.isLoggedIn" :params="feedParams">
+      <template #empty>
+        <EmptyState
+          v-if="hasNoSubscriptions"
+          :icon="PlanetIcon"
+          title="Your home feed is empty"
+          description="Subscribe to moons to see their posts here."
+        >
+          <RouterLink
+            class="btn-secondary"
+            :to="{ name: 'all', query: { sort: 'top', t: 'week' } }"
+          >
+            Browse top posts
+          </RouterLink>
+        </EmptyState>
+        <FeedEmptyState v-else :sort="sort" :time-period="selectedTimePeriod" />
+      </template>
+    </PostFeed>
   </main>
 </template>
 
 <style scoped>
-main {
+.feedPage {
   width: 100%;
-  max-width: 40rem;
-}
-
-h1 {
-  margin-bottom: 0.5rem;
-}
-
-.description {
-  color: var(--text-2);
-  margin-bottom: 1.5rem;
-}
-
-.feed {
-  margin-top: 2rem;
-}
-
-.linkButton {
-  display: inline-block;
-  color: var(--text-2);
-  background: var(--bg-2);
-  padding: 0.5rem 0.9rem;
-  border-radius: 10px;
-  text-decoration: none;
-}
-
-.linkButton:hover {
-  background: var(--bg-3);
+  max-width: var(--column-width);
 }
 </style>

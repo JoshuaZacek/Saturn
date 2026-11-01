@@ -1,17 +1,10 @@
 <template>
-  <div class="voteButtons" :class="size">
-    <ArrowIcon
-      direction="up"
-      :size="arrowSize"
-      :class="currentVote === 'up' ? 'up' : ''"
-      :filled="currentVote === 'up'"
-      @vote="submitVote('up')"
-    />
-    <span :class="currentVote">{{ voteCount }}</span>
+  <div class="voteButtons" :class="[variant, currentVote]">
+    <ArrowIcon direction="up" :size="18" :filled="currentVote === 'up'" @vote="submitVote('up')" />
+    <span class="count" aria-live="polite">{{ formatCompactCount(voteCount) }}</span>
     <ArrowIcon
       direction="down"
-      :size="arrowSize"
-      :class="currentVote === 'down' ? 'down' : ''"
+      :size="18"
       :filled="currentVote === 'down'"
       @vote="submitVote('down')"
     />
@@ -21,8 +14,11 @@
 <script setup lang="ts">
 import ArrowIcon from '@/components/icons/ArrowIcon.vue'
 import axios, { AxiosError } from 'axios'
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import { useErrorBannerStore } from '@/stores/errorBanner'
+import { useUIStore } from '@/stores/ui'
+import { formatCompactCount } from '@/utils/formatCount'
 
 const props = withDefaults(
   defineProps<{
@@ -30,16 +26,17 @@ const props = withDefaults(
     votes: number
     hasVoted: number | null
     id: number
-    size?: 'default' | 'small'
+    // capsule: a quiet pill under posts; inline: lighter, inside comment threads.
+    variant?: 'capsule' | 'inline'
   }>(),
   {
-    size: 'default',
+    variant: 'capsule',
   },
 )
 
-const arrowSize = computed(() => (props.size === 'small' ? 19 : 22))
-
+const authStore = useAuthStore()
 const errorBanner = useErrorBannerStore()
+const uiStore = useUIStore()
 const voteCount = ref(props.votes)
 const currentVote = ref<'up' | 'down' | null>(null)
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
@@ -100,7 +97,10 @@ const postVote = (vote: string): Promise<void> => {
     })
     .catch((err: AxiosError) => {
       if (err.status === 403) {
-        errorBanner.show('You must be logged in to vote.')
+        errorBanner.show('You must be logged in to vote.', {
+          label: 'Log in',
+          run: () => uiStore.openAuth('login'),
+        })
         return
       }
 
@@ -114,6 +114,12 @@ const postVote = (vote: string): Promise<void> => {
 let isVoting = false
 
 const submitVote = (vote: string): void => {
+  // Voting needs an account: offer one rather than send a request that will fail.
+  if (!authStore.isLoggedIn) {
+    uiStore.openAuth('login')
+    return
+  }
+
   if (isVoting) {
     return
   }
@@ -128,24 +134,71 @@ const submitVote = (vote: string): void => {
 
 <style scoped>
 .voteButtons {
+  /* Read by ArrowIcon for its hit area. */
+  --vote-hit: calc(var(--control-sm) - 4px);
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
-.voteButtons.small {
-  gap: 0.2rem;
-  font-size: 0.9rem;
+.capsule {
+  height: var(--control-sm);
+  padding: 0 2px;
+  border-radius: var(--radius-full);
+  background-color: var(--fill-capsule);
 }
 
-.up {
+/* A vote tints the whole capsule, so it reads at a glance. */
+.capsule.up {
+  background-color: color-mix(in srgb, var(--vote-up) 13%, transparent);
+}
+
+.capsule.down {
+  background-color: color-mix(in srgb, var(--vote-down) 13%, transparent);
+}
+
+.inline {
+  --vote-hit: 1.75rem;
+  margin-left: -0.25rem;
+}
+
+.count {
+  min-width: 1.25rem;
+  padding: 0 0.1rem;
+  text-align: center;
+  font-size: var(--text-subhead);
+  font-weight: 600;
+  color: var(--text-1);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.inline .count {
+  min-width: 0.5rem;
+  /* Tucks into the arrows' hit areas, so the number sits close to them. */
+  margin: 0 -0.2rem;
+  font-size: var(--text-footnote);
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.up .count {
   color: var(--vote-up);
-  font-weight: bold;
 }
 
-.down {
+.down .count {
   color: var(--vote-down);
-  font-weight: bold;
+}
+
+/* Bigger targets for fingers; they overlap the count so it stays as close. */
+@media (pointer: coarse) {
+  .inline {
+    --vote-hit: 2.25rem;
+    margin-left: -0.625rem;
+  }
+
+  .inline > .voteArrow {
+    margin: 0 -0.375rem;
+  }
 }
 </style>

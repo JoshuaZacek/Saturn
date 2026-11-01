@@ -1,99 +1,76 @@
-<template>
-  <article :class="['postCard', props.postPageMode ? 'postPageMode' : '']">
-    <div class="metadataContainer">
-      <router-link class="metadata moon" :to="`/${post.moon.name}`"
-        >/{{ post.moon.name }}</router-link
-      >
-
-      <router-link class="metadata username" :to="`/@${post.user.username}`">
-        <UserCircleIcon :size="20" />
-        <span>{{ post.user.username }}</span>
-      </router-link>
-
-      <span class="metadata timeUploaded" :title="`Posted at ${dateCreated}`">
-        <ClockIcon :size="20" />
-        <span>{{ postedDate }}</span>
-      </span>
-    </div>
-
-    <h2 class="title">{{ post.title }}</h2>
-
-    <div v-if="post.type == 'text'" class="bodyContainer">
-      <p v-if="post.body" :class="['body', isOverflowing ? 'isOverflowing' : '']" ref="body">
-        {{ post.body }}
-      </p>
-
-      <router-link v-if="isOverflowing" class="overflowButton" :to="`/post/${post.id}`"
-        >Read more</router-link
-      >
-    </div>
-
-    <PostImage
-      v-if="post.type == 'image'"
-      :src="imageURL"
-      :alt="post.title"
-      :width="post.image_width"
-      :height="post.image_height"
-      :mode="props.postPageMode ? 'full' : 'preview'"
-    />
-
-    <div class="stats">
-      <VoteButtons :id="post.id" :votes="post.votes" :hasVoted="post.hasVoted" type="post" />
-      <router-link v-if="!props.postPageMode" class="action comments" :to="`/post/${post.id}`">
-        <ChatCircleIcon />
-        <span>{{ post.comments }}</span>
-      </router-link>
-
-      <button
-        class="action delete"
-        v-if="post.user.id == authStore.user.id"
-        :disabled="isDeleting"
-        @click="deletePost"
-      >
-        <span class="deleteIconWrap">
-          <SpinnerLoader
-            v-if="isDeleting"
-            bgColor="var(--bg-main)"
-            fgColor="var(--text-2)"
-            :size="20"
-          />
-          <DeleteIcon v-else />
-        </span>
-      </button>
-    </div>
-  </article>
-</template>
 <script setup lang="ts">
 import axios from 'axios'
-import { computed, onMounted, ref, useTemplateRef } from 'vue'
-import DeleteIcon from '@/components/icons/DeleteIcon.vue'
-import ChatCircleIcon from '@/components/icons/ChatCircleIcon.vue'
-import ClockIcon from '@/components/icons/ClockIcon.vue'
-import SpinnerLoader from '@/components/SpinnerLoader.vue'
-import VoteButtons from '@/components/VoteButtons.vue'
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import ActionMenu, { type ActionMenuItem } from '@/components/ActionMenu.vue'
 import PostImage from '@/components/PostImage.vue'
-import UserCircleIcon from '@/components/icons/UserCircleIcon.vue'
+import RelativeTime from '@/components/RelativeTime.vue'
+import UserAvatar from '@/components/UserAvatar.vue'
+import VoteButtons from '@/components/VoteButtons.vue'
+import ChatCircleIcon from '@/components/icons/ChatCircleIcon.vue'
+import DeleteIcon from '@/components/icons/DeleteIcon.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useErrorBannerStore } from '@/stores/errorBanner'
-import { formatRelativeTime } from '@/utils/relativeTime'
+import { formatCompactCount } from '@/utils/formatCount'
 import type { Post } from '@/types/post'
 
 const props = defineProps<{
   post: Post
+  // The post's own page: an article with the whole text and image, its title
+  // as the page heading.
   postPageMode?: boolean
+  // Leave out what the page already says: the moon on its own page, the
+  // author on their profile.
+  hideMoon?: boolean
+  hideUser?: boolean
 }>()
 
 const emit = defineEmits<{
   deleted: [postId: number]
 }>()
 
+const router = useRouter()
 const authStore = useAuthStore()
 const errorBanner = useErrorBannerStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 const isDeleting = ref(false)
-const imageURL = computed(() => {
-  return `${backendUrl}/assets/${props.post.body}`
-})
+
+const isOwner = computed(() => authStore.isLoggedIn && props.post.user.id === authStore.user.id)
+const postLocation = computed(() => ({
+  name: 'post',
+  params: { post_id: String(props.post.id) },
+}))
+const imageURL = computed(() => `${backendUrl}/assets/${props.post.body}`)
+const commentLabel = computed(
+  () => `${props.post.comments} ${props.post.comments === 1 ? 'comment' : 'comments'}`,
+)
+const avatarSize = computed(() => (props.postPageMode ? 24 : 20))
+
+// The time sits above the card's link (so it can show its tooltip), and still
+// opens the post like the rest of the card.
+const onTimeClick = () => {
+  if (!props.postPageMode) {
+    void router.push(postLocation.value)
+  }
+}
+// A card previews the text as one paragraph; the post page keeps its breaks.
+const bodyText = computed(() =>
+  props.postPageMode ? props.post.body : props.post.body?.replace(/\s+/g, ' ').trim(),
+)
+
+const ownerActions: ActionMenuItem[] = [
+  {
+    value: 'delete',
+    label: 'Delete post',
+    icon: DeleteIcon,
+    danger: true,
+    confirm: {
+      title: 'Delete this post?',
+      message: "It's removed for everyone. This can't be undone.",
+      action: 'Delete',
+    },
+  },
+]
 
 const deletePost = () => {
   if (!backendUrl || isDeleting.value) {
@@ -105,7 +82,7 @@ const deletePost = () => {
 
   axios
     .delete(`${base}/post/${props.post.id}`)
-    .then(async () => {
+    .then(() => {
       isDeleting.value = false
       emit('deleted', props.post.id)
     })
@@ -115,158 +92,300 @@ const deletePost = () => {
     })
 }
 
-const isOverflowing = ref(false)
-const body = useTemplateRef<HTMLParagraphElement>('body')
-onMounted(() => {
-  // The post page shows the whole body, so there's nothing to clip.
-  if (body.value && !props.postPageMode) {
-    isOverflowing.value = body.value.scrollHeight > body.value.clientHeight
+const onAction = (action: string) => {
+  if (action === 'delete') {
+    deletePost()
   }
-})
-
-const dateCreated = computed(() => {
-  return new Date(props.post.inserted_at).toLocaleString()
-})
-
-const postedDate = computed(() => formatRelativeTime(props.post.inserted_at))
+}
 </script>
+
+<template>
+  <article class="postCard" :class="{ article: postPageMode }">
+    <header class="meta">
+      <RouterLink v-if="!hideMoon" class="identity" :to="`/${post.moon.name}`">
+        <UserAvatar
+          :name="post.moon.name"
+          :color="post.moon.avatar_color"
+          :image="post.moon.avatar_image"
+          shape="tile"
+          :size="avatarSize"
+        />
+        <span class="identityName">/{{ post.moon.name }}</span>
+      </RouterLink>
+      <RouterLink v-else class="identity" :to="`/@${post.user.username}`">
+        <UserAvatar
+          :name="post.user.username"
+          :color="post.user.avatar_color"
+          :image="post.user.avatar_image"
+          :size="avatarSize"
+        />
+        <span class="identityName">{{ post.user.username }}</span>
+      </RouterLink>
+
+      <RouterLink v-if="!hideMoon && !hideUser" class="author" :to="`/@${post.user.username}`">
+        {{ post.user.username }}
+      </RouterLink>
+
+      <RelativeTime class="time" :datetime="post.inserted_at" @click="onTimeClick" />
+
+      <ActionMenu
+        v-if="isOwner"
+        class="options"
+        label="Post options"
+        :items="ownerActions"
+        :busy="isDeleting"
+        @select="onAction"
+      />
+    </header>
+
+    <h1 v-if="postPageMode" class="title">{{ post.title }}</h1>
+    <h2 v-else class="title">
+      <RouterLink class="titleLink" :to="postLocation">{{ post.title }}</RouterLink>
+    </h2>
+
+    <p v-if="post.type === 'text' && bodyText" class="body">{{ bodyText }}</p>
+
+    <PostImage
+      v-else-if="post.type === 'image'"
+      class="image"
+      :src="imageURL"
+      :alt="post.title"
+      :width="post.image_width"
+      :height="post.image_height"
+      :mode="postPageMode ? 'full' : 'preview'"
+    />
+
+    <footer class="actions">
+      <VoteButtons :id="post.id" :votes="post.votes" :has-voted="post.hasVoted" type="post" />
+      <RouterLink
+        v-if="!postPageMode"
+        class="comments"
+        :to="postLocation"
+        :aria-label="commentLabel"
+      >
+        <ChatCircleIcon :size="18" />
+        <span>{{ formatCompactCount(post.comments) }}</span>
+      </RouterLink>
+    </footer>
+  </article>
+</template>
 
 <style scoped>
 .postCard {
-  border: 1px solid var(--bg-2);
-  border-radius: 0.75rem;
-  padding: 1rem 1.25rem;
-  padding-bottom: 0.65rem;
-  max-width: 40rem;
-  background-color: var(--bg-sub);
-}
-
-.postPageMode {
-  width: 100%;
-  padding-bottom: 1rem;
-}
-
-/* Wraps onto a second line when a long moon or username doesn't fit. */
-.metadataContainer {
+  /* The title's link stretches over the whole card. */
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1rem;
+  flex-direction: column;
+  max-width: var(--column-width);
+  padding: 0.875rem 1.25rem;
+  border-radius: var(--radius-lg);
+  background-color: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
-.metadata {
-  font-size: 0.9rem;
+/* Moon (or author) on the left, time on the right. */
+.meta {
   display: flex;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.6rem;
   min-width: 0;
-  text-decoration: none;
-  overflow-wrap: anywhere;
-}
-.metadata span,
-.metadata {
+  font-size: var(--text-footnote);
+  line-height: 1.3;
   color: var(--text-2);
 }
 
+.identity,
+.author {
+  /* Above the card's link. */
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  text-decoration: none;
+}
+
+.identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.identityName,
+.author {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.author {
+  color: var(--text-2);
+}
+
+@media (hover: hover) {
+  .identity:hover .identityName,
+  .author:hover {
+    text-decoration: underline;
+  }
+}
+
+.time {
+  /* Above the card's link, for its tooltip. */
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.postCard:not(.article) .time {
+  cursor: pointer;
+}
+
+.options {
+  flex-shrink: 0;
+  margin: -0.25rem -0.4rem -0.25rem -0.2rem;
+}
+
 .title {
-  margin-top: 1rem;
-  font-size: 1.25rem;
+  margin-top: 0.55rem;
+  font-size: var(--text-title-3);
+  font-weight: 600;
+  line-height: 1.3;
   overflow-wrap: anywhere;
+}
+
+.titleLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.titleLink::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.titleLink:focus-visible {
+  outline: none;
+}
+
+.postCard:has(.titleLink:focus-visible) {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+/* A press on the card tints it, like a list row. */
+.postCard:has(.titleLink:active) {
+  background-color: color-mix(in srgb, var(--surface) 96%, var(--text-1));
 }
 
 .body {
-  margin-top: 0.25rem;
-  line-height: 1.4;
+  margin-top: 0.3rem;
+  font-size: var(--text-subhead);
+  line-height: 1.5;
+  color: var(--text-2);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  max-height: 7rem;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   overflow: hidden;
 }
 
-.body.isOverflowing {
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) -10%, rgba(0, 0, 0, 0));
-  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) -10%, rgba(0, 0, 0, 0));
+.image {
+  margin-top: 0.75rem;
 }
 
-.stats {
-  margin-top: 0.65rem;
+.actions {
+  position: relative;
+  z-index: 1;
   display: flex;
-}
-
-.action {
-  display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 1rem;
+  gap: 0.5rem;
+  margin-top: 0.875rem;
+  /* Clicks between the buttons fall through to the card. */
+  pointer-events: none;
 }
 
-.username,
-.moon {
-  cursor: pointer;
-}
-.username:hover,
-.moon:hover {
-  text-decoration: underline;
-}
-
-.timeUploaded {
-  cursor: default;
+.actions > * {
+  pointer-events: auto;
 }
 
 .comments {
-  margin-left: 0.35rem;
-  cursor: pointer;
-  padding: 0.35rem 0.5rem;
-  border-radius: 10px;
-  text-decoration: none;
-}
-.comments:hover {
-  background: var(--bg-2);
-}
-
-.overflowButton {
-  padding: 0.35rem 0.75rem;
-  font-size: 0.9rem;
-  border-radius: 10px;
-  background: var(--bg-2);
-  text-decoration: none;
-}
-
-.bodyContainer {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  align-items: flex-start;
-}
-
-.postPageMode .body {
-  max-height: none;
-}
-
-.delete {
-  cursor: pointer;
-  padding: 0.35rem 0.5rem;
-  border-radius: 10px;
-  text-decoration: none;
-  border: none;
-  background: var(--bg-main);
-  min-width: 34px;
-  min-height: 34px;
-  justify-content: center;
-}
-
-.deleteIconWrap {
-  width: 22px;
-  height: 22px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.375rem;
+  height: var(--control-sm);
+  padding: 0 0.8rem 0 0.65rem;
+  border-radius: var(--radius-full);
+  background-color: var(--fill-capsule);
+  color: var(--text-1);
+  font-size: var(--text-subhead);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
-.delete:hover {
-  background: var(--bg-2);
+.comments svg {
+  color: var(--text-2);
 }
 
-.delete:disabled {
-  cursor: default;
+@media (hover: hover) {
+  .comments:hover {
+    background-color: var(--fill-capsule-hover);
+  }
+}
+
+.comments:active {
+  background-color: var(--fill-capsule-hover);
+}
+
+/* The post page: an article on the page itself, not a card. */
+.article {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.article .meta {
+  font-size: var(--text-subhead);
+}
+
+.article .title {
+  margin-top: 0.85rem;
+  font-size: var(--text-title-1);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: var(--tracking-tight);
+}
+
+.article .body {
+  display: block;
+  margin-top: 0.75rem;
+  font-size: var(--text-reading);
+  line-height: 1.6;
+  color: var(--text-1);
+  overflow: visible;
+  -webkit-line-clamp: none;
+  line-clamp: none;
+}
+
+.article .image {
+  margin-top: 1rem;
+}
+
+.article .actions {
+  margin-top: 1rem;
+}
+
+@media (max-width: 600px) {
+  .postCard:not(.article) {
+    padding: 0.8rem 1rem;
+  }
 }
 </style>

@@ -37,10 +37,10 @@ defineProps<{
   justify-content: center;
   flex: 0 0 auto;
   transition:
-    width 0.2s ease,
-    opacity 0.2s ease,
-    transform 0.2s ease,
-    margin-left 0.2s ease;
+    width var(--duration-base) var(--ease-out),
+    opacity var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-out),
+    margin-left var(--duration-base) var(--ease-out);
 }
 
 .inputStatusIndicator.visible {
@@ -53,8 +53,8 @@ defineProps<{
 .indicatorIcon-enter-active,
 .indicatorIcon-leave-active {
   transition:
-    opacity 0.15s ease,
-    transform 0.15s ease;
+    opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
 }
 
 .indicatorIcon-enter-from,

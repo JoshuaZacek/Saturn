@@ -2,14 +2,20 @@
 import axios from 'axios'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import AuthInput from '@/components/AuthInput.vue'
-import SpinnerLoader from '@/components/SpinnerLoader.vue'
+import AvatarEditor from '@/components/AvatarEditor.vue'
+import PageHeader from '@/components/PageHeader.vue'
+import SegmentedControl from '@/components/SegmentedControl.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
-import ArrowLeftIcon from '@/components/icons/ArrowLeftIcon.vue'
+import UserAvatar from '@/components/UserAvatar.vue'
+import CaretLeftIcon from '@/components/icons/CaretLeftIcon.vue'
+import CaretRightIcon from '@/components/icons/CaretRightIcon.vue'
 import CheckIcon from '@/components/icons/CheckIcon.vue'
 import { waitForMinimumVisibleTime } from '@/config/loading'
 import { useAuthStore } from '@/stores/auth'
+import { useAvatarStore } from '@/stores/avatars'
 import { useErrorBannerStore } from '@/stores/errorBanner'
+import { useUIStore, type Theme } from '@/stores/ui'
+import type { AvatarFields } from '@/utils/avatar'
 
 type Step = 'email' | 'password' | 'delete'
 
@@ -20,6 +26,27 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const errorBanner = useErrorBannerStore()
+const uiStore = useUIStore()
+const avatarStore = useAvatarStore()
+
+const username = computed(() => String(authStore.user.username ?? ''))
+const isEditingAvatar = ref(false)
+const currentAvatar = computed<AvatarFields>(() => ({
+  avatar_color: authStore.user.avatar_color ?? '',
+  avatar_image: authStore.user.avatar_image ?? null,
+}))
+
+const onAvatarSaved = (avatar: AvatarFields) => {
+  isEditingAvatar.value = false
+  authStore.changeAvatar(avatar)
+  avatarStore.change('user', username.value, avatar)
+}
+
+const themeOptions: { label: string; value: Theme }[] = [
+  { label: 'System', value: 'system' },
+  { label: 'Light', value: 'light' },
+  { label: 'Dark', value: 'dark' },
+]
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 const stepSection = useTemplateRef<HTMLElement>('stepSection')
 
@@ -32,7 +59,7 @@ const step = computed<Step | null>(() => {
 const notice = ref('')
 const isSubmitting = ref(false)
 const emailErrors = ref({ newEmail: '', confirmEmail: '' })
-const passwordErrors = ref({ oldPassword: '', newPassword: '' })
+const passwordErrors = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
 
 const hasEmailErrors = computed(() => Object.values(emailErrors.value).some(Boolean))
 const hasPasswordErrors = computed(() => Object.values(passwordErrors.value).some(Boolean))
@@ -52,7 +79,7 @@ const returnToSettings = (message: string) => {
 
 watch(step, async (nextStep) => {
   emailErrors.value = { newEmail: '', confirmEmail: '' }
-  passwordErrors.value = { oldPassword: '', newPassword: '' }
+  passwordErrors.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
   isSubmitting.value = false
 
   if (!nextStep) {
@@ -61,7 +88,8 @@ watch(step, async (nextStep) => {
 
   notice.value = ''
   await nextTick()
-  stepSection.value?.querySelector<HTMLElement>('input, button')?.focus()
+  // The first field, or on the delete step, the safe choice.
+  stepSection.value?.querySelector<HTMLElement>('input, .cancelButton')?.focus()
 })
 
 const submitEmail = async (event: Event) => {
@@ -126,7 +154,8 @@ const submitPassword = async (event: Event) => {
   const formData = new FormData(event.target as HTMLFormElement)
   const oldPassword = String(formData.get('oldpassword') ?? '')
   const newPassword = String(formData.get('newpassword') ?? '')
-  const nextErrors = { oldPassword: '', newPassword: '' }
+  const confirmPassword = String(formData.get('confirmpassword') ?? '')
+  const nextErrors = { oldPassword: '', newPassword: '', confirmPassword: '' }
 
   if (!oldPassword) {
     nextErrors.oldPassword = 'Current password is required'
@@ -138,6 +167,12 @@ const submitPassword = async (event: Event) => {
     nextErrors.newPassword = `Your new password must contain ${PASSWORD_MIN_LENGTH} characters or more`
   } else if (newPassword === oldPassword) {
     nextErrors.newPassword = 'Your new password must be different from your current one'
+  }
+
+  if (!confirmPassword) {
+    nextErrors.confirmPassword = 'Please confirm your new password'
+  } else if (newPassword && confirmPassword !== newPassword) {
+    nextErrors.confirmPassword = "Passwords don't match"
   }
 
   passwordErrors.value = nextErrors
@@ -203,158 +238,224 @@ const deleteAccount = async () => {
 </script>
 
 <template>
-  <main>
+  <main class="settingsPage">
     <template v-if="!step">
-      <h1>Settings</h1>
+      <PageHeader title="Settings" />
 
       <p v-if="notice" class="notice" role="status">
-        <CheckIcon :size="20" color="var(--vote-up)" />
+        <CheckIcon :size="18" color="var(--success)" />
         <span>{{ notice }}</span>
       </p>
 
+      <h2 class="groupTitle">Appearance</h2>
       <div class="settingsList">
+        <div class="settingRow staticRow">
+          <span class="rowTitle">Theme</span>
+          <SegmentedControl
+            class="themeControl"
+            size="sm"
+            label="Theme"
+            :model-value="uiStore.theme"
+            :options="themeOptions"
+            @update:model-value="uiStore.setTheme($event as Theme)"
+          />
+        </div>
+      </div>
+
+      <h2 class="groupTitle">Account</h2>
+      <div class="settingsList">
+        <button class="settingRow" type="button" @click="isEditingAvatar = true">
+          <span class="rowTitle">Profile picture</span>
+          <UserAvatar
+            class="rowAvatar"
+            :name="username"
+            :color="authStore.user.avatar_color"
+            :image="authStore.user.avatar_image"
+            :size="32"
+          />
+          <CaretRightIcon class="chevron" />
+        </button>
+
         <RouterLink class="settingRow" :to="{ name: 'settings', params: { step: 'email' } }">
-          <span class="rowText">
-            <span class="rowTitle">Email</span>
-            <span class="rowDescription">{{ authStore.user.email }}</span>
-          </span>
-          <span class="rowAction">Change</span>
+          <span class="rowTitle">Email</span>
+          <span class="rowValue">{{ authStore.user.email }}</span>
+          <CaretRightIcon class="chevron" />
         </RouterLink>
 
         <RouterLink class="settingRow" :to="{ name: 'settings', params: { step: 'password' } }">
-          <span class="rowText">
-            <span class="rowTitle">Password</span>
-          </span>
-          <span class="rowAction">Change</span>
+          <span class="rowTitle">Password</span>
+          <CaretRightIcon class="chevron" />
         </RouterLink>
 
         <RouterLink
           class="settingRow danger"
           :to="{ name: 'settings', params: { step: 'delete' } }"
         >
-          <span class="rowText">
-            <span class="rowTitle">Delete account</span>
-            <span class="rowDescription">
-              Your posts, comments, moons and votes will be deleted
-            </span>
-          </span>
-          <span class="rowAction">Delete</span>
+          <span class="rowTitle">Delete account</span>
+          <CaretRightIcon class="chevron" />
         </RouterLink>
       </div>
+
+      <AvatarEditor
+        :open="isEditingAvatar"
+        kind="user"
+        :name="username"
+        :avatar="currentAvatar"
+        endpoint="/user/avatar"
+        @close="isEditingAvatar = false"
+        @saved="onAvatarSaved"
+      />
     </template>
 
     <section v-else ref="stepSection" class="settingsStep">
-      <RouterLink class="backButton" to="/settings">
-        <ArrowLeftIcon :size="18" />
+      <RouterLink class="backLink" to="/settings">
+        <CaretLeftIcon :size="16" />
         <span>Settings</span>
       </RouterLink>
 
       <template v-if="step === 'email'">
-        <h1>Change email</h1>
-        <p class="description">
-          Your current email is <strong>{{ authStore.user.email }}</strong>
-        </p>
+        <PageHeader title="Change email" />
 
-        <form novalidate @submit.prevent="submitEmail">
-          <div class="inputContainer">
-            <AuthInput
+        <form class="formCard" novalidate @submit.prevent="submitEmail">
+          <div class="formField">
+            <span class="fieldLabel">Current email</span>
+            <p class="currentValue">{{ authStore.user.email }}</p>
+          </div>
+
+          <div class="formField">
+            <label class="fieldLabel" for="newemail">New email</label>
+            <input
+              id="newemail"
+              class="field"
+              :class="{ error: !!emailErrors.newEmail }"
               type="email"
               name="newemail"
-              placeholder="New email..."
-              aria-label="New email"
               autocomplete="email"
-              :has-error="!!emailErrors.newEmail"
+              :aria-invalid="!!emailErrors.newEmail || undefined"
+              aria-describedby="newemail-message"
               @input="emailErrors.newEmail = ''"
             />
-            <AuthInput
+            <p id="newemail-message" class="fieldMessage error">{{ emailErrors.newEmail }}</p>
+          </div>
+
+          <div class="formField">
+            <label class="fieldLabel" for="confirmemail">Confirm new email</label>
+            <input
+              id="confirmemail"
+              class="field"
+              :class="{ error: !!emailErrors.confirmEmail }"
               type="email"
               name="confirmemail"
-              placeholder="Confirm new email..."
-              aria-label="Confirm new email"
               autocomplete="email"
-              :has-error="!!emailErrors.confirmEmail"
+              :aria-invalid="!!emailErrors.confirmEmail || undefined"
+              aria-describedby="confirmemail-message"
               @input="emailErrors.confirmEmail = ''"
             />
+            <p id="confirmemail-message" class="fieldMessage error">
+              {{ emailErrors.confirmEmail }}
+            </p>
           </div>
 
-          <div v-if="hasEmailErrors" class="errorText">
-            <p v-if="emailErrors.newEmail">{{ emailErrors.newEmail }}</p>
-            <p v-if="emailErrors.confirmEmail">{{ emailErrors.confirmEmail }}</p>
-          </div>
-
-          <div class="buttonRow">
-            <SubmitButton type="submit" :disabled="isSubmitting">Change email</SubmitButton>
-            <span class="spinnerSlot" aria-hidden="true">
-              <SpinnerLoader v-if="isSubmitting" :size="20" fgColor="var(--text-2)" />
-            </span>
+          <div class="formFooter">
+            <RouterLink class="btn-secondary cancelButton" to="/settings">Cancel</RouterLink>
+            <SubmitButton type="submit" :loading="isSubmitting">Change email</SubmitButton>
           </div>
         </form>
       </template>
 
       <template v-else-if="step === 'password'">
-        <h1>Change password</h1>
-        <p class="description">
-          Your new password must contain {{ PASSWORD_MIN_LENGTH }} characters or more.
-        </p>
+        <PageHeader title="Change password" />
 
-        <form novalidate @submit.prevent="submitPassword">
-          <div class="inputContainer">
-            <AuthInput
+        <form class="formCard" novalidate @submit.prevent="submitPassword">
+          <div class="formField">
+            <label class="fieldLabel" for="oldpassword">Current password</label>
+            <input
+              id="oldpassword"
+              class="field"
+              :class="{ error: !!passwordErrors.oldPassword }"
               type="password"
               name="oldpassword"
-              placeholder="Current password..."
-              aria-label="Current password"
               autocomplete="current-password"
-              :has-error="!!passwordErrors.oldPassword"
+              :aria-invalid="!!passwordErrors.oldPassword || undefined"
+              aria-describedby="oldpassword-message"
               @input="passwordErrors.oldPassword = ''"
             />
-            <AuthInput
+            <p id="oldpassword-message" class="fieldMessage error">
+              {{ passwordErrors.oldPassword }}
+            </p>
+          </div>
+
+          <div class="formField">
+            <label class="fieldLabel" for="newpassword">New password</label>
+            <input
+              id="newpassword"
+              class="field"
+              :class="{ error: !!passwordErrors.newPassword }"
               type="password"
               name="newpassword"
-              placeholder="New password..."
-              aria-label="New password"
               autocomplete="new-password"
-              :has-error="!!passwordErrors.newPassword"
+              :aria-invalid="!!passwordErrors.newPassword || undefined"
+              aria-describedby="newpassword-message"
               @input="passwordErrors.newPassword = ''"
             />
+            <p
+              id="newpassword-message"
+              class="fieldMessage"
+              :class="{ error: !!passwordErrors.newPassword }"
+            >
+              {{ passwordErrors.newPassword || `At least ${PASSWORD_MIN_LENGTH} characters.` }}
+            </p>
           </div>
 
-          <div v-if="hasPasswordErrors" class="errorText">
-            <p v-if="passwordErrors.oldPassword">{{ passwordErrors.oldPassword }}</p>
-            <p v-if="passwordErrors.newPassword">{{ passwordErrors.newPassword }}</p>
+          <div class="formField">
+            <label class="fieldLabel" for="confirmpassword">Confirm new password</label>
+            <input
+              id="confirmpassword"
+              class="field"
+              :class="{ error: !!passwordErrors.confirmPassword }"
+              type="password"
+              name="confirmpassword"
+              autocomplete="new-password"
+              :aria-invalid="!!passwordErrors.confirmPassword || undefined"
+              aria-describedby="confirmpassword-message"
+              @input="passwordErrors.confirmPassword = ''"
+            />
+            <p id="confirmpassword-message" class="fieldMessage error">
+              {{ passwordErrors.confirmPassword }}
+            </p>
           </div>
 
-          <div class="buttonRow">
-            <SubmitButton type="submit" :disabled="isSubmitting">Change password</SubmitButton>
-            <span class="spinnerSlot" aria-hidden="true">
-              <SpinnerLoader v-if="isSubmitting" :size="20" fgColor="var(--text-2)" />
-            </span>
+          <div class="formFooter">
+            <RouterLink class="btn-secondary cancelButton" to="/settings">Cancel</RouterLink>
+            <SubmitButton type="submit" :loading="isSubmitting">Change password</SubmitButton>
           </div>
         </form>
       </template>
 
       <template v-else-if="step === 'delete'">
-        <h1>Delete your account?</h1>
-        <p class="description">
-          Your account will be permanently deleted and can't be recovered. This takes effect
-          immediately.
-        </p>
-        <p class="description">The following will also be permanently deleted:</p>
-        <ul class="consequences">
-          <li>Your posts</li>
-          <li>Your comments</li>
-          <li>Your moons</li>
-          <li>Your votes</li>
-        </ul>
+        <PageHeader title="Delete your account?" />
 
-        <div class="buttonRow">
-          <RouterLink class="cancelButton" to="/settings">No, take me back</RouterLink>
-          <SubmitButton variant="danger" :disabled="isSubmitting" @click="deleteAccount">
-            Yes, delete my account
-          </SubmitButton>
-          <span class="spinnerSlot" aria-hidden="true">
-            <SpinnerLoader v-if="isSubmitting" :size="20" fgColor="var(--text-2)" />
-          </span>
+        <div class="formCard">
+          <div class="deleteCopy">
+            <p>
+              Your account will be permanently deleted and can't be recovered. This takes effect
+              immediately.
+            </p>
+            <p>The following will also be permanently deleted:</p>
+            <ul class="consequences">
+              <li>Your posts</li>
+              <li>Your comments</li>
+              <li>Your moons</li>
+              <li>Your votes</li>
+            </ul>
+          </div>
+
+          <div class="formFooter">
+            <RouterLink class="btn-secondary cancelButton" to="/settings">Cancel</RouterLink>
+            <SubmitButton variant="danger" :loading="isSubmitting" @click="deleteAccount">
+              Delete account
+            </SubmitButton>
+          </div>
         </div>
       </template>
     </section>
@@ -362,163 +463,207 @@ const deleteAccount = async () => {
 </template>
 
 <style scoped>
-main {
+.settingsPage {
   width: 100%;
-  max-width: 40rem;
-}
-
-h1 {
-  margin-bottom: 1.5rem;
+  max-width: var(--column-width);
 }
 
 .notice {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-lg);
+  background-color: var(--surface);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--text-subhead);
 }
 
-.notice span {
-  color: var(--text-2);
+/* Just inside the card's edge. */
+.groupTitle {
+  margin: 0 0 0.45rem 0.375rem;
+  font-size: var(--text-footnote);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text-3);
+}
+
+.settingsList + .groupTitle {
+  margin-top: 2rem;
 }
 
 .settingsList {
-  border: 1px solid var(--bg-2);
-  border-radius: 0.75rem;
-  background-color: var(--bg-sub);
+  border-radius: var(--radius-lg);
+  background-color: var(--surface);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
 .settingRow {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
+  gap: 0.75rem;
+  min-height: 3.25rem;
+  padding: 0.6rem 0.9rem 0.6rem 1.25rem;
+  color: inherit;
   text-decoration: none;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
-.settingRow + .settingRow {
-  border-top: 1px solid var(--bg-2);
+/* Inset hairlines between rows. */
+.settingRow + .settingRow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 1.25rem;
+  right: 0;
+  height: 1px;
+  background-color: var(--separator);
 }
 
-.settingRow:hover {
-  background-color: var(--bg-1);
+.settingRow:focus-visible {
+  outline-offset: -2px;
+  border-radius: var(--radius-lg);
 }
 
-.rowText {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  min-width: 0;
+/* Rows that open a sheet rather than a page. */
+button.settingRow {
+  width: 100%;
+  border: none;
+  background: none;
+  font-size: var(--text-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  a.settingRow:hover,
+  button.settingRow:hover {
+    background-color: var(--fill-hover);
+  }
+}
+
+a.settingRow:active,
+button.settingRow:active {
+  background-color: var(--fill-pressed);
+}
+
+/* The current picture, where other rows show their value. */
+.rowAvatar {
+  margin-left: auto;
+}
+
+.rowAvatar + .chevron {
+  margin-left: 0;
 }
 
 .rowTitle {
-  font-weight: bold;
-}
-
-.rowDescription {
-  font-size: 0.9rem;
-  color: var(--text-2);
-  overflow-wrap: anywhere;
-}
-
-.rowAction {
   flex-shrink: 0;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.9rem;
-  border-radius: 10px;
-  background: var(--bg-2);
+  font-weight: 500;
 }
 
-.danger .rowTitle,
-.danger .rowAction {
-  color: var(--text-error);
+/* The current value, right-aligned before the chevron. */
+.rowValue {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--text-2);
 }
 
-.backButton {
+.chevron {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--text-3);
+}
+
+.rowValue + .chevron {
+  margin-left: 0;
+}
+
+.danger .rowTitle {
+  color: var(--danger);
+}
+
+/* A row that holds its own control rather than linking somewhere. */
+.staticRow {
+  justify-content: space-between;
+  padding-right: 0.75rem;
+}
+
+.themeControl {
+  flex-shrink: 0;
+}
+
+/* Phones: the theme control goes under its title, full width. */
+@media (max-width: 480px) {
+  .staticRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+  }
+
+  .settingRow.staticRow > .themeControl {
+    width: 100%;
+  }
+}
+
+.backLink {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  margin-bottom: 1.5rem;
-  margin-left: -0.5rem;
-  padding: 0.35rem 0.6rem;
-  border-radius: 10px;
+  gap: 0.15rem;
+  margin: -0.35rem 0 1.25rem -0.55rem;
+  padding: 0.3rem 0.65rem 0.3rem 0.35rem;
+  border-radius: var(--radius-full);
+  color: var(--text-2);
+  font-size: var(--text-subhead);
+  font-weight: 500;
   text-decoration: none;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
-.backButton span {
-  color: var(--text-2);
+@media (hover: hover) {
+  .backLink:hover {
+    background-color: var(--fill-hover);
+    color: var(--text-1);
+  }
 }
 
-.backButton:hover {
-  background: var(--bg-2);
+.backLink:active {
+  background-color: var(--fill-pressed);
 }
 
-.description {
-  color: var(--text-2);
-  margin-bottom: 1rem;
-}
-
-.description strong {
-  color: var(--text-1);
+.currentValue {
   overflow-wrap: anywhere;
 }
 
-.consequences {
-  margin: -0.25rem 0 1.5rem 1.25rem;
+/* The same size as the button beside it. */
+.cancelButton {
+  min-height: var(--control-md);
+  padding: 0 0.95rem;
+  font-size: var(--text-body);
 }
 
-.consequences li {
+.deleteCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
   color: var(--text-2);
   line-height: 1.5;
 }
 
-.inputContainer {
-  display: flex;
-  flex-direction: column;
-  max-width: 24rem;
+.consequences {
+  margin-left: 1.25rem;
 }
 
-.errorText {
-  font-size: 0.75rem;
-  margin-top: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.errorText p {
-  color: var(--text-error);
-}
-
-.buttonRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
-.spinnerSlot {
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.cancelButton {
-  display: inline-flex;
-  align-items: center;
-  height: 2.25rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 10px;
-  background: var(--bg-2);
-  text-decoration: none;
-}
-
-.cancelButton:hover {
-  background: var(--bg-3);
+.consequences li {
+  line-height: 1.6;
 }
 </style>

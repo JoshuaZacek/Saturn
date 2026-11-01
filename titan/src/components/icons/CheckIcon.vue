@@ -6,7 +6,7 @@ withDefaults(
   }>(),
   {
     size: 22,
-    color: 'var(--text-1)',
+    color: 'currentColor',
   },
 )
 </script>
