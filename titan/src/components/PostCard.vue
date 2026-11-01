@@ -1,14 +1,23 @@
 <script setup lang="ts">
 import axios from 'axios'
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import ActionMenu, { type ActionMenuItem } from '@/components/ActionMenu.vue'
+import CharacterCounter from '@/components/CharacterCounter.vue'
+import HoverTooltip from '@/components/HoverTooltip.vue'
 import PostImage from '@/components/PostImage.vue'
 import RelativeTime from '@/components/RelativeTime.vue'
+import SubmitButton from '@/components/SubmitButton.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import VoteButtons from '@/components/VoteButtons.vue'
 import ChatCircleIcon from '@/components/icons/ChatCircleIcon.vue'
 import DeleteIcon from '@/components/icons/DeleteIcon.vue'
+import PencilIcon from '@/components/icons/PencilIcon.vue'
+import {
+  POST_BODY_MAX_LENGTH,
+  POST_TITLE_MAX_LENGTH,
+  usePostEditing,
+} from '@/composables/usePostEditing'
 import { useAuthStore } from '@/stores/auth'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 import { formatCompactCount } from '@/utils/formatCount'
@@ -35,6 +44,56 @@ const errorBanner = useErrorBannerStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 const isDeleting = ref(false)
 
+// Your own post can be edited in place, like a comment.
+const {
+  current,
+  editedText,
+  isEditing,
+  isText,
+  draftTitle,
+  draftBody,
+  editError,
+  isSaving,
+  startEditing,
+  cancelEditing,
+  saveEdit,
+} = usePostEditing(() => props.post)
+
+const titleField = ref<HTMLInputElement | null>(null)
+const bodyField = ref<HTMLTextAreaElement | null>(null)
+const fieldId = `post-edit-${Math.random().toString(36).slice(2)}`
+
+const growBody = async () => {
+  await nextTick()
+  const field = bodyField.value
+  if (field) {
+    field.style.height = 'auto'
+    field.style.height = `${field.scrollHeight + 2}px`
+  }
+}
+
+const openEditor = async () => {
+  startEditing()
+  await nextTick()
+  void growBody()
+  const field = titleField.value
+  if (field) {
+    field.focus()
+    field.setSelectionRange(field.value.length, field.value.length)
+  }
+}
+
+// Escape cancels; Cmd/Ctrl+Enter saves from either field.
+const onEditKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    cancelEditing()
+  } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+    event.preventDefault()
+    void saveEdit()
+  }
+}
+
 const isOwner = computed(() => authStore.isLoggedIn && props.post.user.id === authStore.user.id)
 const postLocation = computed(() => ({
   name: 'post',
@@ -55,13 +114,14 @@ const onTimeClick = () => {
 }
 // A card previews the text as one paragraph; the post page keeps its breaks.
 const bodyText = computed(() =>
-  props.postPageMode ? props.post.body : props.post.body?.replace(/\s+/g, ' ').trim(),
+  props.postPageMode ? current.value.body : current.value.body?.replace(/\s+/g, ' ').trim(),
 )
 
 const ownerActions: ActionMenuItem[] = [
+  { value: 'edit', label: 'Edit', icon: PencilIcon },
   {
     value: 'delete',
-    label: 'Delete post',
+    label: 'Delete',
     icon: DeleteIcon,
     danger: true,
     confirm: {
@@ -93,7 +153,9 @@ const deletePost = () => {
 }
 
 const onAction = (action: string) => {
-  if (action === 'delete') {
+  if (action === 'edit') {
+    void openEditor()
+  } else if (action === 'delete') {
     deletePost()
   }
 }
@@ -126,10 +188,15 @@ const onAction = (action: string) => {
         {{ post.user.username }}
       </RouterLink>
 
-      <RelativeTime class="time" :datetime="post.inserted_at" @click="onTimeClick" />
+      <span class="when">
+        <HoverTooltip v-if="current.edited_at" :text="editedText">
+          <span class="edited">edited</span>
+        </HoverTooltip>
+        <RelativeTime class="time" :datetime="post.inserted_at" @click="onTimeClick" />
+      </span>
 
       <ActionMenu
-        v-if="isOwner"
+        v-if="isOwner && !isEditing"
         class="options"
         label="Post options"
         :items="ownerActions"
@@ -138,24 +205,71 @@ const onAction = (action: string) => {
       />
     </header>
 
-    <h1 v-if="postPageMode" class="title">{{ post.title }}</h1>
-    <h2 v-else class="title">
-      <RouterLink class="titleLink" :to="postLocation">{{ post.title }}</RouterLink>
-    </h2>
+    <form
+      v-if="isEditing"
+      class="editForm"
+      novalidate
+      @submit.prevent="saveEdit"
+      @keydown="onEditKeydown"
+    >
+      <div class="formField">
+        <div class="labelRow">
+          <label class="fieldLabel" :for="`${fieldId}-title`">Title</label>
+          <CharacterCounter :text="draftTitle" :max="POST_TITLE_MAX_LENGTH" :show-within="20" />
+        </div>
+        <input
+          :id="`${fieldId}-title`"
+          ref="titleField"
+          v-model="draftTitle"
+          class="field"
+          type="text"
+          autocomplete="off"
+        />
+      </div>
 
-    <p v-if="post.type === 'text' && bodyText" class="body">{{ bodyText }}</p>
+      <div v-if="isText" class="formField">
+        <div class="labelRow">
+          <label class="fieldLabel" :for="`${fieldId}-body`">Text</label>
+          <CharacterCounter :text="draftBody" :max="POST_BODY_MAX_LENGTH" />
+        </div>
+        <textarea
+          :id="`${fieldId}-body`"
+          ref="bodyField"
+          v-model="draftBody"
+          class="field editBody"
+          rows="4"
+          @input="growBody"
+        />
+      </div>
+
+      <p v-if="editError" class="fieldMessage error" role="alert">{{ editError }}</p>
+
+      <div class="editFooter">
+        <SubmitButton variant="secondary" size="sm" @click="cancelEditing">Cancel</SubmitButton>
+        <SubmitButton type="submit" size="sm" :loading="isSaving">Save</SubmitButton>
+      </div>
+    </form>
+
+    <template v-else>
+      <h1 v-if="postPageMode" class="title">{{ current.title }}</h1>
+      <h2 v-else class="title">
+        <RouterLink class="titleLink" :to="postLocation">{{ current.title }}</RouterLink>
+      </h2>
+
+      <p v-if="post.type === 'text' && bodyText" class="body">{{ bodyText }}</p>
+    </template>
 
     <PostImage
-      v-else-if="post.type === 'image'"
+      v-if="post.type === 'image'"
       class="image"
       :src="imageURL"
-      :alt="post.title"
+      :alt="current.title"
       :width="post.image_width"
       :height="post.image_height"
       :mode="postPageMode ? 'full' : 'preview'"
     />
 
-    <footer class="actions">
+    <footer v-if="!isEditing" class="actions">
       <VoteButtons :id="post.id" :votes="post.votes" :has-voted="post.hasVoted" type="post" />
       <RouterLink
         v-if="!postPageMode"
@@ -230,12 +344,41 @@ const onAction = (action: string) => {
   }
 }
 
-.time {
-  /* Above the card's link, for its tooltip. */
+/* When, and whether it has been edited since. Above the card's link, for
+   their tooltips. */
+.when {
   position: relative;
   z-index: 1;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
   flex-shrink: 0;
   margin-left: auto;
+}
+
+.edited {
+  color: var(--text-3);
+}
+
+/* Editing in place: the title and text as fields, where they were. */
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-top: 0.75rem;
+}
+
+.editBody {
+  min-height: 7rem;
+  line-height: 1.5;
+  resize: none;
+  overflow-y: hidden;
+}
+
+.editFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .postCard:not(.article) .time {

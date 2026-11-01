@@ -22,6 +22,7 @@ defmodule Saturn.Post do
     # Set from the uploaded file, never from params
     field(:image_width, :integer)
     field(:image_height, :integer)
+    field(:edited_at, :utc_datetime)
     field(:hasVoted, :integer, virtual: true)
 
     timestamps(type: :utc_datetime)
@@ -36,5 +37,24 @@ defmodule Saturn.Post do
     |> validate_id(:moon_id)
     |> foreign_key_constraint(:moon_id)
     |> foreign_key_constraint(:user_id)
+  end
+
+  # Its author changing its title, and a text post's text. An image post's body is its file, which
+  # stays. Only a real change marks it as edited.
+  def edit_changeset(post, attrs) do
+    fields = if post.type == "text", do: [:title, :body], else: [:title]
+
+    changeset =
+      post
+      |> cast(attrs, fields)
+      |> validate_required(fields)
+      |> validate_length(:title, max: @title_max_length)
+      |> validate_length(:body, max: @body_max_length)
+
+    if Enum.any?(fields, &changed?(changeset, &1)) do
+      put_change(changeset, :edited_at, DateTime.utc_now() |> DateTime.truncate(:second))
+    else
+      changeset
+    end
   end
 end

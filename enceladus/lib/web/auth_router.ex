@@ -32,6 +32,18 @@ defmodule Saturn.AuthRouter do
     end
   end
 
+  patch "/post/:post_id" do
+    with {:ok, params} <- Tarams.cast(conn.path_params, %{post_id: id_param(required: true)}),
+         {:ok, post} <- Posts.edit(params.post_id, conn.body_params, conn.assigns.user) do
+      send_json(conn, 200, post)
+    else
+      {:error, :forbidden} -> send_resp(conn, 403, "Only the author can edit this post")
+      {:error, :not_found} -> send_resp(conn, 404, "Not found")
+      {:error, %{errors: _} = error} -> send_json(conn, 400, error)
+      {:error, _} -> send_resp(conn, 400, "Bad request")
+    end
+  end
+
   delete "/post/:post_id" do
     with {:ok, params} <- Tarams.cast(conn.path_params, %{post_id: id_param(required: true)}),
          :ok <- Posts.delete(params.post_id, conn.assigns.user_id) do

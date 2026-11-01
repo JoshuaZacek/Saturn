@@ -225,6 +225,26 @@ defmodule Saturn.Posts do
     )
   end
 
+  # Its author changes its title (and a text post's text). Returns the post as listed.
+  def edit(post_id, params, user) do
+    case Repo.get(Post, post_id) do
+      nil ->
+        {:error, :not_found}
+
+      %Post{user_id: author_id} = post when author_id == user.id ->
+        post
+        |> Post.edit_changeset(params)
+        |> Repo.update()
+        |> case do
+          {:ok, _} -> {:ok, get_by_id(post_id, user.id)}
+          {:error, changeset} -> {:error, %{errors: format_changeset(changeset)}}
+        end
+
+      _ ->
+        {:error, :forbidden}
+    end
+  end
+
   def delete(post_id, user_id) do
     post =
       Repo.one(from(p in Post, where: p.id == ^post_id))

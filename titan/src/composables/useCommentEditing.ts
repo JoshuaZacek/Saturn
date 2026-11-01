@@ -10,6 +10,8 @@ import type { Comment } from '@/types/comment'
 import { COMMENT_MAX_LENGTH, countCharacters } from '@/utils/characterCount'
 import { formatPreciseTime } from '@/utils/relativeTime'
 
+const SAVE_FAILED = "Your comment couldn't be saved. Please try again."
+
 // Editing and deleting your own comment, wherever it's shown. `current` is the
 // comment with any change made here. A comment with replies stays as a
 // placeholder when deleted; one without is gone, and `onRemoved` says so.
@@ -88,11 +90,18 @@ export const useCommentEditing = <T extends Comment>(comment: () => T, onRemoved
         edited_at: response.data.edited_at,
       }
       isEditing.value = false
+      errorBanner.dismissMessage(SAVE_FAILED)
     } catch (err) {
       await waitForMinimumVisibleTime(startedAt)
-      editError.value =
-        (axios.isAxiosError(err) && err.response?.data?.errors?.content?.[0]) ||
-        "Your comment couldn't be saved. Please try again."
+      const fieldError = axios.isAxiosError(err) && err.response?.data?.errors?.content?.[0]
+
+      // A problem with the text goes under it; a failed request goes in the
+      // error banner. The editor stays open either way.
+      if (fieldError) {
+        editError.value = fieldError
+      } else {
+        errorBanner.show(SAVE_FAILED)
+      }
     } finally {
       isSaving.value = false
     }

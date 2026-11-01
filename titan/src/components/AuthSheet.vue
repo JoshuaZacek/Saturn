@@ -2,11 +2,11 @@
 import axios from 'axios'
 import { computed, nextTick, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import ErrorBanner from '@/components/ErrorBanner.vue'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 import SheetDialog from '@/components/SheetDialog.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
 import { useAuthStore } from '@/stores/auth'
-import { useErrorBannerStore } from '@/stores/errorBanner'
 import { useUIStore, type AuthMode } from '@/stores/ui'
 
 // Log in and sign up, in a sheet over the page: centred on wide screens, from
@@ -20,7 +20,6 @@ const modeOptions: Array<{ label: string; value: AuthMode }> = [
 
 const router = useRouter()
 const authStore = useAuthStore()
-const errorBanner = useErrorBannerStore()
 const uiStore = useUIStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 
@@ -31,8 +30,13 @@ const errors = ref({ username: '', email: '', password: '' })
 const mode = computed(() => uiStore.authSheet.mode)
 const isSignup = computed(() => mode.value === 'signup')
 
+// A failed request (not a problem with a field). Shown in the sheet itself:
+// the page's error banner sits behind it.
+const requestError = ref('')
+
 const clearErrors = () => {
   errors.value = { username: '', email: '', password: '' }
+  requestError.value = ''
 }
 
 const focusFirstField = () => {
@@ -128,11 +132,9 @@ const handleSubmit = async () => {
       errors.value.username = err.response.data.errors?.username?.[0] ?? ''
       errors.value.password = err.response.data.errors?.password?.[0] ?? ''
     } else {
-      errorBanner.show(
-        isSignup.value
-          ? "Couldn't sign up. Please try again."
-          : "Couldn't log in. Please try again.",
-      )
+      requestError.value = isSignup.value
+        ? "Couldn't sign up. Please try again."
+        : "Couldn't log in. Please try again."
     }
   } finally {
     isSubmitting.value = false
@@ -225,6 +227,15 @@ const handleSubmit = async () => {
         }}</span>
       </label>
 
+      <Transition name="error-banner">
+        <ErrorBanner
+          v-if="requestError"
+          class="requestError"
+          :message="requestError"
+          @dismiss="requestError = ''"
+        />
+      </Transition>
+
       <SubmitButton class="submit" type="submit" size="lg" block :loading="isSubmitting">
         {{ isSignup ? 'Sign up' : 'Log in' }}
       </SubmitButton>
@@ -233,6 +244,11 @@ const handleSubmit = async () => {
 </template>
 
 <style scoped>
+.requestError {
+  margin-bottom: 1rem;
+  font-size: var(--text-subhead);
+}
+
 .logo {
   filter: var(--logo-filter);
   user-select: none;

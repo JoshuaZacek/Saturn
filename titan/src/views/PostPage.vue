@@ -25,6 +25,8 @@ import { formatCompactCount } from '@/utils/formatCount'
 
 type CommentSort = 'new' | 'top'
 
+const COMMENT_FAILED = "Your comment couldn't be posted. Please try again."
+
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -222,10 +224,17 @@ const submitComment = async () => {
     comments.value.unshift({ ...response.data, votes: 0, hasVoted: null })
     numberOfComments.value += 1
     newCommentContent.value = ''
+    errorBanner.dismissMessage(COMMENT_FAILED)
   } catch (err) {
-    postCommentError.value =
-      (axios.isAxiosError(err) && err.response?.data?.errors?.content?.[0]) ||
-      "Comment couldn't be posted. Please try again."
+    const fieldError = axios.isAxiosError(err) && err.response?.data?.errors?.content?.[0]
+
+    // A problem with the text goes under it; a failed request goes in the
+    // error banner. The comment stays in the composer either way.
+    if (fieldError) {
+      postCommentError.value = fieldError
+    } else {
+      errorBanner.show(COMMENT_FAILED)
+    }
   } finally {
     await waitForMinimumVisibleTime(submitStartedAt)
     isPostingComment.value = false

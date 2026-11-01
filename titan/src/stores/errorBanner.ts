@@ -26,10 +26,19 @@ export const useErrorBannerStore = defineStore('errorBanner', () => {
     action.value = null
   }
 
+  // Takes down this message, if it's the one showing: once a retry works, its
+  // earlier failure no longer applies (and any other error still does).
+  const dismissMessage = (text: string) => {
+    if (message.value === text) {
+      dismiss()
+    }
+  }
+
   return {
     message,
     action,
     show,
     dismiss,
+    dismissMessage,
   }
 })

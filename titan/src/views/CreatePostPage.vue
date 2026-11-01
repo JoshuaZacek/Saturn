@@ -708,9 +708,20 @@ const submitPost = async () => {
     const status = axios.isAxiosError(error) ? error.response?.status : undefined
     const responseErrors = axios.isAxiosError(error) ? error.response?.data?.errors : undefined
 
-    // Validation (400) and image upload/storage failures (502/503) come back as
-    // `{ errors: { field: [message] } }`.
-    if (responseErrors && (status === 400 || status === 502 || status === 503)) {
+    // The image couldn't be stored (502/503): the request failed, not the
+    // form, so it's said in the error banner rather than under the field.
+    if (status === 502 || status === 503) {
+      errorBanner.show(
+        responseErrors?.file?.[0]
+          ? `${responseErrors.file[0]}. Please try again.`
+          : "Your image couldn't be uploaded. Please try again.",
+      )
+      return
+    }
+
+    // Validation errors (400) come back as `{ errors: { field: [message] } }`
+    // and are shown under their fields.
+    if (responseErrors && status === 400) {
       if (responseErrors.type?.[0]) {
         errorBanner.show(responseErrors.type[0])
         return

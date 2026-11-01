@@ -191,6 +191,7 @@ import { waitForMinimumVisibleTime } from '@/config/loading'
 import type { Comment, CommentsResponse } from '@/types/comment'
 
 const MAX_AUTO_EXPAND_LEVEL = 3
+const REPLY_FAILED = "Your reply couldn't be sent. Please try again."
 
 const props = defineProps<{
   comment: Comment
@@ -374,10 +375,17 @@ const submitReply = async () => {
     replies.value.unshift({ ...response.data, votes: 0, hasVoted: null })
     adjustCommentCount(1)
     succeeded = true
+    errorBanner.dismissMessage(REPLY_FAILED)
   } catch (err) {
-    replyError.value =
-      (axios.isAxiosError(err) && err.response?.data?.errors?.content?.[0]) ||
-      "Reply couldn't be sent. Please try again."
+    const fieldError = axios.isAxiosError(err) && err.response?.data?.errors?.content?.[0]
+
+    // A problem with the text goes under it; a failed request goes in the
+    // error banner. The reply stays in the composer either way.
+    if (fieldError) {
+      replyError.value = fieldError
+    } else {
+      errorBanner.show(REPLY_FAILED)
+    }
   } finally {
     // Wait before closing the composer too, so the spinner (and the
     // composer it lives in) stays visible for the full minimum duration.

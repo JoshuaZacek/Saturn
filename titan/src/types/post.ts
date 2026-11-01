@@ -28,6 +28,8 @@ export interface Post {
   // older image posts whose size isn't known.
   image_width?: number | null
   image_height?: number | null
+  // When its author last changed its title or text, if they have.
+  edited_at?: string | null
 }
 
 export interface PostsResponse {

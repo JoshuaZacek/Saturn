@@ -299,6 +299,8 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocumentPoin
   border-radius: var(--radius-md);
   background-color: var(--surface-raised);
   box-shadow: var(--shadow-lg);
+  /* Its own colour, not that of the line it opens from (a post's grey meta line). */
+  color: var(--text-1);
   transform-origin: top right;
 }
 

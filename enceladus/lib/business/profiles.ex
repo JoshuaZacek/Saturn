@@ -217,7 +217,7 @@ defmodule Saturn.Profiles do
           image_width: p.image_width,
           image_height: p.image_height,
           content: nil,
-          edited_at: nil,
+          edited_at: p.edited_at,
           post_id: nil,
           post: nil,
           contentType: "post",
