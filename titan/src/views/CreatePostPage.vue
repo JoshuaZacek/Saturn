@@ -1,17 +1,25 @@
 <template>
-  <main>
-    <h1>Create post</h1>
+  <main class="formPage">
+    <PageHeader title="Create post" />
 
-    <SegmentedControl v-model="postMode" :options="postModeOptions" />
+    <form class="formCard" novalidate @submit.prevent="submitPost">
+      <SegmentedControl
+        class="postType"
+        size="sm"
+        label="Post type"
+        :model-value="postMode"
+        :options="postModeOptions"
+        @update:model-value="postMode = $event as PostMode"
+      />
 
-    <div class="postSection">
-      <section class="moonSection">
-        <div class="moonInputRow">
-          <div class="moonCombobox">
+      <div class="formField">
+        <label class="fieldLabel" for="moon">Moon</label>
+        <div class="moonCombobox">
+          <div class="prefixField" :class="{ error: !!moonMessage }">
+            <span class="prefix" aria-hidden="true">/</span>
             <input
               id="moon"
               v-model="moonInput"
-              class="textInput moonInput"
               type="text"
               name="moon"
               role="combobox"
@@ -23,15 +31,20 @@
                   ? `moonSuggestion-${moonSuggestions[highlightedSuggestion]?.id}`
                   : undefined
               "
+              :aria-invalid="!!moonMessage || undefined"
+              aria-describedby="moon-message"
               autocomplete="off"
               autocapitalize="off"
               spellcheck="false"
-              placeholder="Moon..."
+              placeholder="moon"
               @focus="isMoonInputFocused = true"
               @blur="onMoonInputBlur"
               @keydown="onMoonInputKeydown"
             />
+            <InputStatusIndicator :status="moonIndicatorStatus" />
+          </div>
 
+          <Transition name="suggestions">
             <ul
               v-show="showMoonSuggestions"
               id="moonSuggestions"
@@ -52,99 +65,107 @@
                 /{{ suggestion.name }}
               </li>
             </ul>
-          </div>
-
-          <InputStatusIndicator :status="moonIndicatorStatus" />
+          </Transition>
         </div>
+        <p id="moon-message" class="fieldMessage error">{{ moonMessage }}</p>
+      </div>
 
-        <p v-if="errors.moon" class="feedback error">{{ errors.moon }}</p>
-        <p v-else-if="moonStatus === 'missing'" class="feedback error">This moon does not exist.</p>
-      </section>
-
-      <section class="titleSection">
+      <div class="formField">
+        <div class="labelRow">
+          <label class="fieldLabel" for="title">Title</label>
+          <CharacterCounter :text="title" :max="TITLE_MAX_LENGTH" :show-within="20" />
+        </div>
         <input
           id="title"
+          ref="titleInput"
           v-model="title"
-          class="textInput titleInput"
+          class="field"
+          :class="{ error: !!errors.title }"
           type="text"
           name="title"
           autocomplete="off"
-          placeholder="Title..."
+          :aria-invalid="!!errors.title || undefined"
+          aria-describedby="title-message"
+          @keydown="onTitleKeydown"
         />
-        <p class="feedback info" :class="{ danger: isTitleCharacterCountAtLimit }">
-          {{ title.length }} / {{ TITLE_MAX_LENGTH }}
-        </p>
-      </section>
+        <p id="title-message" class="fieldMessage error">{{ errors.title }}</p>
+      </div>
 
-      <form @submit.prevent="submitPost">
-        <section v-if="postMode === 'text'" class="section">
-          <textarea
-            id="body"
-            v-model="body"
-            ref="bodyTextArea"
-            class="textArea"
-            name="body"
-            rows="3"
-            placeholder="Text..."
-            @input="autoGrowBody"
+      <div v-if="postMode === 'text'" class="formField">
+        <div class="labelRow">
+          <label class="fieldLabel" for="body">Text</label>
+          <CharacterCounter :text="body" :max="BODY_MAX_LENGTH" />
+        </div>
+        <textarea
+          id="body"
+          ref="bodyTextArea"
+          v-model="body"
+          class="field textArea"
+          :class="{ error: !!errors.body }"
+          name="body"
+          rows="5"
+          :aria-invalid="!!errors.body || undefined"
+          aria-describedby="body-message"
+          @input="autoGrowBody"
+        />
+        <p id="body-message" class="fieldMessage error">{{ errors.body }}</p>
+      </div>
+
+      <div v-else class="formField">
+        <label class="fieldLabel" for="image">Image</label>
+        <div
+          class="imageField"
+          :class="{ dragActive: isDragActive, hasFile: !!selectedFile, error: !!errors.file }"
+          @dragenter.prevent="onDragEnter"
+          @dragover.prevent="onDragOver"
+          @dragleave.prevent="onDragLeave"
+          @drop.prevent="onDrop"
+        >
+          <input
+            id="image"
+            ref="fileInput"
+            class="fileInput"
+            type="file"
+            accept="image/png,image/jpeg,image/gif"
+            aria-describedby="image-hint image-message"
+            :tabindex="selectedFile ? -1 : undefined"
+            @change="onFileChange"
           />
 
-          <p class="feedback info" :class="{ danger: isBodyCharacterCountAtLimit }">
-            {{ body.length }} / {{ BODY_MAX_LENGTH }}
-          </p>
-
-          <p v-if="errors.title" class="feedback error">{{ errors.title }}</p>
-          <p v-if="errors.body" class="feedback error">{{ errors.body }}</p>
-        </section>
-
-        <section v-else class="section">
-          <div
-            class="dropzone"
-            :class="{ dragActive: isDragActive }"
-            @dragenter.prevent="onDragEnter"
-            @dragover.prevent="onDragOver"
-            @dragleave.prevent="onDragLeave"
-            @drop.prevent="onDrop"
-          >
-            <input
-              ref="fileInput"
-              class="fileInput"
-              type="file"
-              accept="image/png,image/jpeg,image/gif"
-              @change="onFileChange"
-              tabindex="-1"
-            />
-
+          <div v-if="!selectedFile" class="dropzone">
+            <span class="dropzoneIcon" aria-hidden="true"><ImageIcon :size="24" /></span>
             <p class="dropzonePrimary">
-              {{ selectedFile ? selectedFile.name : 'Drag and drop image here' }}
+              Drag an image here, or <span class="browse">choose one</span>
             </p>
-            <p class="dropzoneSecondary">
-              or
-              <button type="button" class="browseButton" @click="openFilePicker">
-                choose image
-              </button>
-              (.jpg, .jpeg, .png, .gif) (max 15 MB)
-            </p>
+            <p id="image-hint" class="dropzoneSecondary">JPG, PNG or GIF, up to 15 MB</p>
           </div>
 
-          <p v-if="errors.file" class="feedback error">{{ errors.file }}</p>
-          <p v-if="errors.title" class="feedback error">{{ errors.title }}</p>
-        </section>
+          <div v-else class="imagePreview">
+            <img
+              v-if="previewUrl"
+              class="previewImage"
+              :src="previewUrl"
+              alt="The image you chose"
+            />
+            <div class="previewBar">
+              <div class="fileInfo">
+                <span class="fileName">{{ selectedFile.name }}</span>
+                <span class="fileSize">{{ formatFileSize(selectedFile.size) }}</span>
+              </div>
+              <button type="button" class="btn-ghost removeButton" @click="removeFile">
+                Remove
+              </button>
+              <button type="button" class="btn-secondary" @click="openFilePicker">Replace</button>
+            </div>
+          </div>
+        </div>
+        <p id="image-message" class="fieldMessage error">{{ errors.file }}</p>
+      </div>
 
-        <button class="submitButton" type="submit" :disabled="isSubmitting">
-          <span class="submitButtonContent">
-            <span v-if="isSubmitting" class="submitButtonSpinner">
-              <SpinnerLoader
-                :size="20"
-                bgColor="var(--accent-color)"
-                fgColor="var(--accent-text)"
-              />
-            </span>
-            <span style="color: var(--accent-text)">Submit post</span>
-          </span>
-        </button>
-      </form>
-    </div>
+      <div class="formFooter">
+        <SubmitButton type="submit" size="lg" :loading="isSubmitting">Post</SubmitButton>
+      </div>
+    </form>
   </main>
 </template>
 
@@ -152,11 +173,15 @@
 import axios from 'axios'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import SegmentedControl from '@/components/SegmentedControl.vue'
-import SpinnerLoader from '@/components/SpinnerLoader.vue'
+import CharacterCounter from '@/components/CharacterCounter.vue'
 import InputStatusIndicator from '@/components/InputStatusIndicator.vue'
+import PageHeader from '@/components/PageHeader.vue'
+import SegmentedControl from '@/components/SegmentedControl.vue'
+import SubmitButton from '@/components/SubmitButton.vue'
+import ImageIcon from '@/components/icons/ImageIcon.vue'
 import { waitForMinimumVisibleTime } from '@/config/loading'
 import { useErrorBannerStore } from '@/stores/errorBanner'
+import { useUIStore } from '@/stores/ui'
 
 type PostMode = 'text' | 'image'
 type MoonStatus = 'idle' | 'checking' | 'exists' | 'missing' | 'error'
@@ -184,6 +209,7 @@ const BODY_MAX_LENGTH = 5000
 const route = useRoute()
 const router = useRouter()
 const errorBanner = useErrorBannerStore()
+const uiStore = useUIStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 const postModeOptions = [
   { label: 'Text', value: 'text' },
@@ -196,6 +222,8 @@ const moonInput = ref(typeof route.query.moon === 'string' ? route.query.moon : 
 const title = ref('')
 const body = ref('')
 const selectedFile = ref<File | null>(null)
+const previewUrl = ref<string | null>(null)
+const titleInput = ref<HTMLInputElement | null>(null)
 const bodyTextArea = ref<HTMLTextAreaElement | null>(null)
 const isDragActive = ref(false)
 const isSubmitting = ref(false)
@@ -229,13 +257,26 @@ const isMoonNameInSync = computed(() => {
   return selectedMoon.value.name.toLowerCase() === moonInput.value.trim().toLowerCase()
 })
 
-const isTitleCharacterCountAtLimit = computed(() => {
-  return title.value.length >= TITLE_MAX_LENGTH
+const moonMessage = computed(() => {
+  if (errors.value.moon) {
+    return errors.value.moon
+  }
+
+  return moonStatus.value === 'missing' ? 'This moon does not exist.' : ''
 })
 
-const isBodyCharacterCountAtLimit = computed(() => {
-  return body.value.length >= BODY_MAX_LENGTH
+// The chosen image is shown before posting.
+watch(selectedFile, (file) => {
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value)
+  }
+  previewUrl.value = file ? URL.createObjectURL(file) : null
 })
+
+const formatFileSize = (bytes: number) =>
+  bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`
 
 let moonValidationTimeout: ReturnType<typeof setTimeout> | null = null
 let moonValidationRequestId = 0
@@ -464,7 +505,17 @@ const onMoonInputBlur = () => {
   void validateMoonNow()
 }
 
+// Enter moves on to the title rather than submitting half a form.
 const onMoonInputKeydown = (event: KeyboardEvent) => {
+  const isPickingSuggestion = showMoonSuggestions.value && highlightedSuggestion.value >= 0
+  if (event.key === 'Enter' && !isPickingSuggestion) {
+    event.preventDefault()
+    clearMoonSuggestions()
+    void validateMoonNow()
+    titleInput.value?.focus()
+    return
+  }
+
   if (!showMoonSuggestions.value) {
     return
   }
@@ -516,6 +567,21 @@ const onFileChange = (event: Event) => {
 
 const openFilePicker = () => {
   fileInput.value?.click()
+}
+
+const removeFile = () => {
+  setSelectedFile(null)
+  if (fileInput.value) {
+    fileInput.value.value = ''
+  }
+}
+
+// Enter in the title moves on to the text.
+const onTitleKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Enter' && postMode.value === 'text') {
+    event.preventDefault()
+    bodyTextArea.value?.focus()
+  }
 }
 
 const createEmptyErrors = () => ({
@@ -666,7 +732,10 @@ const submitPost = async () => {
 
     // The API answers 403 (not 401) when there's no session.
     if (status === 403) {
-      errorBanner.show('Please log in to create a post.')
+      errorBanner.show('Please log in to create a post.', {
+        label: 'Log in',
+        run: () => uiStore.openAuth('login'),
+      })
       return
     }
 
@@ -720,177 +789,81 @@ if (moonInput.value) {
 onBeforeUnmount(() => {
   clearMoonValidationTimer()
   clearMoonSuggestions()
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value)
+  }
 })
 </script>
 
 <style scoped>
-.postSection {
-  background: var(--bg-sub);
-  border: 1px solid var(--bg-2);
-  border-radius: 20px;
-  padding: 2rem 1.5rem;
+.formPage {
   width: 100%;
-  margin-top: 2rem;
-  position: relative;
+  max-width: var(--column-width);
 }
 
-/* Spans the page so it can measure whether the character counters fit beside
-   the form; its contents keep to a 40rem column. */
-main {
-  width: 100%;
-  padding-bottom: 2rem;
-  container-type: inline-size;
-}
-
-main > * {
-  max-width: 40rem;
-  margin-inline: auto;
-}
-
-h1 {
-  margin-bottom: 1.5rem;
-}
-
-.moonInput {
-  width: 100% !important;
-  margin-top: 0;
-  border-radius: 10px;
-  flex-shrink: 0;
+.postType {
+  align-self: flex-start;
 }
 
 .moonCombobox {
   position: relative;
-  flex: 1;
-  min-width: 0;
 }
 
 .moonSuggestions {
   position: absolute;
-  top: calc(100% + 0.25rem);
+  top: calc(100% + 0.35rem);
   left: 0;
   right: 0;
   z-index: 5;
   list-style: none;
   padding: 0.25rem;
-  border: 1px solid var(--bg-2);
-  border-radius: 10px;
-  background: var(--bg-sub);
-  box-shadow: 0 5px 20px rgb(0 0 0 / 10%);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
+  transform-origin: top center;
 }
 
 .moonSuggestions li {
-  padding: 0.45rem 0.6rem;
-  border-radius: 7px;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-xs);
+  font-size: var(--text-subhead);
   cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
 .moonSuggestions li.highlighted {
-  background: var(--bg-2);
+  background: var(--fill-hover);
 }
 
-.moonInputRow {
-  width: calc(100% / 2);
-  display: flex;
-  align-items: center;
-}
-
-.titleInput {
-  margin-top: 2rem;
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-  border-top-left-radius: 10px;
-  border-top-right-radius: 10px;
-  border-bottom: 0px !important;
-}
-.textArea {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-  border-bottom-left-radius: 10px;
-  border-bottom-right-radius: 10px;
-}
-
-.textInput:focus,
-.textArea:focus {
-  position: relative;
-  z-index: 1;
-  outline: 2px solid var(--accent-color);
-  outline-offset: 1px;
-}
-.textInput,
-.textArea {
-  width: 100%;
-  border: 1px solid var(--bg-2);
-  background: transparent;
-  color: var(--text-1);
-  font-size: 1rem;
-  padding: 0.75rem 0.75rem;
-  background-color: var(--bg-1);
-}
-
-.textArea {
-  resize: none;
-  min-height: calc(1.35em * 3 + 1.44rem);
-  overflow-y: hidden;
-  line-height: 1.35;
-}
-
-.textInput::placeholder,
-.textArea::placeholder {
-  color: var(--text-3);
-}
-
-.feedback {
-  font-size: 1rem;
-  margin-top: 0.5rem;
-}
-.feedback + .feedback {
-  margin-top: 0.25rem;
-}
-
-.feedback.info {
-  color: var(--text-2);
-  position: absolute;
-  font-size: 0.8rem;
-  margin-top: -1rem;
-  margin-left: 39.5rem;
-  text-wrap: nowrap;
-}
-
-.feedback.info.danger {
-  color: var(--text-error);
-}
-
-.feedback.success {
-  color: var(--vote-up);
-}
-
-.feedback.error {
-  color: var(--text-error);
-}
-
-.dropzone {
-  background-color: var(--bg-1);
-  position: relative;
-  border: 2px dashed var(--bg-3);
-  padding: 2.5rem 1rem;
-  text-align: center;
+.suggestions-enter-active {
   transition:
-    border-color 0.2s ease,
-    background-color 0.2s ease;
-}
-.dropzone {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-  border-bottom-left-radius: 10px;
-  border-bottom-right-radius: 10px;
+    opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-base) var(--ease-out);
 }
 
-.dropzone.dragActive {
-  border-color: var(--text-3);
+.suggestions-leave-active {
+  transition:
+    opacity var(--duration-fast) var(--ease-in-out),
+    transform var(--duration-fast) var(--ease-in-out);
 }
 
-.dropzone:hover .browseButton {
-  text-decoration: underline;
+.suggestions-enter-from,
+.suggestions-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+}
+
+.textArea {
+  min-height: 9rem;
+  line-height: 1.5;
+  resize: none;
+  overflow-y: hidden;
+}
+
+/* The picker: a dropzone, then the chosen image with what to do about it. */
+.imageField {
+  position: relative;
+  border-radius: var(--radius-md);
 }
 
 .fileInput {
@@ -902,103 +875,127 @@ h1 {
   cursor: pointer;
 }
 
+/* With an image chosen, the input stays only for "Replace" to open. */
+.hasFile .fileInput {
+  inset: auto;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 2rem 1rem;
+  border: 1.5px dashed var(--separator-strong);
+  border-radius: inherit;
+  background-color: var(--bg-1);
+  text-align: center;
+  transition:
+    border-color var(--duration-base) var(--ease-out),
+    background-color var(--duration-base) var(--ease-out);
+}
+
+.imageField:has(.fileInput:focus-visible) .dropzone {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.dragActive .dropzone {
+  border-color: var(--accent-color);
+  background-color: color-mix(in srgb, var(--accent-color) 6%, var(--bg-1));
+}
+
+.error .dropzone {
+  border-color: color-mix(in srgb, var(--danger) 60%, transparent);
+}
+
+.dropzoneIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-bottom: 0.35rem;
+  border-radius: var(--radius-full);
+  background-color: var(--fill-secondary);
+  color: var(--text-2);
+}
+
 .dropzonePrimary {
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin-bottom: 0.2rem;
+  font-size: var(--text-subhead);
+  font-weight: 500;
+}
+
+.browse {
+  color: var(--accent-ink);
+}
+
+@media (hover: hover) {
+  .imageField:not(.hasFile):hover .browse {
+    text-decoration: underline;
+  }
 }
 
 .dropzoneSecondary {
-  font-family: 'Roboto Mono', monospace;
+  font-size: var(--text-footnote);
   color: var(--text-2);
-  font-size: 0.8rem;
 }
 
-.browseButton {
-  font-family: 'Roboto Mono', monospace;
-  color: var(--text-2);
-  border: none;
-  background: transparent;
-  font-size: 0.8rem;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.submitButton {
-  margin-top: 2rem;
-  width: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 2.75rem;
-  border: 1px solid var(--bg-2);
-  border-radius: 11px;
-  padding: 0 0.75rem;
-  background: var(--accent-color);
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1;
-  cursor: pointer;
-  box-sizing: border-box;
-}
-
-.submitButtonContent {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  line-height: 1;
-}
-
-.submitButtonSpinner {
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
+.imagePreview {
   overflow: hidden;
+  border: 1px solid var(--separator);
+  border-radius: inherit;
+  background-color: var(--bg-1);
 }
 
-/* Too narrow for the counters beside the form. */
-@container (width < 50rem) {
-  /* The title's counter sits at the end of its field. */
-  .titleSection {
-    position: relative;
-  }
-
-  .titleInput {
-    padding-right: 5rem;
-  }
-
-  .titleSection .feedback.info {
-    /* Spans the field, below its top margin. */
-    top: 2rem;
-    bottom: 0;
-    right: 0.75rem;
-    /* Above the field when it's focused. */
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    margin: 0;
-    pointer-events: none;
-  }
-
-  /* The text's counter sits under its field. */
-  .section .feedback.info {
-    position: static;
-    margin: 0.35rem 0 0;
-    text-align: right;
-  }
+.previewImage {
+  display: block;
+  width: 100%;
+  max-height: 20rem;
+  object-fit: contain;
+  background-color: color-mix(in srgb, var(--text-1) 4%, var(--surface));
 }
 
-@container (width < 36rem) {
-  .postSection {
-    padding: 1.5rem 1rem;
-  }
+.previewBar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.6rem 0.6rem 0.85rem;
+  border-top: 1px solid var(--separator);
+}
 
-  .moonInputRow {
-    width: 100%;
+.fileInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.fileName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-subhead);
+  font-weight: 500;
+}
+
+.fileSize {
+  font-size: var(--text-footnote);
+  color: var(--text-2);
+}
+
+.removeButton {
+  color: var(--danger);
+  font-size: var(--text-subhead);
+  padding: 0 0.6rem;
+}
+
+/* iOS zooms into text fields under 16px when they're focused. */
+@media (pointer: coarse) {
+  .moonSuggestions li {
+    font-size: var(--text-body);
   }
 }
 </style>

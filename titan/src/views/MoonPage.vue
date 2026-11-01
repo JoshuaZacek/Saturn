@@ -1,90 +1,81 @@
 <template>
-  <div class="moonPage">
-    <!-- A solid colour for now; moon admins will be able to pick a banner image later. -->
-    <header class="banner">
-      <div class="bannerContent">
-        <div class="titleBlock">
-          <h1>/{{ moonName }}</h1>
+  <main class="moonPage">
+    <EntityHeader :name="moonName" :title="`/${moonName}`" kind="moon">
+      <template #meta>
+        <!-- Kept in the layout while loading, so the header doesn't change height. -->
+        <span class="metaItem" :class="{ pending: !moon }" :aria-hidden="!moon">
+          <UsersIcon :size="16" />
+          <span>{{ subscriberText }}</span>
+        </span>
+        <span v-if="moon" class="metaItem" :title="createdAtText">
+          <ClockIcon :size="16" />
+          <span>{{ createdText }}</span>
+        </span>
+      </template>
 
-          <!-- Kept in the layout while loading so the banner doesn't change height. -->
-          <div class="moonStats" :class="{ pending: !moon }" :aria-hidden="!moon">
-            <span class="stat">
-              <UsersIcon :size="20" />
-              <span>{{ subscriberText }}</span>
+      <template v-if="moon" #actions>
+        <SubmitButton
+          :variant="moon.subscribed ? 'secondary' : 'default'"
+          :icon="moon.subscribed ? undefined : PlusIcon"
+          class="subscribeButton"
+          :class="{ offerUnsubscribe: showUnsubscribe }"
+          :aria-pressed="moon.subscribed"
+          :disabled="isUpdatingSubscription"
+          @click="toggleSubscription"
+          @pointerenter="isPointerOverSubscribe = true"
+          @pointerleave="onSubscribePointerLeave"
+          @focus="onSubscribeFocus"
+          @blur="isSubscribeKeyboardFocused = false"
+        >
+          <template v-if="!moon.subscribed">Subscribe</template>
+          <!-- Both icon + label pairs share one grid cell, so swapping them doesn't
+               resize the button; each is centred, so the spare width splits evenly. -->
+          <span v-else class="toggleLabels">
+            <span class="toggleOption" :class="{ hidden: showUnsubscribe }">
+              <TickIcon class="optionIcon" :size="18" />Subscribed
             </span>
-            <span class="stat age" :title="createdAtText">
-              <ClockIcon :size="20" />
-              <span>{{ ageText }}</span>
+            <span class="toggleOption" :class="{ hidden: !showUnsubscribe }">
+              <CloseIcon class="optionIcon close" :size="18" />Unsubscribe
             </span>
-          </div>
-        </div>
+          </span>
+        </SubmitButton>
+        <SubmitButton variant="secondary" :icon="CreatePostIcon" @click="onCreatePost">
+          Create post
+        </SubmitButton>
+      </template>
+    </EntityHeader>
 
-        <div v-if="moon" class="headerActions">
-          <SubmitButton
-            :variant="moon.subscribed ? 'secondary' : 'default'"
-            :icon="moon.subscribed ? undefined : PlusIcon"
-            class="subscribeButton"
-            :class="{ offerUnsubscribe: showUnsubscribe }"
-            :aria-pressed="moon.subscribed"
-            :disabled="isUpdatingSubscription"
-            @click="toggleSubscription"
-            @pointerenter="isPointerOverSubscribe = true"
-            @pointerleave="onSubscribePointerLeave"
-            @focus="onSubscribeFocus"
-            @blur="isSubscribeKeyboardFocused = false"
-          >
-            <template v-if="!moon.subscribed">Subscribe</template>
-            <!-- Both icon + label pairs share one grid cell, so swapping them doesn't
-                 resize the button; each is centred, so the spare width splits evenly. -->
-            <span v-else class="toggleLabels">
-              <span class="toggleOption" :class="{ hidden: showUnsubscribe }">
-                <TickIcon class="optionIcon" :size="18" />Subscribed
-              </span>
-              <span class="toggleOption" :class="{ hidden: !showUnsubscribe }">
-                <CloseIcon class="optionIcon close" :size="18" />Unsubscribe
-              </span>
-            </span>
-          </SubmitButton>
-          <SubmitButton
-            variant="secondary"
-            :icon="CreatePostIcon"
-            @click="router.push({ name: 'create-post', query: { moon: moon.name } })"
-          >
-            Create post
-          </SubmitButton>
-        </div>
-      </div>
-    </header>
-
-    <main>
-      <SegmentedControl
-        :model-value="sort ?? 'top'"
-        :options="sortOptions"
-        @update:model-value="onSortChange"
+    <div class="feedArea">
+      <FeedToolbar
+        :sort="sort ?? 'top'"
+        :time-period="selectedTimePeriod"
+        @update:sort="onSortChange"
+        @update:time-period="onTimePeriodChange"
       />
 
-      <CustomSelect
-        v-if="sort === 'top'"
-        label="Top time period"
-        :model-value="selectedTimePeriod"
-        :options="timePeriodOptions"
-        @update:model-value="onTimePeriodChange"
-      />
-
-      <PostFeed v-if="moon" class="feed" :params="feedParams" />
+      <PostFeed v-if="moon" class="feed" :params="feedParams" hide-moon>
+        <template #empty>
+          <FeedEmptyState
+            :sort="sort ?? 'top'"
+            :time-period="selectedTimePeriod"
+            :moon-name="moon.name"
+          />
+        </template>
+      </PostFeed>
       <div v-else-if="isLoadingMoon" class="moonLoading" aria-live="polite" aria-busy="true">
-        <SpinnerLoader :size="30" fgColor="var(--text-3)" />
+        <SpinnerLoader :size="28" fg-color="var(--text-3)" />
       </div>
-    </main>
-  </div>
+    </div>
+  </main>
 </template>
 
 <script setup lang="ts">
 import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import CustomSelect from '@/components/CustomSelect.vue'
-import SegmentedControl from '@/components/SegmentedControl.vue'
+import EntityHeader from '@/components/EntityHeader.vue'
+import FeedEmptyState from '@/components/FeedEmptyState.vue'
+import FeedToolbar from '@/components/FeedToolbar.vue'
 import SpinnerLoader from '@/components/SpinnerLoader.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
 import PostFeed from '@/components/PostFeed.vue'
@@ -98,15 +89,10 @@ import { notFoundLocation } from '@/router'
 import { useAuthStore } from '@/stores/auth'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 import { useSubscriptionsStore } from '@/stores/subscriptions'
-import {
-  getSingleQueryValue,
-  getTimePeriod,
-  sortOptions,
-  timePeriodOptions,
-  type FeedSort,
-} from '@/utils/feedQuery'
+import { useUIStore } from '@/stores/ui'
+import { getSingleQueryValue, getTimePeriod, type FeedSort } from '@/utils/feedQuery'
 import { formatCompactCount } from '@/utils/formatCount'
-import { formatAge } from '@/utils/relativeTime'
+import { formatMonthYear } from '@/utils/relativeTime'
 
 type Moon = {
   id: number
@@ -122,6 +108,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const errorBanner = useErrorBannerStore()
 const subscriptionsStore = useSubscriptionsStore()
+const uiStore = useUIStore()
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 const moonName = computed(() => String(route.params.moon))
 const sort = computed(() => getSingleQueryValue(route.query.sort) as FeedSort | undefined)
@@ -141,10 +128,22 @@ const subscriberText = computed(() => {
   const count = moon.value.subscribers
   return `${formatCompactCount(count)} ${count === 1 ? 'subscriber' : 'subscribers'}`
 })
-const ageText = computed(() => (moon.value ? formatAge(moon.value.inserted_at) : 'Loading age'))
-const createdAtText = computed(() =>
-  moon.value ? `Created at ${new Date(moon.value.inserted_at).toLocaleString()}` : undefined,
+const createdText = computed(() =>
+  moon.value ? `Created ${formatMonthYear(moon.value.inserted_at)}` : '',
 )
+const createdAtText = computed(() =>
+  moon.value ? `Created ${new Date(moon.value.inserted_at).toLocaleString()}` : undefined,
+)
+
+// Posting needs an account, so without one this opens the log-in sheet.
+const onCreatePost = () => {
+  if (!authStore.isLoggedIn) {
+    uiStore.openAuth('login')
+    return
+  }
+
+  void router.push({ name: 'create-post', query: { moon: moonName.value } })
+}
 
 // A subscribed moon's button reads "Subscribed" and offers "Unsubscribe" on hover
 // or keyboard focus. Right after subscribing the pointer is still on the button,
@@ -174,7 +173,7 @@ const toggleSubscription = async () => {
   }
 
   if (!authStore.isLoggedIn) {
-    errorBanner.show('You must be logged in to subscribe to moons.')
+    uiStore.openAuth('login')
     return
   }
 
@@ -287,97 +286,30 @@ watch(moonName, (name) => void loadMoon(name), { immediate: true })
 <style scoped>
 .moonPage {
   width: 100%;
+  max-width: var(--column-width);
 }
 
-.banner {
-  --banner-color: var(--bg-2);
-  background-color: var(--banner-color);
-  /* Inset from the top here and from the sides by the page's gutters, with
-     the same radius as post cards. */
-  margin: 1rem 0;
-  border-radius: 0.75rem;
-  padding: 4rem 1.5rem;
-}
-
-/* Lines the banner's contents up with the 40rem column of posts below. When
-   the buttons don't fit beside the title, they move under it. */
-.bannerContent {
-  max-width: 40rem;
-  margin: 0 auto;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1.25rem 1rem;
-}
-
-.titleBlock {
-  min-width: 0;
-}
-
-h1 {
-  font-size: 2.5rem;
-  line-height: 1.15;
-  overflow-wrap: anywhere;
-  /* The font leaves ~0.15em of empty space above its capitals; pull the title up
-     by that much so the visible gap at the top matches the one at the bottom. */
-  margin-top: -0.15em;
-}
-
-.moonStats {
-  margin-top: 0.6rem;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.3rem;
-}
-
-.moonStats.pending {
-  visibility: hidden;
-}
-
-.stat {
+.metaItem {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
 }
 
-.stat span {
-  color: var(--text-2);
+.metaItem svg {
+  color: var(--text-3);
 }
 
-.age {
-  cursor: default;
+.metaItem.pending {
+  visibility: hidden;
 }
 
-/* Beside the title only when it fits whole; under the title, the buttons can
-   wrap on the narrowest phones. */
-.headerActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  /* The age line's box ends ~1.4px below its lowest letters; lift the buttons by
-     that much so their bottom edge lines up with the bottom of the age text. */
-  margin-bottom: 0.0875rem;
-}
-
-/* The default secondary button is the banner's own colour. */
-.headerActions .submitButton.secondary {
-  background-color: var(--bg-sub);
-  box-shadow: 0 1px 2px rgb(20 17 11 / 8%);
-}
-
-.headerActions .submitButton:not(:disabled):hover {
-  filter: brightness(0.96);
-}
-
-.headerActions .submitButton.offerUnsubscribe {
-  color: var(--text-error);
+.subscribeButton.offerUnsubscribe {
+  color: var(--danger);
 }
 
 .subscribeButton.secondary {
   /* Matches SubmitButton's own icon layout for the subscribed state's icons. */
-  padding-left: 0.65rem;
+  padding-left: 0.75rem;
 }
 
 .toggleLabels {
@@ -397,50 +329,25 @@ h1 {
   visibility: hidden;
 }
 
-/* Spans and icon paths would otherwise take the global text colour (and the
-   icons' own .icon colour) instead of the button's. */
-.toggleLabels,
-.toggleOption,
-.toggleLabels .optionIcon,
-.toggleLabels .optionIcon :deep(path) {
-  color: inherit;
-}
-
-.toggleLabels .optionIcon :deep(path) {
-  fill: currentColor;
-}
-
 /* The ✕ glyph sits further inside its box than the other icons. */
 .toggleLabels .optionIcon.close {
   margin: 0 -0.12rem;
 }
 
-main {
-  max-width: 40rem;
-  margin: 2rem auto 0;
+/* The moon's posts, set apart from its header by a hairline. */
+.feedArea {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--separator);
 }
 
 .feed {
-  margin-top: 2rem;
+  margin-top: 1.25rem;
 }
 
 .moonLoading {
   display: flex;
   justify-content: center;
-  margin-top: 2rem;
-}
-
-@media (max-width: 600px) {
-  .banner {
-    padding: 2.5rem 1.25rem;
-  }
-
-  h1 {
-    font-size: 2rem;
-  }
-
-  main {
-    margin-top: 1.5rem;
-  }
+  margin-top: 2.5rem;
 }
 </style>

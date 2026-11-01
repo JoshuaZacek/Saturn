@@ -1,185 +1,153 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, useTemplateRef } from 'vue'
+import { computed } from 'vue'
 import ChatCircleIcon from '@/components/icons/ChatCircleIcon.vue'
-import ClockIcon from '@/components/icons/ClockIcon.vue'
-import UserCircleIcon from '@/components/icons/UserCircleIcon.vue'
 import VoteButtons from '@/components/VoteButtons.vue'
 import { formatRelativeTime } from '@/utils/relativeTime'
 import type { ProfileComment } from '@/types/comment'
 
+// A comment on someone's profile: the comment first, then the post it was on.
+// The author isn't repeated, since the whole page is theirs.
 const props = defineProps<{
   comment: ProfileComment
 }>()
 
-const commentLocation = computed(() => ({
+const threadLocation = computed(() => ({
   name: 'post',
   params: { post_id: String(props.comment.post.id), comment_id: String(props.comment.id) },
 }))
-
-const isOverflowing = ref(false)
-const content = useTemplateRef<HTMLParagraphElement>('content')
-onMounted(() => {
-  if (content.value) {
-    isOverflowing.value = content.value.scrollHeight > content.value.clientHeight
-  }
-})
 
 const dateCreated = computed(() => new Date(props.comment.inserted_at).toLocaleString())
 const postedDate = computed(() => formatRelativeTime(props.comment.inserted_at))
 </script>
 
 <template>
-  <article class="profileCommentCard">
-    <p class="context">
-      Commented on
-      <router-link class="postTitle" :to="`/post/${comment.post.id}`">{{
-        comment.post.title
-      }}</router-link>
-    </p>
-
-    <div class="metadataContainer">
-      <router-link class="metadata username" :to="`/@${comment.user.username}`">
-        <UserCircleIcon :size="20" />
-        <span>{{ comment.user.username }}</span>
-      </router-link>
-
-      <span class="metadata timeUploaded" :title="`Posted at ${dateCreated}`">
-        <ClockIcon :size="20" />
-        <span>{{ postedDate }}</span>
+  <article class="commentCard">
+    <header class="meta">
+      <span class="context">
+        On
+        <RouterLink class="postLink" :to="`/post/${comment.post.id}`">{{
+          comment.post.title
+        }}</RouterLink>
       </span>
-    </div>
+      <time class="time" :datetime="comment.inserted_at" :title="`Posted ${dateCreated}`">
+        {{ postedDate }}
+      </time>
+    </header>
 
-    <div class="contentContainer">
-      <p ref="content" :class="['content', isOverflowing ? 'isOverflowing' : '']">
-        {{ comment.content }}
-      </p>
+    <p class="content">{{ comment.content }}</p>
 
-      <router-link v-if="isOverflowing" class="overflowButton" :to="commentLocation"
-        >Read more</router-link
-      >
-    </div>
-
-    <div class="stats">
+    <footer class="actions">
       <VoteButtons
         :id="comment.id"
         :votes="comment.votes"
         :has-voted="comment.hasVoted"
         type="comment"
       />
-      <router-link class="action thread" :to="commentLocation">
-        <ChatCircleIcon />
+      <RouterLink class="threadLink" :to="threadLocation">
+        <ChatCircleIcon :size="18" />
         <span>View thread</span>
-      </router-link>
-    </div>
+      </RouterLink>
+    </footer>
   </article>
 </template>
 
 <style scoped>
-.profileCommentCard {
-  border: 1px solid var(--bg-2);
-  border-radius: 0.75rem;
-  padding: 1rem 1.25rem;
-  padding-bottom: 0.65rem;
-  max-width: 40rem;
-  background-color: var(--bg-sub);
+.commentCard {
+  display: flex;
+  flex-direction: column;
+  max-width: var(--column-width);
+  padding: 0.875rem 1.25rem;
+  border-radius: var(--radius-lg);
+  background-color: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+/* The post it was on, and when. */
+.meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  min-width: 0;
+  font-size: var(--text-footnote);
+  color: var(--text-2);
 }
 
 .context {
-  font-size: 0.9rem;
-  color: var(--text-2);
-  overflow-wrap: anywhere;
-}
-
-.postTitle {
-  font-weight: bold;
-  text-decoration: none;
-}
-
-.postTitle:hover {
-  text-decoration: underline;
-}
-
-.metadataContainer {
-  margin-top: 0.75rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1rem;
-}
-
-.metadata {
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.postLink {
+  color: var(--text-1);
+  font-weight: 600;
   text-decoration: none;
-  overflow-wrap: anywhere;
-}
-.metadata span,
-.metadata {
-  color: var(--text-2);
 }
 
-.username {
-  cursor: pointer;
-}
-.username:hover {
-  text-decoration: underline;
-}
-
-.timeUploaded {
-  cursor: default;
+@media (hover: hover) {
+  .postLink:hover {
+    text-decoration: underline;
+  }
 }
 
-.contentContainer {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  align-items: flex-start;
+.time {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .content {
-  margin-top: 0.5rem;
-  line-height: 1.4;
+  margin-top: 0.45rem;
+  font-size: var(--text-subhead);
+  line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  max-height: 7rem;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
   overflow: hidden;
 }
 
-.content.isOverflowing {
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) -10%, rgba(0, 0, 0, 0));
-  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) -10%, rgba(0, 0, 0, 0));
-}
-
-.overflowButton {
-  padding: 0.35rem 0.75rem;
-  font-size: 0.9rem;
-  border-radius: 10px;
-  background: var(--bg-2);
-  text-decoration: none;
-}
-
-.stats {
-  margin-top: 0.65rem;
+.actions {
   display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
 }
 
-.action {
+.threadLink {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 1rem;
+  gap: 0.375rem;
+  height: var(--control-sm);
+  padding: 0 0.8rem 0 0.65rem;
+  border-radius: var(--radius-full);
+  background-color: var(--fill-capsule);
+  color: var(--text-1);
+  font-size: var(--text-subhead);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
-.thread {
-  margin-left: 0.35rem;
-  cursor: pointer;
-  padding: 0.35rem 0.5rem;
-  border-radius: 10px;
-  text-decoration: none;
+.threadLink svg {
+  color: var(--text-2);
 }
-.thread:hover {
-  background: var(--bg-2);
+
+@media (hover: hover) {
+  .threadLink:hover {
+    background-color: var(--fill-capsule-hover);
+  }
+}
+
+.threadLink:active {
+  background-color: var(--fill-capsule-hover);
+}
+
+@media (max-width: 600px) {
+  .commentCard {
+    padding: 0.8rem 1rem;
+  }
 }
 </style>

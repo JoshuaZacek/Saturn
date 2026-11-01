@@ -2,6 +2,7 @@
 import axios from 'axios'
 import { watch } from 'vue'
 import AnimatedList from '@/components/AnimatedList.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import InfiniteScrollFooter from '@/components/InfiniteScrollFooter.vue'
 import PostCard from '@/components/PostCard.vue'
 import { usePaginatedList } from '@/composables/usePaginatedList'
@@ -11,16 +12,13 @@ import type { Post, PostsResponse } from '@/types/post'
 const PAGE_SIZE = 10
 
 // Query params for `GET /posts` other than `limit` and `cursor`
-// (`sort`, plus optional `time_period`, `moon_id` or `subscribed`).
-const props = withDefaults(
-  defineProps<{
-    params: Record<string, string | number>
-    emptyText?: string
-  }>(),
-  {
-    emptyText: 'Hmmm... empty.',
-  },
-)
+// (`sort`, plus optional `time_period`, `moon_id` or `subscribed`). The
+// `empty` slot replaces the default message when there are no posts.
+const props = defineProps<{
+  params: Record<string, string | number>
+  hideMoon?: boolean
+  hideUser?: boolean
+}>()
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
 const errorBanner = useErrorBannerStore()
@@ -60,17 +58,25 @@ watch(
 <template>
   <div class="postFeed">
     <AnimatedList v-if="items.length > 0" class="posts">
-      <PostCard v-for="post in items" :key="post.id" :post="post" @deleted="removePost" />
+      <PostCard
+        v-for="post in items"
+        :key="post.id"
+        :post="post"
+        :hide-moon="hideMoon"
+        :hide-user="hideUser"
+        @deleted="removePost"
+      />
     </AnimatedList>
+
+    <slot v-if="isEmpty" name="empty">
+      <EmptyState title="No posts yet" />
+    </slot>
 
     <InfiniteScrollFooter
       class="footer"
       :loading="isLoading"
       :has-more="hasMore"
       :failed="hasFailed"
-      :empty="isEmpty"
-      :empty-text="emptyText"
-      end-text="You've reached the end."
       @load-more="loadMore"
       @retry="retry"
     />
@@ -80,11 +86,12 @@ watch(
 <style scoped>
 .posts {
   display: grid;
-  gap: var(--post-feed-gap, 1.5rem);
+  gap: 1rem;
 }
 
-.footer {
-  margin-top: 2rem;
+/* The footer is an invisible scroll sentinel until it shows a spinner or retry. */
+.footer:has(> :not(.sentinel)) {
+  margin-top: 1.5rem;
 }
 
 .postFeed::after {

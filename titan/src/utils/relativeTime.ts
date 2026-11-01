@@ -61,3 +61,11 @@ export const formatAge = (dateString: string) => {
 
   return plural(Math.floor(days / 365), 'year')
 }
+
+const monthYearFormatter = new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' })
+
+// "July 2022": when a moon was created or a person joined.
+export const formatMonthYear = (dateString: string) => {
+  const date = new Date(dateString)
+  return Number.isNaN(date.getTime()) ? '' : monthYearFormatter.format(date)
+}

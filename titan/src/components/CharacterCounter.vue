@@ -27,11 +27,13 @@ const isVisible = computed(() => count.value >= props.max - props.showWithin)
 <style scoped>
 .characterCounter {
   font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
   color: var(--text-2);
+  transition: color var(--duration-fast) var(--ease-out);
   white-space: nowrap;
 }
 
 .characterCounter.danger {
-  color: var(--text-error);
+  color: var(--danger);
 }
 </style>

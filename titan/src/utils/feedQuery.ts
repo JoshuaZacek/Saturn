@@ -34,3 +34,31 @@ export const sortOptions: Array<{ label: string; value: FeedSort }> = [
   { label: 'Top', value: 'top' },
   { label: 'New', value: 'new' },
 ]
+
+export type TimePeriod = 'day' | 'week' | 'month' | 'year' | 'all'
+
+// How an empty Top feed names its period, and the wider one it points to.
+export const timePeriodPhrases: Record<string, string> = {
+  day: 'today',
+  week: 'this week',
+  month: 'this month',
+  year: 'this year',
+}
+
+const WIDER_TIME_PERIOD: Record<string, TimePeriod> = {
+  day: 'week',
+  week: 'month',
+  month: 'year',
+  year: 'all',
+}
+
+export const widerTimePeriod = (value: string): TimePeriod | null =>
+  WIDER_TIME_PERIOD[value] ?? null
+
+export const topPostsLinkLabels: Record<TimePeriod, string> = {
+  day: "See today's top posts",
+  week: "See this week's top posts",
+  month: "See this month's top posts",
+  year: "See this year's top posts",
+  all: 'See all-time top posts',
+}

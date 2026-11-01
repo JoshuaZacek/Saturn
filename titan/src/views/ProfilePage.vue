@@ -3,17 +3,20 @@ import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQueryValue } from 'vue-router'
 import AnimatedList from '@/components/AnimatedList.vue'
-import CustomSelect from '@/components/CustomSelect.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import EntityHeader from '@/components/EntityHeader.vue'
 import InfiniteScrollFooter from '@/components/InfiniteScrollFooter.vue'
 import PostCard from '@/components/PostCard.vue'
 import ProfileCommentCard from '@/components/ProfileCommentCard.vue'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 import SpinnerLoader from '@/components/SpinnerLoader.vue'
+import ClockIcon from '@/components/icons/ClockIcon.vue'
 import { usePaginatedList } from '@/composables/usePaginatedList'
 import { notFoundLocation } from '@/router'
 import { useErrorBannerStore } from '@/stores/errorBanner'
 import type { ProfileComment } from '@/types/comment'
 import type { Post } from '@/types/post'
+import { formatMonthYear } from '@/utils/relativeTime'
 import type {
   ProfileContentResponse,
   ProfileContentType,
@@ -35,6 +38,11 @@ const sortOptions: Array<{ label: string; value: SortType }> = [
   { label: 'New', value: 'new' },
   { label: 'Top', value: 'top' },
 ]
+const emptyTitles: Record<ProfileContentType, string> = {
+  overview: 'Nothing here yet',
+  posts: 'No posts yet',
+  comments: 'No comments yet',
+}
 
 const getSingleQueryValue = (value: LocationQueryValue | LocationQueryValue[] | undefined) =>
   Array.isArray(value) ? value[0] : value
@@ -55,6 +63,9 @@ const sort = computed<SortType>(() =>
 
 const user = ref<ProfileUser | null>(null)
 const isLoadingUser = ref(true)
+const joinedText = computed(() =>
+  user.value ? `Joined ${formatMonthYear(user.value.inserted_at)}` : '',
+)
 
 const getItemKey = (item: ProfileItem) =>
   item.kind === 'post' ? `post-${item.post.id}` : `comment-${item.comment.id}`
@@ -188,77 +199,120 @@ watch([() => user.value?.id, contentType, sort], () => {
 </script>
 
 <template>
-  <main>
-    <h1>@{{ username }}</h1>
+  <main class="profilePage">
+    <EntityHeader :name="username" :title="`@${username}`" kind="user">
+      <template #meta>
+        <!-- Kept in the layout while loading, so the header doesn't change height. -->
+        <span class="metaItem" :class="{ pending: !user }" :aria-hidden="!user">
+          <ClockIcon :size="16" />
+          <span>{{ joinedText || 'Joined' }}</span>
+        </span>
+      </template>
+    </EntityHeader>
 
-    <template v-if="user">
-      <SegmentedControl
-        label="Profile content"
-        :model-value="contentType"
-        :options="contentTypeOptions"
-        @update:model-value="onContentTypeChange"
-      />
+    <div class="contentArea">
+      <div v-if="user" class="toolbar">
+        <SegmentedControl
+          size="sm"
+          label="Profile content"
+          :model-value="contentType"
+          :options="contentTypeOptions"
+          @update:model-value="onContentTypeChange"
+        />
+        <SegmentedControl
+          size="sm"
+          label="Sort"
+          :model-value="sort"
+          :options="sortOptions"
+          @update:model-value="onSortChange"
+        />
+      </div>
 
-      <CustomSelect
-        label="Sort by"
-        :model-value="sort"
-        :options="sortOptions"
-        @update:model-value="onSortChange"
-      />
+      <template v-if="user">
+        <AnimatedList v-if="items.length > 0" class="profileContent">
+          <div v-for="item in items" :key="getItemKey(item)">
+            <PostCard
+              v-if="item.kind === 'post'"
+              :post="item.post"
+              hide-user
+              @deleted="removePost"
+            />
+            <ProfileCommentCard v-else :comment="item.comment" />
+          </div>
+        </AnimatedList>
 
-      <AnimatedList v-if="items.length > 0" class="profileContent">
-        <div v-for="item in items" :key="getItemKey(item)">
-          <PostCard v-if="item.kind === 'post'" :post="item.post" @deleted="removePost" />
-          <ProfileCommentCard v-else :comment="item.comment" />
-        </div>
-      </AnimatedList>
+        <EmptyState v-if="isEmpty" :title="emptyTitles[contentType]" />
 
-      <InfiniteScrollFooter
-        class="footer"
-        :loading="isLoading"
-        :has-more="hasMore"
-        :failed="hasFailed"
-        :empty="isEmpty"
-        empty-text="Hmmm... empty."
-        end-text="You've reached the end."
-        @load-more="loadMore"
-        @retry="retry"
-      />
-    </template>
-    <div v-else-if="isLoadingUser" class="profileLoading" aria-live="polite" aria-busy="true">
-      <SpinnerLoader :size="30" fgColor="var(--text-3)" />
+        <InfiniteScrollFooter
+          class="footer"
+          :loading="isLoading"
+          :has-more="hasMore"
+          :failed="hasFailed"
+          @load-more="loadMore"
+          @retry="retry"
+        />
+      </template>
+      <div v-else-if="isLoadingUser" class="profileLoading" aria-live="polite" aria-busy="true">
+        <SpinnerLoader :size="28" fg-color="var(--text-3)" />
+      </div>
     </div>
   </main>
 </template>
 
 <style scoped>
-main {
+.profilePage {
   width: 100%;
-  max-width: 40rem;
+  max-width: var(--column-width);
 }
 
-h1 {
-  margin-bottom: 1.5rem;
-  overflow-wrap: anywhere;
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.metaItem svg {
+  color: var(--text-3);
+}
+
+.metaItem.pending {
+  visibility: hidden;
+}
+
+/* Their posts and comments, set apart from the header by a hairline. */
+.contentArea {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--separator);
+}
+
+/* What to show on the left, its order on the right. */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .profileContent {
-  margin-top: 2rem;
+  margin-top: 1.25rem;
   display: grid;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
-.footer {
-  margin-top: 2rem;
+/* The footer is an invisible scroll sentinel until it shows a spinner or retry. */
+.footer:has(> :not(.sentinel)) {
+  margin-top: 1.5rem;
 }
 
 .profileLoading {
   display: flex;
   justify-content: center;
-  margin-top: 2rem;
+  margin-top: 2.5rem;
 }
 
-main::after {
+.contentArea::after {
   content: '';
   display: block;
   height: 5rem;

@@ -34,7 +34,7 @@ withDefaults(
 .icon {
   display: inline-block;
   flex-shrink: 0;
-  color: var(--text-1);
+  color: inherit;
   fill: currentColor;
   stroke: currentColor;
 }

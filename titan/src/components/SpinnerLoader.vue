@@ -22,8 +22,10 @@ const props = withDefaults(
 
 const spinnerStyle = computed(() => {
   const spinnerSize = Math.max(12, Math.round(props.size))
-  const tickWidth = Math.max(2, Math.round(spinnerSize * 0.11))
-  const tickHeight = Math.max(6, Math.round(spinnerSize * 0.32))
+  // Slim ticks around a wide open centre, like Apple's activity indicator.
+  // Fractional sizes keep the proportions the same at every size.
+  const tickWidth = Math.max(1.5, spinnerSize * 0.075).toFixed(2)
+  const tickHeight = Math.max(4, spinnerSize * 0.26).toFixed(2)
 
   return {
     '--spinner-size': `${spinnerSize}px`,

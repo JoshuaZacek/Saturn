@@ -20,38 +20,36 @@ defineEmits<{
 </template>
 
 <style scoped>
+/* A little smaller than the sidebar's rows: 24px icons and 16px labels. */
 .accountMenuButton {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.35rem;
   /* Bleed into the card's padding so the icons line up with the username above. */
   width: calc(100% + 1rem);
+  height: 2.375rem;
   margin: 0 -0.5rem;
-  padding: 0.4rem 0.5rem;
+  padding: 0 0.5rem;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: none;
-  font-size: 1rem;
+  font-size: var(--text-body);
   text-align: left;
   cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
-.accountMenuButton svg {
-  /* Phosphor glyphs sit ~2.5px inside their box; pull them back to the text edge. */
-  margin-left: -2.5px;
+@media (hover: hover) {
+  .accountMenuButton:hover {
+    background-color: var(--fill-hover);
+  }
 }
 
-.accountMenuButton:hover {
-  background-color: var(--bg-2);
+.accountMenuButton:active {
+  background-color: var(--fill-pressed);
 }
 
-.danger span {
-  color: var(--text-error);
-}
-
-/* The global `* { color }` rule reaches the icon's <path>, so `currentColor`
-   there wouldn't be red; set the fill on the path itself. */
-.danger :deep(path) {
-  fill: var(--text-error);
+.danger {
+  color: var(--danger);
 }
 </style>

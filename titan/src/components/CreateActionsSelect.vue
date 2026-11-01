@@ -4,6 +4,7 @@ import type { RouteLocationRaw } from 'vue-router'
 import CustomSelect from '@/components/CustomSelect.vue'
 import PlusIcon from '@/components/icons/PlusIcon.vue'
 import CreatePostIcon from '@/components/icons/CreatePostIcon.vue'
+import PlanetIcon from '@/components/icons/PlanetIcon.vue'
 
 const selectedAction = ref<string | undefined>(undefined)
 
@@ -14,15 +15,16 @@ const createOptions: Array<{
   icon?: Component
 }> = [
   {
-    label: 'Create post...',
+    label: 'Create post',
     value: 'create-post',
     to: { name: 'create-post' },
     icon: CreatePostIcon,
   },
   {
-    label: 'Create moon...',
+    label: 'Create moon',
     value: 'create-moon',
     to: { name: 'create-moon' },
+    icon: PlanetIcon,
   },
 ]
 </script>

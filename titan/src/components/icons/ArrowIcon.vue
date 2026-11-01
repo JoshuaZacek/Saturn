@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = withDefaults(
   defineProps<{
@@ -23,17 +23,34 @@ const pathData = computed(() => {
     ? 'M229.66,141.66l-96,96a8,8,0,0,1-11.32,0l-96-96A8,8,0,0,1,32,128H72V48A16,16,0,0,1,88,32h80a16,16,0,0,1,16,16v80h40a8,8,0,0,1,5.66,13.66Z'
     : 'M231.39,132.94A8,8,0,0,0,224,128H184V48a16,16,0,0,0-16-16H88A16,16,0,0,0,72,48v80H32a8,8,0,0,0-5.66,13.66l96,96a8,8,0,0,0,11.32,0l96-96A8,8,0,0,0,231.39,132.94ZM128,220.69,51.31,144H80a8,8,0,0,0,8-8V48h80v88a8,8,0,0,0,8,8h28.69Z'
 })
+
+// Only a vote cast here pops, not one that was already there on load.
+const popping = ref(false)
+watch(
+  () => props.filled,
+  (filled) => {
+    popping.value = filled
+  },
+)
 </script>
 
 <template>
-  <button aria-label="Vote" @click="$emit('vote')">
+  <button
+    type="button"
+    class="voteArrow"
+    :class="direction"
+    :aria-label="direction === 'up' ? 'Upvote' : 'Downvote'"
+    :aria-pressed="filled"
+    @click="$emit('vote')"
+  >
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 256 256"
       :width="props.size"
       :height="props.size"
       aria-hidden="true"
-      :class="filled ? direction : ''"
+      :class="{ filled, popping }"
+      @animationend="popping = false"
     >
       <path :d="pathData" />
     </svg>
@@ -41,24 +58,61 @@ const pathData = computed(() => {
 </template>
 
 <style scoped>
-button {
-  background: none;
+/* A round hit area (sized by VoteButtons through --vote-hit) around the arrow. */
+.voteArrow {
+  --vote-color: var(--vote-up);
+  display: inline-grid;
+  place-items: center;
+  width: var(--vote-hit, 1.75rem);
+  height: var(--vote-hit, 1.75rem);
+  padding: 0;
   border: none;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--text-2);
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.voteArrow.down {
+  --vote-color: var(--vote-down);
+}
+
+@media (hover: hover) {
+  .voteArrow:hover {
+    color: var(--vote-color);
+    background-color: color-mix(in srgb, var(--vote-color) 12%, transparent);
+  }
+}
+
+.voteArrow:active {
+  background-color: color-mix(in srgb, var(--vote-color) 20%, transparent);
 }
 
 svg {
-  fill: var(--text-1);
+  fill: currentColor;
 }
 
-.up {
-  fill: var(--vote-up) !important;
+svg.filled {
+  fill: var(--vote-color);
 }
 
-.down {
-  fill: var(--vote-down) !important;
+svg.popping {
+  animation: vote-pop var(--duration-base) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  svg.popping {
+    animation: none;
+  }
+}
+
+/* A short bump when a vote lands. */
+@keyframes vote-pop {
+  50% {
+    transform: scale(1.18);
+  }
 }
 </style>

@@ -8,6 +8,29 @@ const MAX_WIDTH_REM = 30
 // At this width and below (phones, portrait tablets) the sidebar becomes a
 // drawer opened from a top bar, so pages get the whole screen.
 const COMPACT_LAYOUT_QUERY = '(max-width: 900px)'
+// Also read by the inline script in index.html, which applies it before the
+// first paint so a forced theme doesn't flash.
+const THEME_KEY = 'theme'
+
+export type Theme = 'system' | 'light' | 'dark'
+export type AuthMode = 'login' | 'signup'
+
+const readStoredTheme = (): Theme => {
+  try {
+    const saved = localStorage.getItem(THEME_KEY)
+    return saved === 'light' || saved === 'dark' ? saved : 'system'
+  } catch {
+    return 'system'
+  }
+}
+
+const applyTheme = (theme: Theme) => {
+  if (theme === 'system') {
+    delete document.documentElement.dataset.theme
+  } else {
+    document.documentElement.dataset.theme = theme
+  }
+}
 
 export const useUIStore = defineStore('ui', () => {
   const getRootFontSizePx = () => {
@@ -60,7 +83,50 @@ export const useUIStore = defineStore('ui', () => {
     isSidebarOpen.value = false
   }
 
+  // The moon of the post being viewed, so the sidebar can show where it lives.
+  const postMoonName = ref<string | null>(null)
+
+  const setPostMoon = (name: string | null) => {
+    postMoonName.value = name
+  }
+
+  // The log-in / sign-up sheet. Anything can open it, in either mode.
+  const authSheet = ref<{ open: boolean; mode: AuthMode }>({ open: false, mode: 'login' })
+
+  const openAuth = (mode: AuthMode = 'login') => {
+    authSheet.value = { open: true, mode }
+    isSidebarOpen.value = false
+  }
+
+  const closeAuth = () => {
+    authSheet.value = { ...authSheet.value, open: false }
+  }
+
+  const theme = ref<Theme>(readStoredTheme())
+  applyTheme(theme.value)
+
+  const setTheme = (next: Theme) => {
+    theme.value = next
+    applyTheme(next)
+    try {
+      if (next === 'system') {
+        localStorage.removeItem(THEME_KEY)
+      } else {
+        localStorage.setItem(THEME_KEY, next)
+      }
+    } catch {
+      // Storage can be unavailable (private windows); the choice still applies now.
+    }
+  }
+
   return {
+    postMoonName,
+    setPostMoon,
+    authSheet,
+    openAuth,
+    closeAuth,
+    theme,
+    setTheme,
     sidebarWidthPx,
     initSidebarWidth,
     setSidebarWidth,
