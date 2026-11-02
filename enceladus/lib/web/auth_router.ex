@@ -2,7 +2,7 @@ defmodule Saturn.AuthRouter do
   use Plug.Router
   import Saturn.Responses
   import Saturn.Functions
-  alias Saturn.{Repo, Posts, Votes, Moons, Comments, Users, Subscriptions, Avatars}
+  alias Saturn.{Repo, Posts, Votes, Moons, Comments, Users, Subscriptions, Avatars, Notifications}
 
   plug(:match)
   # Every route here needs a session. As a plug (not a call inside the route), its halt stops
@@ -190,6 +190,83 @@ defmodule Saturn.AuthRouter do
     send_json(conn, 200, Subscriptions.get(conn.assigns.user_id))
   end
 
+  # /notifications
+  get "/notifications" do
+    with {:ok, params} <- Tarams.cast(conn.query_params, %{before: id_param()}) do
+      send_json(conn, 200, Notifications.list(conn.assigns.user_id, params[:before]))
+    else
+      {:error, _} -> send_resp(conn, 400, "Bad request")
+    end
+  end
+
+  # Marks the notifications in `ids` read, or all of them without it
+  post "/notifications/read" do
+    case conn.body_params do
+      %{"ids" => ids} when is_list(ids) ->
+        if ids != [] and Enum.all?(ids, &(is_integer(&1) and &1 > 0)) do
+          Notifications.mark_read(conn.assigns.user_id, ids)
+          send_resp(conn, 204, "")
+        else
+          send_resp(conn, 400, "Bad request")
+        end
+
+      %{"ids" => _} ->
+        send_resp(conn, 400, "Bad request")
+
+      _ ->
+        Notifications.mark_read(conn.assigns.user_id)
+        send_resp(conn, 204, "")
+    end
+  end
+
+  # Marks the notifications in `ids` unread again
+  post "/notifications/unread" do
+    case conn.body_params do
+      %{"ids" => [_ | _] = ids} ->
+        if Enum.all?(ids, &(is_integer(&1) and &1 > 0)) do
+          Notifications.mark_unread(conn.assigns.user_id, ids)
+          send_resp(conn, 204, "")
+        else
+          send_resp(conn, 400, "Bad request")
+        end
+
+      _ ->
+        send_resp(conn, 400, "Bad request")
+    end
+  end
+
+  # Clears all of them
+  delete "/notifications" do
+    Notifications.clear(conn.assigns.user_id)
+    send_resp(conn, 204, "")
+  end
+
+  delete "/notification/:id" do
+    with {:ok, params} <- Tarams.cast(conn.path_params, %{id: id_param(required: true)}),
+         :ok <- Notifications.clear(conn.assigns.user_id, params.id) do
+      send_resp(conn, 204, "")
+    else
+      {:error, :not_found} -> send_resp(conn, 404, "Not found")
+      {:error, _} -> send_resp(conn, 400, "Bad request")
+    end
+  end
+
+  # The live connection for notifications (Saturn.NotificationSocket). Browsers don't apply CORS
+  # to websockets, so the page's origin is checked here instead.
+  get "/ws" do
+    if allowed_origin?(get_req_header(conn, "origin")) do
+      conn
+      |> WebSockAdapter.upgrade(
+        Saturn.NotificationSocket,
+        %{user_id: conn.assigns.user_id, session_id: conn.assigns.session.session_id},
+        timeout: 60_000
+      )
+      |> halt()
+    else
+      send_resp(conn, 403, "Origin not allowed")
+    end
+  end
+
   get "/user/me" do
     send_json(conn, 200, Users.session_user(conn.assigns.user))
   end
@@ -244,6 +321,16 @@ defmodule Saturn.AuthRouter do
 
   match _ do
     send_resp(conn, 404, "Not found")
+  end
+
+  defp allowed_origin?(origins) do
+    case Saturn.Router.cors_origins() do
+      "*" ->
+        true
+
+      allowed ->
+        Enum.any?(origins, &(String.trim_trailing(&1, "/") == String.trim_trailing(allowed, "/")))
+    end
   end
 
   defp send_avatar_result(conn, result) do

@@ -25,6 +25,9 @@ defmodule Saturn.User do
     field(:avatar_color, :string, autogenerate: {Avatars, :random_color, []})
     field(:avatar_image, :string)
 
+    # The last time they used the site, to within a few minutes (see Saturn.Users.touch_last_seen/1)
+    field(:last_seen_at, :utc_datetime, read_after_writes: true)
+
     timestamps(type: :utc_datetime)
   end
 

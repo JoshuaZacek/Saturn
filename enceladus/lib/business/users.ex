@@ -41,6 +41,28 @@ defmodule Saturn.Users do
     |> Repo.preload(user: from(u in User, select: map(u, ^@session_user_fields)))
   end
 
+  # Records that they're using the site. At most every few minutes, so a request doesn't always write.
+  @last_seen_interval_s 5 * 60
+
+  def touch_last_seen(%User{id: user_id, last_seen_at: last_seen_at}) do
+    if is_nil(last_seen_at) or
+         DateTime.diff(DateTime.utc_now(), last_seen_at) >= @last_seen_interval_s,
+       do: touch_last_seen(user_id),
+       else: :ok
+  end
+
+  def touch_last_seen(user_id) when is_integer(user_id) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    cutoff = DateTime.add(now, -@last_seen_interval_s, :second)
+
+    Repo.update_all(
+      from(u in User, where: u.id == ^user_id and u.last_seen_at <= ^cutoff),
+      set: [last_seen_at: now]
+    )
+
+    :ok
+  end
+
   def session_user(user) do
     Map.take(user, @session_user_fields)
   end

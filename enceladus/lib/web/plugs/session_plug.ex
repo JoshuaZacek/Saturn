@@ -1,6 +1,6 @@
 defmodule Saturn.SessionPlug do
   import Plug.Conn
-  alias Saturn.Session
+  alias Saturn.{Session, Users}
 
   def init(default), do: default
 
@@ -15,6 +15,8 @@ defmodule Saturn.SessionPlug do
         |> assign(:user_id, nil)
 
       session ->
+        Users.touch_last_seen(session.user)
+
         conn
         |> assign(:session, session)
         |> assign(:user, session.user)

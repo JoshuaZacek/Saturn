@@ -7,6 +7,8 @@ defmodule Saturn.MixProject do
       version: "0.1.0",
       elixir: "~> 1.19",
       start_permanent: System.get_env("MIX_ENV") == "prod",
+      elixirc_paths: elixirc_paths(Mix.env()),
+      aliases: aliases(),
       deps: deps()
     ]
   end
@@ -17,6 +19,13 @@ defmodule Saturn.MixProject do
       extra_applications: [:logger],
       mod: {Saturn.Application, []}
     ]
+  end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
+
+  defp aliases do
+    [test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"]]
   end
 
   # Run "mix help deps" to learn about dependencies.
@@ -33,7 +42,8 @@ defmodule Saturn.MixProject do
       {:ex_aws, "~> 2.5"},
       {:ex_aws_s3, "~> 2.5"},
       {:hackney, "~> 1.20"},
-      {:sweet_xml, "~> 0.7"}
+      {:sweet_xml, "~> 0.7"},
+      {:websock_adapter, "~> 0.7"}
     ]
   end
 end

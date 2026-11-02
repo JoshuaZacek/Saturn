@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import ActionMenu, { type ActionMenuItem } from '@/components/ActionMenu.vue'
 import CreateActionsSelect from '@/components/CreateActionsSelect.vue'
+import NotificationBell from '@/components/NotificationBell.vue'
 import SubmitButton from '@/components/SubmitButton.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import CloseIcon from '@/components/icons/CloseIcon.vue'
@@ -60,6 +61,7 @@ const onAccountAction = (action: string) => {
 
     <div class="topActions">
       <template v-if="authStore.isLoggedIn">
+        <NotificationBell />
         <CreateActionsSelect />
         <ActionMenu
           class="accountMenu"

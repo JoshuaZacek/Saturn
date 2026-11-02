@@ -2,7 +2,7 @@ defmodule Saturn.Comments do
   import Ecto.Query
   import Saturn.Functions
 
-  alias Saturn.{Comment, User, Repo, Vote}
+  alias Saturn.{Comment, User, Repo, Vote, Notifications}
 
   def create(params, user) do
     inserted_comment =
@@ -12,6 +12,8 @@ defmodule Saturn.Comments do
 
     case inserted_comment do
       {:ok, comment} ->
+        Notifications.comment_created(comment)
+
         comment
         |> Repo.preload(
           user: from(u in User, select: map(u, ^User.public_fields())),
@@ -191,6 +193,8 @@ defmodule Saturn.Comments do
         comment
         |> Ecto.Changeset.change(deleted: true, content: "", edited_at: nil)
         |> Repo.update!()
+
+        Notifications.delete_for_comment(comment.id)
 
         {:ok, %{id: comment.id, kept: true}}
       else

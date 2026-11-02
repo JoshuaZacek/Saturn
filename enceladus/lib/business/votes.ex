@@ -1,8 +1,7 @@
 defmodule Saturn.Votes do
   import Ecto.Query
 
-  alias Saturn.Vote
-  alias Saturn.Repo
+  alias Saturn.{Vote, Repo, Notifications}
 
   def create(params, user_id) do
     fields = if params["comment_id"], do: [:user_id, :comment_id], else: [:user_id, :post_id]
@@ -28,6 +27,10 @@ defmodule Saturn.Votes do
       |> Repo.insert(on_conflict: :replace_all, conflict_target: fields)
 
     case inserted_vote do
+      {:ok, %Vote{vote: 1} = vote} ->
+        Notifications.vote_cast(%{post_id: vote.post_id, comment_id: vote.comment_id}, user_id)
+        :ok
+
       {:ok, _} ->
         :ok
 

@@ -145,9 +145,12 @@ defmodule Mix.Tasks.Saturn.Seed do
         %{posts: counts.posts + 1, comments: counts.comments + comments}
       end)
 
+    notifications = insert_notifications(Map.values(users))
+
     Mix.shell().info(
-      "Added #{map_size(users)} people, #{map_size(moons)} moons, #{counts.posts} posts and " <>
-        "#{counts.comments} comments. Log in as e.g. nina@#{@email_domain} / #{@password}"
+      "Added #{map_size(users)} people, #{map_size(moons)} moons, #{counts.posts} posts, " <>
+        "#{counts.comments} comments and #{notifications} notifications. " <>
+        "Log in as e.g. nina@#{@email_domain} / #{@password}"
     )
   end
 
@@ -180,6 +183,69 @@ defmodule Mix.Tasks.Saturn.Seed do
       vote(:comment_id, id, users, 0.3)
       count + 1 + insert_comments(replies, post_id, id, commented, users, now)
     end)
+  end
+
+  # What each person would have been told about the content above: every comment on their posts
+  # and reply to their comments, and the highest upvote milestone each post and comment reached
+  # (announced a few hours after it was posted). Inserted oldest first, so ids follow time as they
+  # do for real ones. Read an hour after it happened, except each person's newest few. Returns how
+  # many were added.
+  defp insert_notifications(user_ids) do
+    %{num_rows: added} =
+      Repo.query!(
+        """
+        INSERT INTO notifications (user_id, type, actor_id, post_id, comment_id, count, read_at, inserted_at)
+        SELECT user_id, type, actor_id, post_id, comment_id, count, inserted_at + interval '1 hour', inserted_at
+        FROM (
+          SELECT COALESCE(parent.user_id, p.user_id) AS user_id,
+                 CASE WHEN c.comment_id IS NULL THEN 'post_comment' ELSE 'comment_reply' END AS type,
+                 c.user_id AS actor_id, c.post_id, c.id AS comment_id, NULL::int AS count,
+                 c.inserted_at
+          FROM comments c
+          JOIN posts p ON p.id = c.post_id
+          LEFT JOIN comments parent ON parent.id = c.comment_id
+          WHERE c.user_id = ANY($1) AND c.user_id <> COALESCE(parent.user_id, p.user_id)
+
+          UNION ALL
+
+          SELECT p.user_id, 'post_upvotes', NULL, p.id, NULL, m.count,
+                 LEAST(p.inserted_at + interval '6 hours', now())
+          FROM posts p
+          CROSS JOIN LATERAL (
+            SELECT max(x) AS count FROM unnest($2::int[]) x
+            WHERE x <= (SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = p.id)
+          ) m
+          WHERE p.user_id = ANY($1) AND m.count IS NOT NULL
+
+          UNION ALL
+
+          SELECT c.user_id, 'comment_upvotes', NULL, c.post_id, c.id, m.count,
+                 LEAST(c.inserted_at + interval '6 hours', now())
+          FROM comments c
+          CROSS JOIN LATERAL (
+            SELECT max(x) AS count FROM unnest($2::int[]) x
+            WHERE x <= (SELECT COALESCE(SUM(vote), 0) FROM votes WHERE comment_id = c.id)
+          ) m
+          WHERE c.user_id = ANY($1) AND m.count IS NOT NULL
+        ) events
+        ORDER BY inserted_at
+        """,
+        [user_ids, Saturn.Notifications.milestones()]
+      )
+
+    Repo.query!(
+      """
+      UPDATE notifications n SET read_at = NULL
+      FROM (
+        SELECT id, row_number() OVER (PARTITION BY user_id ORDER BY id DESC) AS rank
+        FROM notifications WHERE user_id = ANY($1)
+      ) r
+      WHERE r.id = n.id AND r.rank <= 4
+      """,
+      [user_ids]
+    )
+
+    added
   end
 
   # Mostly upvotes; `popularity` is the chance that each person votes at all

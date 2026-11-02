@@ -8,6 +8,7 @@ import { useUIStore } from '@/stores/ui'
 import FeedButton from '@/components/FeedButton.vue'
 import AccountCard from '@/components/AccountCard.vue'
 import CreateActionsSelect from '@/components/CreateActionsSelect.vue'
+import NotificationBell from '@/components/NotificationBell.vue'
 import NewIcon from '@/components/icons/NewIcon.vue'
 import HomeIcon from '@/components/icons/HomeIcon.vue'
 import TopIcon from '@/components/icons/TopIcon.vue'
@@ -257,7 +258,10 @@ onBeforeUnmount(() => {
         <img class="logo" width="50" height="50" src="/logo.png" alt="Saturn home" />
       </router-link>
 
-      <CreateActionsSelect v-if="authStore.isLoggedIn" />
+      <div v-if="authStore.isLoggedIn" class="topActions">
+        <NotificationBell />
+        <CreateActionsSelect />
+      </div>
     </div>
 
     <!-- Opens and closes in place, so the rows below glide rather than jump. -->
@@ -445,6 +449,12 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .resize-handle {

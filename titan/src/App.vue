@@ -5,9 +5,11 @@ import AppSidebar from '@/components/AppSidebar.vue'
 import AppTopBar from '@/components/AppTopBar.vue'
 import AuthSheet from '@/components/AuthSheet.vue'
 import ErrorBanner from '@/components/ErrorBanner.vue'
+import NotificationToasts from '@/components/NotificationToasts.vue'
 import PageRouteScope from '@/components/PageRouteScope.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useErrorBannerStore } from '@/stores/errorBanner'
+import { useNotificationsStore } from '@/stores/notifications'
 import { useUIStore } from '@/stores/ui'
 
 const route = useRoute()
@@ -15,6 +17,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const errorBanner = useErrorBannerStore()
 const uiStore = useUIStore()
+const notifications = useNotificationsStore()
 const pageContent = ref<HTMLElement | null>(null)
 
 // A new page starts at the top. This runs between the old page fading out and
@@ -40,6 +43,13 @@ watch(
       void router.replace({ name: 'all', query: { sort: 'top', t: 'day' } })
     }
   },
+)
+
+// Notifications (the bell, live updates and pop-ups) run while logged in.
+watch(
+  () => authStore.isLoggedIn,
+  (loggedIn) => (loggedIn ? notifications.start() : notifications.stop()),
+  { immediate: true },
 )
 
 // When the session turns out to be gone, offer to log in again (the sheet
@@ -101,6 +111,7 @@ const runErrorAction = () => {
       </Transition>
     </RouterView>
   </div>
+  <NotificationToasts v-if="authStore.isLoggedIn" :compact="uiStore.isCompactLayout" />
   <AuthSheet />
 </template>
 

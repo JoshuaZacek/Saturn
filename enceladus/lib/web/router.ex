@@ -6,8 +6,13 @@ defmodule Saturn.Router do
 
   plug(Plug.Logger)
 
+  # Read when compiled (the deploy script sources .env first). The websocket's origin check
+  # (AuthRouter, GET /ws) uses the same value.
+  @cors_origins System.get_env("CORS_URL") || "*"
+  def cors_origins, do: @cors_origins
+
   plug(Corsica,
-    origins: System.get_env("CORS_URL") || "*",
+    origins: @cors_origins,
     allow_headers: :all,
     allow_credentials: true
   )
